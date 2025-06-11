@@ -531,7 +531,7 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 suffixHtml += data.meta_info.audio_encode ? renderTag(type, data.meta_info.audio_encode, '#677489') : '';
                 suffixHtml += data.meta_info.resource_team ? renderTag(type, data.meta_info.resource_team, '#701eeb') : '';
                 
-                const finalHtml = prefixHtml + titleHtml + downloadButtonHtml + suffixHtml; // Removed flex container variables
+                const finalHtml = downloadButtonHtml + prefixHtml + titleHtml + suffixHtml; // Removed flex container variables
                 row.innerHTML = renderMoviepilotTag(type, finalHtml);
 
                 // Event Listeners
