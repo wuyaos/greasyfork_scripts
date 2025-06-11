@@ -494,14 +494,14 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 prefixHtml += data.media_info.type ? renderTag(type, data.media_info.type, '#2775b6') : '';
                 prefixHtml += data.media_info.category ? renderTag(type, data.media_info.category, '#2775b6') : '';
 
-                const controlsFlexContainerStart = '<div class="mp-controls-container" style="display: flex; align-items: center; gap: 5px;">';
+                // const controlsFlexContainerStart = '<div class="mp-controls-container" style="display: flex; align-items: center; gap: 5px;">'; // Flex container removed
                 let titleHtml = '';
                 if (data.media_info.title) {
                     const titleText = data.media_info.title;
                     const titleBgColor = '#c54640';
                     // Added user-select: none to prevent text selection on click
-                    const commonStyle = `background-color:${titleBgColor};color:#ffffff;border-radius:0;font-size:12px;margin:0 4px 0 0;padding:1px 2px; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;`;
-                    const flexStyleBase = `background-color:${titleBgColor};color:#ffffff; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;`;
+                    const commonStyle = `background-color:${titleBgColor};color:#ffffff;border-radius:0;font-size:12px;margin:0 4px 0 0;padding:1px 2px; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; display: inline-block; vertical-align: top; margin-right: 5px;`; // Added display, vertical-align, and margin-right for spacing
+                    const flexStyleBase = `background-color:${titleBgColor};color:#ffffff; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; display: inline-block; vertical-align: top;`; // Added display, vertical-align. Margin is handled by existing 'mr-2' class on the span.
 
                     if (type === 'common') {
                         titleHtml = `<span class="mp-clickable-title" style="${commonStyle}">${titleText}</span>`;
@@ -513,12 +513,13 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 let downloadButtonHtml = '';
                 if (!window.location.href.includes("m-team")) {
                     if (type === 'common') { // Matches original logic for button styling based on 'type'
-                        downloadButtonHtml = '<button id="download-button">下载种子</button>';
+                        downloadButtonHtml = '<button id="download-button" style="display: inline-block; vertical-align: top;">下载种子</button>';
                     } else {
-                        downloadButtonHtml = '<button id="download-button" class="flex justify-center items-center rounded-md text-[12px] h-[18px] mr-2 px-[5px]  font-bold" style="background-color:#cdae9c;color:#ffffff;">下载种子</button>';
+                        // Ensure button itself is inline-block. Removed "flex" from class.
+                        downloadButtonHtml = '<button id="download-button" class="justify-center items-center rounded-md text-[12px] h-[18px] mr-2 px-[5px] font-bold" style="background-color:#cdae9c;color:#ffffff; display: inline-block; vertical-align: top;">下载种子</button>';
                     }
                 }
-                const controlsFlexContainerEnd = '</div>';
+                // const controlsFlexContainerEnd = '</div>'; // Flex container removed
 
                 let suffixHtml = '';
                 suffixHtml += data.meta_info.season_episode ? renderTag(type, data.meta_info.season_episode, '#e6702e') : '';
@@ -530,7 +531,7 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 suffixHtml += data.meta_info.audio_encode ? renderTag(type, data.meta_info.audio_encode, '#677489') : '';
                 suffixHtml += data.meta_info.resource_team ? renderTag(type, data.meta_info.resource_team, '#701eeb') : '';
                 
-                const finalHtml = prefixHtml + controlsFlexContainerStart + titleHtml + downloadButtonHtml + controlsFlexContainerEnd + suffixHtml;
+                const finalHtml = prefixHtml + titleHtml + downloadButtonHtml + suffixHtml; // Removed flex container variables
                 row.innerHTML = renderMoviepilotTag(type, finalHtml);
 
                 // Event Listeners
