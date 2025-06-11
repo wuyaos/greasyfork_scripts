@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         MoviePilot自动登录(自用)
-// @version      1.2.1
+// @version      1.2.2
 // @namespace    https://www.muooy.com/
-// @description  因为MoviePilot每次重启都要重新登陆，而且浏览器又不能自动填充账号密码，我比较懒不想输账号密码所有我写了这个脚本。
+// @description  MoviePilot自动填充账号密码。
 // @author       ffwu (Original author Daliyuer)
 // @match        *://*/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=5.2
@@ -11,12 +11,16 @@
 // @grant        GM_deleteValue
 // @require      https://unpkg.com/axios/dist/axios.min.js
 // @license      GPL-3.0
+// @downloadURL https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilot_autologin.user.js
+// @updateURL https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilot_autologin.user.js
 // ==/UserScript==
 
 (function () {
     'use strict';
     /*
     * 更新记录
+    * v1.2.2（2025-06-11）
+    * 修改了登录逻辑
     * v1.2（2025-04-01）
     * 修复2.3.1以后的版本无法登录的问题
     * 修复了MoviePilot的账号密码错误无法自动登录的问题（账号密码错误重新弹出配置窗口）

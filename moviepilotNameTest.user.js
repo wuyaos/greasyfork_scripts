@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.3.6
+// @version      2.3.7
 // @description  moviepilots名称测试
 // @author       yubanmeiqin9048, benz1(modify by ffwu)
 // @match        https://*/details.php?id=*
@@ -27,8 +27,8 @@
 // @grant        GM_unregisterMenuCommand
 // @connect      *
 // @license MIT
-// @downloadURL https://update.greasyfork.org/scripts/486188/moviepilotNameTest.user.js
-// @updateURL https://update.greasyfork.org/scripts/486188/moviepilotNameTest.meta.js
+// @downloadURL https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilotNameTest.user.js
+// @updateURL https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilotNameTest.user.js
 // ==/UserScript==
 
 // 函数：获取配置值，如果不存在则提示用户输入或使用默认值
