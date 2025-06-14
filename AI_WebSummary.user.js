@@ -26,6 +26,7 @@
  * - 修复github页面的总结
  * - 修复populateModalModelSelector is not defined
  * - 修复失去焦点时总结内容消失的问题
+ * - 清理无用代码、添加中文注释
  */
 
 (function() {
@@ -152,6 +153,11 @@
 
     // 获取配置
     let CONFIG = {};
+    /**
+     * @description 加载脚本配置。如果本地存储中存在配置，则加载本地配置；否则使用默认配置。
+     *              同时会校验当前选中的提示词模板标识符是否有效，无效则回退到默认。
+     * @returns {object} 加载后的配置对象 (CONFIG)。
+     */
     function loadConfig() {
         CONFIG = {
             BASE_URL: GM_getValue('BASE_URL', DEFAULT_CONFIG.BASE_URL),
@@ -172,7 +178,10 @@
         return CONFIG;
     }
 
-    // 获取当前选中的提示词内容
+    /**
+     * @description 获取当前选中的提示词模板内容。
+     * @returns {string} 当前选中的提示词内容。如果找不到，则返回默认提示词内容。
+     */
     function getCurrentPromptContent() {
         const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === CONFIG.CURRENT_PROMPT_IDENTIFIER);
         if (selectedTemplate) {
@@ -183,10 +192,10 @@
         return defaultTemplate ? defaultTemplate.content : "请用markdown格式全面总结以下网页内容，包含主要观点、关键信息和重要细节。总结需要完整、准确、有条理。"; // 最后的硬编码后备
     }
 
-// 预定义的模型选项 - 将由API动态加载，这里保留一个自定义选项的标识
-    let MODEL_OPTIONS = []; // 将在获取后填充
-    const CUSTOM_MODEL_VALUE = "custom_model_input_value"; // 用于标识自定义输入
-    // 保存配置 (简化版，不再处理 configName 和 saved_configs)
+    /**
+     * @description 保存配置。将传入的配置对象中的部分键值保存到 GM_setValue，并更新内存中的 CONFIG 对象。
+     * @param {object} newConfig - 需要保存的新配置项。
+     */
     function saveConfig(newConfig) {
         // 保存配置到 GM storage
         Object.keys(newConfig).forEach(key => {
@@ -203,7 +212,10 @@
             ...newConfig
         };
     }
-// Function to populate the model selector in the modal
+    /**
+     * @description 填充模态框中的模型选择器。
+     * @param {HTMLElement} modalElement - 模态框的根元素。
+     */
     function populateModalModelSelector(modalElement) {
         if (!modalElement) {
             console.error("populateModalModelSelector: modalElement is undefined");
@@ -219,8 +231,10 @@
         }
     }
 
-    // 更新提示词选择器 (原 updateConfigSelectors)
-    // 更新所有提示词选择器
+    /**
+     * @description 更新所有与提示词相关的选择器（主界面、模态框、设置面板）的选项，并同步设置面板中的提示词文本域内容。
+     * @param {object} elements - 包含各个UI元素的集合，其中 elements.shadow 是 Shadow DOM 的根节点，elements.settingsPanel 是设置面板的根元素。
+     */
     function updateAllPromptSelectors(elements) { // 接收 elements 作为参数
         if (!elements || !elements.shadow) {
             console.error('Elements or shadow root not initialized for updateAllPromptSelectors');
@@ -253,116 +267,168 @@
         }
     }
 
-    // 修改设置面板的事件处理
+    /**
+     * @description 初始化设置面板的事件监听器。
+     *              此函数负责处理设置面板内的所有用户交互，包括：
+     *              - 输入字段（Base URL, API Key, Max Tokens, Shortcut）内容变更的捕获。
+     *              - “保存”按钮的点击事件，包括输入验证、配置更新和持久化存储。
+     *              - “取消”或点击遮罩层关闭面板的事件。
+     *              - 模型管理功能：
+     *                  - 动态渲染已保存的模型标签。
+     *                  - 处理单个模型的选择和删除。
+     *                  - 提供“自定义模型”功能，允许用户手动添加模型名称。
+     *                  - 提供“获取模型”功能，从API异步加载可用模型列表，并在模态框中供用户选择和保存。
+     *                  - 实现批量删除模型的模态框。
+     *              - 提示词模板选择功能，当用户选择不同的预设模板时，更新对应的提示词内容显示。
+     *              - 管理设置的“脏”状态（dirty state），即用户是否修改了设置但尚未保存。
+     *              - 实现配置快照（snapshot）与恢复机制，用于在用户取消更改或面板意外关闭时恢复到修改前的状态。
+     * @param {HTMLElement} panel - 设置面板的根元素。
+     * @param {HTMLElement} modal - 主总结模态框的根元素 (用于在保存设置后更新其内部的模型选择器)。
+     * @param {HTMLElement} settingsOverlay - 设置面板的遮罩层元素。
+     * @param {HTMLElement} modelSelectionModal - 模型选择模态框的根元素 (由“获取模型”功能使用)。
+     * @param {ShadowRoot} shadow - Shadow DOM 的根节点 (用于动态创建模态框等元素)。
+     * @param {object} elements - 包含所有主要UI元素的集合 (用于同步更新其他部分的UI，如提示词选择器)。
+     */
     function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionModal, shadow, elements) { // 接收 elements 作为参数
-        panel.setDirtyStatus = setDirtyStatus; // Attach setDirtyStatus to the panel object
+        // 将 setDirtyStatus 函数附加到 panel 对象上，使其可以在 panel 外部被调用（例如在 openSettings 中初始化状态）
+        panel.setDirtyStatus = setDirtyStatus;
         const saveBtn = panel.querySelector('.save-btn');
         const cancelBtn = panel.querySelector('.cancel-btn');
-        let isDirty = false;
-        let settingsSnapshot = {}; // To store state when panel opens
-        let isSaving = false; // 新增：保存状态标志，防止保存时触发dirty
 
-        // Helper to update dirty status and provide visual feedback
+        // isDirty: 标记设置是否有未保存的更改。
+        let isDirty = false;
+        // settingsSnapshot: 存储打开设置面板时各项配置的初始值，用于“取消”操作时恢复。
+        let settingsSnapshot = {};
+        // isSaving: 标志位，指示当前是否正在执行保存操作。
+        // 用于防止在保存过程中，由于程序化地修改输入框内容（如格式化或填充默认值）而错误地触发 dirty 状态。
+        let isSaving = false;
+
+        /**
+         * @description 更新设置的“脏”状态 (dirty state) 并相应地更新保存按钮的视觉反馈。
+         * @param {boolean} dirty - true 表示有未保存的更改，false 表示设置是“干净的”。
+         */
         function setDirtyStatus(dirty) {
-            // 如果正在保存 (isSaving is true) 并且尝试将状态设置为 dirty，则阻止
+            // 如果当前正在执行保存操作 (isSaving is true)，并且尝试将状态标记为 dirty，则阻止此操作。
+            // 这是为了避免在保存函数内部进行数据清理或UI更新时，意外地再次将状态标记为 dirty。
             if (isSaving && dirty) {
                 // console.log("setDirtyStatus: Suppressed setting to dirty because isSaving is true.");
                 return;
             }
-            // 如果不是正在保存，或者尝试将状态设置为 clean (dirty is false)
+            // 正常更新 isDirty 状态。
             isDirty = dirty;
+            // 根据 dirty 状态更新保存按钮的文本（添加/移除星号）和背景颜色以提供视觉提示。
             saveBtn.textContent = dirty ? '保存*' : '保存';
             if (dirty) {
-                saveBtn.style.cssText = 'background: #e67e22 !important;';
+                saveBtn.style.cssText = 'background: #e67e22 !important;'; // 橙色表示有未保存更改
             } else {
-                saveBtn.style.cssText = 'background: #617043cc !important;'; // 绿色背景
+                saveBtn.style.cssText = 'background: #617043cc !important;'; // 绿色表示已保存或无更改
             }
         }
 
-        // Function to take a snapshot of current settings
+        /**
+         * @description 捕获当前设置面板中各项配置的值，并存储到 `settingsSnapshot` 对象中。
+         *              此快照用于在用户取消更改时恢复设置，或在保存成功后作为新的“干净”状态基线。
+         */
         function takeSettingsSnapshot() {
             settingsSnapshot = {
                 baseURL: panel.querySelector('#base-url').value,
                 apiKey: panel.querySelector('#api-key').value,
                 maxTokens: panel.querySelector('#max-tokens').value,
                 shortcut: panel.querySelector('#shortcut').value,
-                promptIdentifier: panel.querySelector('#config-select').value,
-                model: CONFIG.MODEL,
-                savedModels: [...CONFIG.SAVED_MODELS]
+                promptIdentifier: panel.querySelector('#config-select').value, // 当前选中的提示词模板标识符
+                model: CONFIG.MODEL, // 当前选中的模型
+                savedModels: [...CONFIG.SAVED_MODELS] // 已保存的模型列表（深拷贝以防意外修改）
             };
         }
 
-        // Function to restore settings from snapshot
+        /**
+         * @description 从之前创建的 `settingsSnapshot` 中恢复各项配置到UI元素，并同步更新内存中的 `CONFIG` 对象。
+         *              这通常在用户点击“取消”且有未保存更改时调用。
+         */
         function restoreSettingsFromSnapshot() {
+            // 将快照中的值恢复到各个输入框
             panel.querySelector('#base-url').value = settingsSnapshot.baseURL;
             panel.querySelector('#api-key').value = settingsSnapshot.apiKey;
             panel.querySelector('#max-tokens').value = settingsSnapshot.maxTokens;
             panel.querySelector('#shortcut').value = settingsSnapshot.shortcut;
             panel.querySelector('#config-select').value = settingsSnapshot.promptIdentifier;
 
-            // This will trigger the change event to update the textarea
+            // 关键步骤：程序化地修改 <select> 的 value 后，需要手动触发 'change' 事件。
+            // 这是因为直接设置 .value 不会触发关联的事件监听器（如此处用于更新提示词文本域的监听器）。
+            // 通过触发 change 事件，确保提示词文本域 (`#prompt`) 的内容也根据恢复的 `promptIdentifier` 进行更新。
             const promptChangeEvent = new Event('change');
             panel.querySelector('#config-select').dispatchEvent(promptChangeEvent);
 
+            // 恢复内存中 CONFIG 对象的模型相关设置
             CONFIG.MODEL = settingsSnapshot.model;
-            CONFIG.SAVED_MODELS = [...settingsSnapshot.savedModels];
-            renderModelTags(); // Re-render tags to reflect restored state
+            CONFIG.SAVED_MODELS = [...settingsSnapshot.savedModels]; // 使用展开运算符创建副本
+            renderModelTags(); // 重新渲染模型标签以反映恢复后的状态（例如，选中的模型、可用的模型列表）
         }
 
-        // Attach snapshot function to the panel element to make it accessible from outside
+        // 将 takeSettingsSnapshot 函数附加到 panel DOM 对象上。
+        // 这样做使得这个函数可以从 initializeSettingsEvents 外部被调用，
+        // 例如在 openSettings 函数打开面板时创建初始快照，或在保存成功后更新快照。
         panel.takeSettingsSnapshot = takeSettingsSnapshot;
 
-        // Attach snapshot function to the panel element to make it accessible from outside
-        panel.takeSettingsSnapshot = takeSettingsSnapshot;
-
-        // Function to handle closing the settings panel
+        /**
+         * @description 处理关闭设置面板的逻辑。
+         *              如果存在未保存的更改，会向用户显示确认对话框。
+         */
         function closeSettingsPanel() {
-            if (isDirty) {
+            if (isDirty) { // 检查是否有未保存的更改
+                // 弹出确认对话框
                 if (confirm('您有未保存的更改。确定要放弃吗？')) {
-                    restoreSettingsFromSnapshot();
-                    setDirtyStatus(false);
-                    panel.style.display = 'none';
-                    settingsOverlay.style.display = 'none';
+                    restoreSettingsFromSnapshot(); // 用户确认放弃，则从快照恢复设置
+                    setDirtyStatus(false);       // 将状态标记为“干净”
+                    panel.style.display = 'none';      // 隐藏设置面板
+                    settingsOverlay.style.display = 'none'; // 隐藏遮罩层
                 }
+                // 如果用户选择“取消”放弃，则不做任何操作，面板保持打开状态。
             } else {
+                // 没有未保存的更改，直接隐藏面板和遮罩层。
                 panel.style.display = 'none';
                 settingsOverlay.style.display = 'none';
             }
         }
 
-        const promptSelect = panel.querySelector('#config-select');
-        const shortcutInput = panel.querySelector('#shortcut');
-        const customModelBtn = panel.querySelector('#custom-model-btn');
-        const fetchModelsBtn = panel.querySelector('#fetch-model-btn');
-        const modelTagsContainer = panel.querySelector('#model-tags-container');
-        let availableModels = [];
+        // 获取设置面板中的关键UI元素
+        const promptSelect = panel.querySelector('#config-select'); // 提示词模板选择器
+        const shortcutInput = panel.querySelector('#shortcut');       // 快捷键输入框
+        const customModelBtn = panel.querySelector('#custom-model-btn'); // “自定义模型”按钮
+        const fetchModelsBtn = panel.querySelector('#fetch-model-btn'); // “获取模型”按钮
+        const modelTagsContainer = panel.querySelector('#model-tags-container'); // 模型标签容器
 
+        // 根据用户操作系统判断是否为Mac，以显示不同的快捷键占位符提示
         const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
         shortcutInput.placeholder = isMac ?
-            '例如: Option+S, ⌘+Shift+Y' :
-            '例如: Alt+S, Ctrl+Shift+Y';
+            '例如: Option+S, ⌘+Shift+Y' :  // Mac 示例
+            '例如: Alt+S, Ctrl+Shift+Y';   // Windows/Linux 示例
 
+        // 初始化保存按钮的文本
         saveBtn.textContent = '保存';
 
-        // Add event listeners to detect changes
+        // 为基础配置输入框添加 'input' 事件监听器，当内容改变时，调用 setDirtyStatus(true) 标记为有未保存更改。
         panel.querySelector('#base-url').addEventListener('input', () => setDirtyStatus(true));
         panel.querySelector('#api-key').addEventListener('input', () => setDirtyStatus(true));
         panel.querySelector('#max-tokens').addEventListener('input', () => setDirtyStatus(true));
         shortcutInput.addEventListener('input', () => setDirtyStatus(true));
 
-        // 提示词选择变更事件
+        // 提示词选择器 (`promptSelect`) 的 'change' 事件监听器
         promptSelect.addEventListener('change', (e) => {
-            if (!isSaving) { // 新增条件：不在保存状态时才设置dirty
+            // 仅当不处于保存操作过程中 (!isSaving) 才将状态标记为 dirty。
+            // 这是为了防止在保存过程中由程序触发的 change 事件（例如，恢复快照时）错误地重置 dirty 状态。
+            if (!isSaving) {
                 setDirtyStatus(true);
             }
-            const selectedIdentifier = e.target.value;
-            const promptTextarea = panel.querySelector('#prompt');
+            const selectedIdentifier = e.target.value; // 获取选中的提示词模板的标识符
+            const promptTextarea = panel.querySelector('#prompt'); // 获取提示词内容文本域
+            // 根据标识符在 PROMPT_TEMPLATES 数组中查找对应的模板对象
             const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === selectedIdentifier);
             if (selectedTemplate) {
-                promptTextarea.value = selectedTemplate.content;
-                CONFIG.CURRENT_PROMPT_IDENTIFIER = selectedTemplate.identifier;
+                promptTextarea.value = selectedTemplate.content; // 更新文本域内容
+                CONFIG.CURRENT_PROMPT_IDENTIFIER = selectedTemplate.identifier; // 更新全局配置中的当前提示词标识符
             } else {
-                // Fallback to default if something goes wrong
+                // 如果找不到选中的模板（异常情况），则回退到默认配置中的第一个模板
                 const defaultTemplate = PROMPT_TEMPLATES.find(t => t.identifier === DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER);
                 promptTextarea.value = defaultTemplate.content;
                 CONFIG.CURRENT_PROMPT_IDENTIFIER = DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER;
@@ -371,71 +437,86 @@
 
         // --- 新的模型管理逻辑 ---
 
-        // 渲染模型标签
+        /**
+         * @description 动态渲染模型标签到 `modelTagsContainer`。
+         *              根据 `CONFIG.SAVED_MODELS` 创建标签，并高亮显示当前 `CONFIG.MODEL`。
+         *              每个标签都附带点击选择模型和点击删除模型的事件监听。
+         */
         function renderModelTags() {
-            modelTagsContainer.innerHTML = '';
+            modelTagsContainer.innerHTML = ''; // 清空现有标签
             CONFIG.SAVED_MODELS.forEach(modelId => {
                 const tag = document.createElement('div');
-                tag.className = 'model-tag';
-                tag.textContent = modelId;
-                tag.dataset.modelId = modelId;
+                tag.className = 'model-tag'; // CSS 类名
+                tag.textContent = modelId;   // 显示模型ID
+                tag.dataset.modelId = modelId; // 将模型ID存储在data属性中，方便事件处理
                 if (modelId === CONFIG.MODEL) {
-                    tag.classList.add('selected');
+                    tag.classList.add('selected'); // 如果是当前选中的模型，添加 'selected' 类以高亮显示
                 }
 
-                // 点击选择模型
+                // 为模型标签添加点击事件：选择此模型作为当前活动模型
                 tag.addEventListener('click', () => {
-                    if (CONFIG.MODEL !== modelId) {
-                        CONFIG.MODEL = modelId;
-                        renderModelTags(); // 重新渲染以更新选中状态
-                        setDirtyStatus(true);
+                    if (CONFIG.MODEL !== modelId) { // 仅当点击了非当前选中的模型时才执行
+                        CONFIG.MODEL = modelId;      // 更新全局配置中的当前模型
+                        renderModelTags();           // 重新渲染所有标签以更新选中状态
+                        setDirtyStatus(true);        // 标记设置为有未保存更改
                     }
                 });
 
-                // 创建删除按钮
+                // 为每个模型标签创建并添加一个删除按钮 (×)
                 const deleteBtn = document.createElement('span');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.innerHTML = '&times;';
-                deleteBtn.title = '删除此模型';
+                deleteBtn.className = 'delete-btn'; // CSS 类名
+                deleteBtn.innerHTML = '&times;';    // "×" 符号
+                deleteBtn.title = '删除此模型';    // 鼠标悬停提示
                 deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // 防止触发标签的点击事件
-                    if (confirm(`确定要删除模型 "${modelId}" 吗？`)) {
+                    e.stopPropagation(); // 阻止事件冒泡到父元素 (tag)，防止触发tag的点击选择事件
+                    if (confirm(`确定要删除模型 "${modelId}" 吗？`)) { // 弹出确认对话框
+                        // 从 SAVED_MODELS 数组中过滤掉要删除的模型
                         CONFIG.SAVED_MODELS = CONFIG.SAVED_MODELS.filter(m => m !== modelId);
-                        // 如果删除的是当前选中的模型，则选择第一个
+                        // 如果删除的是当前选中的模型，则需要重置 CONFIG.MODEL
                         if (CONFIG.MODEL === modelId) {
+                            // 如果还有其他已保存的模型，则选择第一个作为新的当前模型；否则清空当前模型。
                             CONFIG.MODEL = CONFIG.SAVED_MODELS.length > 0 ? CONFIG.SAVED_MODELS[0] : '';
                         }
-                        renderModelTags();
-                        setDirtyStatus(true);
+                        renderModelTags();      // 重新渲染模型标签
+                        setDirtyStatus(true);   // 标记设置为有未保存更改
                     }
                 });
 
-                tag.appendChild(deleteBtn);
-                modelTagsContainer.appendChild(tag);
+                tag.appendChild(deleteBtn); // 将删除按钮添加到标签内
+                modelTagsContainer.appendChild(tag); // 将标签添加到容器内
             });
         }
 
-        // 初始化时渲染标签
+        // 初始化时调用一次，渲染初始的模型标签
         renderModelTags();
-        // 将渲染函数附加到元素上，以便在其他地方调用
+        // 将 renderModelTags 函数附加到 modelTagsContainer DOM 对象上。
+        // 这允许从其他地方（例如，重置设置时或从模型选择模态框保存后）调用此函数来刷新标签显示。
         modelTagsContainer.renderModelTags = renderModelTags;
 
-        // 点击空白处进行多选删除
+        // 为模型标签容器本身添加点击事件，用于触发批量删除模态框。
+        // 仅当点击事件的目标是容器本身（而不是其子元素，如某个标签或删除按钮）时才触发。
         modelTagsContainer.addEventListener('click', (e) => {
-            if (e.target === modelTagsContainer) {
-                showMultiDeleteModal();
+            if (e.target === modelTagsContainer) { // 确保点击的是容器空白处
+                showMultiDeleteModal(); // 显示批量删除模态框
             }
         });
 
+        /**
+         * @description 创建并显示一个允许用户批量选择并删除已保存模型的模态框。
+         *              模态框会列出所有 `CONFIG.SAVED_MODELS`，每个模型前有一个复选框。
+         *              用户选择后点击“删除”按钮，会确认并执行删除操作。
+         */
         function showMultiDeleteModal() {
+            // 创建模态框和遮罩层的DOM元素
             const multiDeleteModal = document.createElement('div');
-            multiDeleteModal.className = 'ai-modal';
-            multiDeleteModal.style.cssText = 'display: block; z-index: 100003;';
+            multiDeleteModal.className = 'ai-modal'; // 通用模态框样式
+            multiDeleteModal.style.cssText = 'display: block; z-index: 100003;'; // 立即显示，并设置较高层级
 
             const overlay = document.createElement('div');
-            overlay.className = 'ai-settings-overlay';
-            overlay.style.cssText = 'display: block; z-index: 100002;';
+            overlay.className = 'ai-settings-overlay'; // 通用遮罩层样式
+            overlay.style.cssText = 'display: block; z-index: 100002;'; // 立即显示，层级低于模态框
 
+            // 为每个已保存的模型生成一个带复选框的列表项HTML
             const modelsHTML = CONFIG.SAVED_MODELS.map(modelId => `
                 <div class="model-item" style="cursor: pointer; padding: 10px; border-radius: 4px; display: flex; align-items: center;">
                     <input type="checkbox" value="${modelId}" id="multi-delete-chk-${modelId}" style="margin-right: 10px; cursor: pointer;">
@@ -443,13 +524,14 @@
                 </div>
             `).join('');
 
+            // 设置模态框的内部HTML结构
             multiDeleteModal.innerHTML = `
                 <div class="modal-header">
                     <h3>批量删除模型</h3>
                     <button class="close-modal">×</button>
                 </div>
                 <div class="modal-content" style="max-height: 50vh; overflow-y: auto;">
-                    ${modelsHTML}
+                    ${modelsHTML} {/* 模型列表 */}
                 </div>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
                      <button class="modal-action-btn cancel-btn" style="background:rgb(131, 194, 217); color: white;">取消</button>
@@ -457,104 +539,125 @@
                 </div>
             `;
 
-            // Add custom styles for the new button
+            // 为模态框内的按钮添加特定样式
             const style = document.createElement('style');
             style.textContent = `
-                .delete-selected-btn {
+                .delete-selected-btn { /* 删除按钮样式 */
                     padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
                     font-size: 14px; font-weight: bold; transition: background 0.3s;
                 }
                 .delete-selected-btn:hover { background: #c82333 !important; }
-                .cancel-btn {
+                .cancel-btn { /* 取消按钮样式 (此处指模态框内的取消按钮) */
                     padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
                     font-size: 14px; font-weight: bold; transition: background 0.3s;
                 }
                 .cancel-btn:hover { background: #5bc0de !important; }
             `;
-            multiDeleteModal.appendChild(style);
+            multiDeleteModal.appendChild(style); // 将样式添加到模态框
 
+            // 将模态框和遮罩层附加到Shadow DOM
             shadow.appendChild(overlay);
             shadow.appendChild(multiDeleteModal);
 
+            // 定义关闭模态框的辅助函数
             const closeModal = () => {
                 shadow.removeChild(multiDeleteModal);
                 shadow.removeChild(overlay);
             };
 
+            // 为模态框的关闭按钮、取消按钮和遮罩层添加点击事件监听器，用于关闭模态框
             multiDeleteModal.querySelector('.close-modal').addEventListener('click', closeModal);
             multiDeleteModal.querySelector('.cancel-btn').addEventListener('click', closeModal);
             overlay.addEventListener('click', closeModal);
 
+            // 为“删除已选”按钮添加点击事件监听器
             multiDeleteModal.querySelector('.delete-selected-btn').addEventListener('click', () => {
-                const selectedForDeletion = [];
+                const selectedForDeletion = []; // 存储用户选中的要删除的模型ID
+                // 遍历模态框中所有选中的复选框
                 multiDeleteModal.querySelectorAll('input[type="checkbox"]:checked').forEach(chk => {
-                    selectedForDeletion.push(chk.value);
+                    selectedForDeletion.push(chk.value); // 将选中的模型ID添加到数组
                 });
 
-                if (selectedForDeletion.length === 0) {
+                if (selectedForDeletion.length === 0) { // 如果没有选择任何模型
                     alert('请至少选择一个要删除的模型。');
                     return;
                 }
 
+                // 弹出确认对话框
                 if (confirm(`确定要删除的 ${selectedForDeletion.length} 个模型吗？`)) {
+                    // 从 CONFIG.SAVED_MODELS 中过滤掉选中的模型
                     CONFIG.SAVED_MODELS = CONFIG.SAVED_MODELS.filter(m => !selectedForDeletion.includes(m));
+                    // 如果当前选中的模型 (CONFIG.MODEL) 在被删除的列表中，则重置 CONFIG.MODEL
                     if (selectedForDeletion.includes(CONFIG.MODEL)) {
                         CONFIG.MODEL = CONFIG.SAVED_MODELS.length > 0 ? CONFIG.SAVED_MODELS[0] : '';
                     }
-                    renderModelTags();
-                    setDirtyStatus(true);
-                    closeModal();
+                    renderModelTags();      // 重新渲染模型标签
+                    setDirtyStatus(true);   // 标记设置为有未保存更改
+                    closeModal();           // 关闭批量删除模态框
                 }
             });
         }
 
-        // “使用自定义模型”按钮
+        // “使用自定义模型”按钮的点击事件监听器
         customModelBtn.addEventListener('click', () => {
+            // 提示用户输入自定义模型的名称，支持多个，用逗号分隔
             const newModelsInput = prompt('请输入要添加的自定义模型名称（多个模型请用英文逗号,隔开）：');
-            if (newModelsInput && newModelsInput.trim()) {
+            if (newModelsInput && newModelsInput.trim()) { // 确保用户输入了内容
+                // 分割、去空格、过滤空字符串，得到有效的模型ID数组
                 const newModels = newModelsInput.trim().split(',').map(m => m.trim()).filter(m => m);
-                let added = false;
-                let lastAddedModel = '';
+                let added = false; // 标记是否成功添加了至少一个新模型
+                let lastAddedModel = ''; // 记录最后一个成功添加的模型ID
                 newModels.forEach(modelId => {
-                    if (!CONFIG.SAVED_MODELS.includes(modelId)) {
-                        CONFIG.SAVED_MODELS.push(modelId);
+                    if (!CONFIG.SAVED_MODELS.includes(modelId)) { // 如果模型ID尚不存在于已保存列表中
+                        CONFIG.SAVED_MODELS.push(modelId); // 添加到列表
                         lastAddedModel = modelId;
                         added = true;
                     }
                 });
 
-                if (added) {
-                    CONFIG.MODEL = lastAddedModel; // 选中最后一个添加的模型
-                    renderModelTags();
-                    setDirtyStatus(true);
-                } else {
+                if (added) { // 如果成功添加了新模型
+                    CONFIG.MODEL = lastAddedModel; // 将最后一个添加的模型设为当前选中模型
+                    renderModelTags();           // 重新渲染模型标签
+                    setDirtyStatus(true);        // 标记设置为有未保存更改
+                } else { // 如果所有输入的模型都已存在
                     alert('所有输入的模型均已存在！');
                 }
             }
         });
 
-        // “获取模型”按钮
-        let fetchedModelsCache = []; // Cache for models
-        const searchInput = modelSelectionModal.querySelector('#model-search-input');
-        const modelListContainer = modelSelectionModal.querySelector('#model-list-container');
-        const descriptionArea = modelSelectionModal.querySelector('#model-description-area');
+        // --- “获取模型”按钮相关逻辑 ---
+        // fetchedModelsCache: 用于缓存从API获取的模型列表，避免重复请求。
+        let fetchedModelsCache = [];
+        const searchInput = modelSelectionModal.querySelector('#model-search-input'); // 模型选择模态框内的搜索框
+        const modelListContainer = modelSelectionModal.querySelector('#model-list-container'); // 模型选择模态框内显示模型列表的容器
+        const descriptionArea = modelSelectionModal.querySelector('#model-description-area'); // 模型选择模态框内显示模型描述的区域
 
+        /**
+         * @description 根据提供的过滤条件（filter）和缓存的 `fetchedModelsCache`，
+         *              动态渲染可选模型的列表到 `modelListContainer` 中。
+         *              每个模型项包含一个复选框和模型ID，鼠标悬停时会在 `descriptionArea` 显示模型ID。
+         * @param {string} [filter=''] - 用户在搜索框中输入的过滤字符串。
+         */
         function renderModelList(filter = '') {
-            modelListContainer.innerHTML = '';
-            const lowerCaseFilter = filter.toLowerCase();
+            modelListContainer.innerHTML = ''; // 清空现有列表
+            const lowerCaseFilter = filter.toLowerCase(); // 转换为小写以便不区分大小写搜索
+            // 过滤缓存中的模型，只保留ID包含过滤字符串的模型
             const filteredModels = fetchedModelsCache.filter(m => m.id.toLowerCase().includes(lowerCaseFilter));
 
-            if (filteredModels.length === 0) {
+            if (filteredModels.length === 0) { // 如果没有匹配的模型
                 modelListContainer.innerHTML = `<p style="padding: 10px;">没有找到匹配的模型。</p>`;
                 return;
             }
 
+            // 遍历过滤后的模型，为每个模型创建DOM元素并添加到列表容器
             filteredModels.forEach(model => {
                 const div = document.createElement('div');
-                div.className = 'model-item';
+                div.className = 'model-item'; // CSS类名
+                // 复选框的选中状态根据该模型ID是否存在于 CONFIG.SAVED_MODELS 中来决定
                 div.innerHTML = `<input type="checkbox" value="${model.id}" id="model-checkbox-${model.id}" ${CONFIG.SAVED_MODELS.includes(model.id) ? 'checked' : ''}><label for="model-checkbox-${model.id}">${model.id}</label>`;
                 modelListContainer.appendChild(div);
 
+                // 为每个模型项添加鼠标悬停事件，在描述区域显示模型ID
                 div.addEventListener('mouseenter', () => {
                     const createdDate = model.created ? new Date(model.created * 1000).toLocaleString() : 'N/A';
                     const ownedBy = model.owned_by || 'N/A';
@@ -565,163 +668,192 @@
             });
         }
 
+        // 为模型选择模态框中的搜索输入框添加 'input' 事件监听，实现实时过滤模型列表
         searchInput.addEventListener('input', () => renderModelList(searchInput.value));
 
+        // “获取模型”按钮的点击事件监听器
         fetchModelsBtn.addEventListener('click', async () => {
+            // 初始化模态框状态：显示加载提示，清空描述区和搜索框
             modelListContainer.innerHTML = '<div class="ai-loading">正在获取模型列表...</div>';
             descriptionArea.innerHTML = `<p><i>将鼠标悬停在模型上以查看描述。</i></p>`;
             searchInput.value = '';
-            modelSelectionModal.style.display = 'block';
+            modelSelectionModal.style.display = 'block'; // 显示模型选择模态框
 
             try {
-                const rawModels = await fetchModels();
+                const rawModels = await fetchModels(); // 调用API获取模型数据
+                // 将获取到的原始模型数据（可能仅为字符串ID数组）转换为包含id的对象数组，并存入缓存
                 fetchedModelsCache = rawModels.map(m => (typeof m === 'string' ? { id: m, created: 0, owned_by: 'unknown' } : m));
-                renderModelList();
-            } catch (error) {
-                modelListContainer.innerHTML = `<p style="color: red; padding: 10px;">获取模型失败: ${error.message}</p>`;
+                renderModelList(); // 使用获取到的数据渲染模型列表
+            } catch (error) { // 如果获取模型失败
+                modelListContainer.innerHTML = `<p style="color: red; padding: 10px;">获取模型失败: ${error.message}</p>`; // 显示错误信息
             }
         });
 
 
-        // 保存按钮
+        // “保存”按钮的点击事件监听器
         saveBtn.addEventListener('click', () => {
-            isSaving = true; // 新增：开始保存操作，设置标志
+            isSaving = true; // 设置保存状态标志，防止在保存过程中触发不必要的 dirty 状态更新
+
+            // 1. 获取并验证快捷键输入
             let newShortcut = panel.querySelector('#shortcut').value.trim();
-            newShortcut = newShortcut.replace(/Option\+/g, 'Alt+');
-            if (!validateShortcut(newShortcut) && newShortcut !== "") {
-                isSaving = false; // 新增：校验失败，重置标志
+            newShortcut = newShortcut.replace(/Option\+/g, 'Alt+'); // 将Mac的Option+替换为通用的Alt+
+            if (!validateShortcut(newShortcut) && newShortcut !== "") { // 如果格式不正确且非空
+                isSaving = false; // 重置保存标志
                 alert(isMac ? '快捷键格式不正确。有效示例: Option+S, ⌘+Shift+Y' : '快捷键格式不正确。有效示例: Alt+S, Ctrl+Shift+Y');
-                return;
+                return; // 中断保存
             }
 
+            // 2. 获取并验证Base URL输入
             const baseURLValue = panel.querySelector('#base-url').value.trim();
-            if (!baseURLValue) {
+            if (!baseURLValue) { // 不能为空
                 alert('Base URL 不能为空。');
-                isSaving = false; // 新增：校验失败，重置标志
-                return;
+                isSaving = false; return;
             }
-            if (!baseURLValue.match(/^https?:\/\/.+/)) {
+            if (!baseURLValue.match(/^https?:\/\/.+/)) { // 必须以 http:// 或 https:// 开头
                 alert('Base URL 格式不正确，应以 http:// 或 https:// 开头。');
-                isSaving = false; // 新增：校验失败，重置标志
-                return;
+                isSaving = false; return;
             }
 
+            // 3. 获取并验证API Key输入
             const apiKeyVaule = panel.querySelector('#api-key').value.trim();
-            if (!apiKeyVaule) {
+            if (!apiKeyVaule) { // 不能为空
                 alert('API Key 不能为空。');
-                isSaving = false; // 新增：校验失败，重置标志
-                return;
+                isSaving = false; return;
             }
 
+            // 4. 获取并验证Max Tokens输入
             const maxTokensValue = panel.querySelector('#max-tokens').value.trim();
             const maxTokensParsed = parseInt(maxTokensValue);
-            if (maxTokensValue === "" || isNaN(maxTokensParsed) || maxTokensParsed <= 0) {
+            if (maxTokensValue === "" || isNaN(maxTokensParsed) || maxTokensParsed <= 0) { // 必须是大于0的有效数字
                 alert('最大Token数必须是一个大于0的有效数字。');
-                isSaving = false; // 新增：校验失败，重置标志
-                return;
+                isSaving = false; return;
             }
-            if (maxTokensParsed > 100000) {
+            if (maxTokensParsed > 100000) { // 对过大的值给出警告（非强制）
                 alert('最大Token数设置过大，可能导致请求失败或费用过高。请设置一个合理的值。');
             }
 
-            // modelValue 现在直接从 CONFIG.MODEL 获取，该值由标签点击实时更新
+            // 5. 验证是否已选择模型
+            // CONFIG.MODEL 的值由模型标签的点击事件实时更新
             if (!CONFIG.MODEL) {
                 alert('请至少选择或添加一个模型。');
-                isSaving = false; // 新增：校验失败，重置标志
-                return;
+                isSaving = false; return;
             }
 
+            // 6. 所有验证通过，更新内存中的 CONFIG 对象
             CONFIG.BASE_URL = baseURLValue;
             CONFIG.API_KEY = apiKeyVaule;
             CONFIG.MAX_TOKENS = maxTokensParsed;
-            CONFIG.SHORTCUT = newShortcut || DEFAULT_CONFIG.SHORTCUT;
-            // CONFIG.PROMPT is no longer used, identifier is the source of truth
+            CONFIG.SHORTCUT = newShortcut || DEFAULT_CONFIG.SHORTCUT; // 如果为空，则使用默认快捷键
+            // CONFIG.CURRENT_PROMPT_IDENTIFIER 和 CONFIG.SAVED_MODELS 已由各自的交互实时更新，此处无需再次赋值
 
-            // 保存所有配置到 GM_storage
+            // 7. 将更新后的 CONFIG各项持久化存储到 GM_setValue
             GM_setValue('BASE_URL', CONFIG.BASE_URL);
             GM_setValue('API_KEY', CONFIG.API_KEY);
             GM_setValue('MAX_TOKENS', CONFIG.MAX_TOKENS);
             GM_setValue('SHORTCUT', CONFIG.SHORTCUT);
             GM_setValue('MODEL', CONFIG.MODEL);
-            // GM_setValue('PROMPT', CONFIG.PROMPT); // PROMPT is no longer saved
             GM_setValue('CURRENT_PROMPT_IDENTIFIER', CONFIG.CURRENT_PROMPT_IDENTIFIER);
             GM_setValue('SAVED_MODELS', CONFIG.SAVED_MODELS);
-            populateModalModelSelector(modal); // 刷新模态框模型选择器
 
-            // 更新快照以反映已保存的更改，修复关闭时“未保存更改”的误报
+            // 8. 刷新主总结模态框中的模型选择器，以同步最新的模型列表和当前选中的模型
+            populateModalModelSelector(modal);
+
+            // 9. 更新设置快照以反映已保存的更改。
+            //    这确保了如果用户在保存后立即关闭面板，不会误报“未保存更改”。
             if (typeof panel.takeSettingsSnapshot === 'function') {
                 panel.takeSettingsSnapshot();
             }
-            setDirtyStatus(false); // 确保在面板隐藏前更新状态，并且在快照之后
+            // 10. 将设置状态标记为“干净”。这必须在更新快照之后执行。
+            setDirtyStatus(false);
             
-            // 将 isSaving = false; 移到 setDirtyStatus(false) 之后
-            // 确保在 isDirty 状态和UI完全更新为“干净”后，才允许其他事件更改 dirty 状态。
+            // 11. 重置保存状态标志。这必须在 setDirtyStatus(false) 之后执行，
+            //     以确保 dirty 状态和UI完全更新为“干净”后，才允许其他事件（如输入框修改）再次更改 dirty 状态。
             isSaving = false;
 
+            // 12. 隐藏设置面板和遮罩层，并显示成功提示
             panel.style.display = 'none';
             settingsOverlay.style.display = 'none';
             showToastNotification('设置已应用！');
         });
 
-        // Cancel button and overlay click
+        // 为“取消”按钮和设置面板的遮罩层添加点击事件监听器，调用 closeSettingsPanel 函数来关闭面板。
         cancelBtn.addEventListener('click', closeSettingsPanel);
         settingsOverlay.addEventListener('click', closeSettingsPanel);
     }
 
-    // 创建设置面板
+    /**
+     * @description 创建设置面板的DOM结构并注入样式。
+     *              此函数负责动态生成设置面板的完整HTML内容，包括所有输入字段（如Base URL, API Key, Token数, 快捷键）、
+     *              模型管理区域（显示已选模型、自定义模型按钮、获取模型按钮）、提示词选择器和对应的提示词内容显示区域，
+     *              以及底部的操作按钮（重置、关闭、保存）。
+     *              同时，它还会创建设置面板的遮罩层 (`ai-settings-overlay`) 和一个用于“获取模型”功能的模态框 (`model-selection-modal`) 的基本DOM结构。
+     *              所有相关的CSS样式都通过一个动态创建的 `<style>` 标签注入到传入的 Shadow DOM 根节点中，
+     *              以此实现样式的局部化，避免与主页面的全局样式冲突。
+     * @param {ShadowRoot} shadow - Shadow DOM 的根节点，新创建的设置面板、遮罩层和模型选择模态框都将被附加到此节点。
+     * @returns {object} 返回一个包含三个主要创建的DOM元素的对象：
+     *                   `panel`: 设置面板的根 `div` 元素。
+     *                   `overlay`: 设置面板的遮罩层 `div` 元素。
+     *                   `modelSelectionModal`: “获取模型”功能所使用的模态框的根 `div` 元素。
+     *                   这些元素随后会被其他函数（如 `createElements` 和 `initializeEvents`）引用和操作。
+     */
     function createSettingsPanel(shadow) {
-        const panel = document.createElement('div');
+        const panel = document.createElement('div'); // 设置面板的根元素
         panel.className = 'ai-settings-panel';
+        // 使用模板字符串构建设置面板的内部HTML结构
         panel.innerHTML = `
-            <h3>设置</h3>
+            <h3>设置</h3> <!-- 面板标题 -->
             <div class="form-group">
-                <label for="base-url">Base URL (例如: https://api.openai.com)</label>
+                <label for="base-url">Base URL (例如: https://api.openai.com)</label> <!-- API基础地址输入 -->
                 <input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}">
             </div>
             <div class="form-group">
-                <label for="api-key">API Key</label>
+                <label for="api-key">API Key</label> <!-- API密钥输入 -->
                 <input type="text" id="api-key" value="${CONFIG.API_KEY}">
             </div>
+            <!-- 模型管理区域: 显示已选模型标签，并提供自定义和获取模型的按钮 -->
             <div class="form-group">
                 <label for="model-tags-container">模型</label>
                 <div class="model-tags-container" id="model-tags-container">
-                    {/* 动态生成的模型标签将出现在这里 */}
+                    {/* 动态生成的模型标签将出现在这里 (由initializeSettingsEvents中的renderModelTags函数填充) */}
                 </div>
                 <div class="model-actions">
-                    <button id="custom-model-btn">自定义模型</button>
-                    <button id="fetch-model-btn">获取模型</button>
+                    <button id="custom-model-btn">自定义模型</button> <!-- 手动添加模型名称 -->
+                    <button id="fetch-model-btn">获取模型</button> <!-- 从API获取可用模型列表 -->
                 </div>
             </div>
             <div class="form-group">
-                <label for="max-tokens">最大Token数</label>
+                <label for="max-tokens">最大Token数</label> <!-- 最大Token数输入 -->
                 <input type="number" id="max-tokens" value="${CONFIG.MAX_TOKENS}">
             </div>
             <div class="form-group">
-                <label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label>
+                <label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label> <!-- 快捷键输入 -->
                 <input type="text" id="shortcut" value="${CONFIG.SHORTCUT}">
             </div>
+            <!-- 提示词选择区域: 包含一个下拉选择器和用于显示当前选中模板内容的只读文本域 -->
             <div class="form-group config-select-group">
                 <label for="config-select">提示词选择</label>
                 <select class="ai-config-select" id="config-select" title="选择一个预设提示词模板">
-                    {/* 选项将由 updatePromptSelector 动态填充 */}
+                    {/* 选项将由 updateAllPromptSelectors 函数动态填充 */}
                 </select>
             </div>
             <div class="form-group">
                 <label for="prompt">总结提示词内容</label>
-                <textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea>
+                <textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea> <!-- 显示当前选中提示词模板的内容 -->
             </div>
-            <div class="buttons">
-                <button class="clear-cache-btn">重置</button>
-                <button class="cancel-btn">关闭</button>
-                <button class="save-btn">保存</button>
+            <div class="buttons"> <!-- 面板底部的操作按钮区域 -->
+                <button class="clear-cache-btn">重置</button> <!-- 重置所有设置到默认值并清除缓存 -->
+                <button class="cancel-btn">关闭</button> <!-- 关闭设置面板 -->
+                <button class="save-btn">保存</button> <!-- 保存当前设置 -->
             </div>
-        `;
+        `; // panel.innerHTML 结束
 
-        // 样式定义在Shadow DOM内部
+        // 创建 <style> 元素，用于定义设置面板及其内部组件的CSS样式
+        // 这些样式被注入到Shadow DOM中，以确保其作用域仅限于此面板，避免与主页面样式冲突。
         const style = document.createElement('style');
         style.textContent = `
+            /* 设置面板主容器样式：定位居中、尺寸、背景、边框、阴影、字体等 */
             .ai-settings-panel {
-                display: none;
+                display: none; /* 默认隐藏 */
                 position: fixed;
                 top: 50%;
                 left: 50%;
@@ -731,15 +863,15 @@
                 border-radius: 8px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 width: 90%;
-                max-width: 600px;
-                max-height: 80vh;
-                overflow-y: auto;
+                max-width: 600px; /* 最大宽度限制 */
+                max-height: 80vh; /* 最大高度限制，超出则显示滚动条 */
+                overflow-y: auto; /* 内容溢出时垂直滚动 */
                 box-sizing: border-box;
                 font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
                 font-size: 15px;
-                z-index: 100001;
+                z-index: 100001; /* 确保在其他页面元素之上 */
             }
-            .ai-settings-panel h3 {
+            .ai-settings-panel h3 { /* 面板标题样式 */
                 margin: 0 0 20px 0;
                 padding-bottom: 10px;
                 border-bottom: 1px solid #dee2e6;
@@ -747,15 +879,16 @@
                 font-size: 18px;
                 font-weight: 900;
             }
-            .form-group {
+            .form-group { /* 表单组通用样式 */
                 margin-bottom: 15px;
             }
-            .form-group label {
+            .form-group label { /* 表单标签样式 */
                 display: block;
                 margin-bottom: 5px;
                 color: #495057;
                 font-weight: 600;
             }
+            /* 表单输入框、文本域、选择器的通用样式 */
             .form-group input,
             .form-group textarea,
             .form-group select {
@@ -768,39 +901,40 @@
                 background: #fff;
                 color: #495057;
             }
+            /* 输入框、文本域、选择器获取焦点时的样式 */
             .form-group input:focus,
             .form-group textarea:focus,
             .form-group select:focus {
                 outline: none;
-                border-color: #60a5fa;
-                box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+                border-color: #60a5fa; /* 焦点时边框颜色变化 */
+                box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2); /* 焦点时外发光效果 */
             }
-            .form-group textarea {
-                height: 100px;
-                resize: vertical;
+            .form-group textarea { /* 文本域特定样式 */
+                height: 100px; /* 默认高度 */
+                resize: vertical; /* 允许垂直方向调整大小 */
                 font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
             }
-            .form-group.config-select-group {
+            .form-group.config-select-group { /* 提示词选择器所在表单组的特殊布局 */
                 display: flex;
                 align-items: center;
                 gap: 10px;
             }
 
-            .form-group.config-select-group label {
-                flex: 0 0 auto;
+            .form-group.config-select-group label { /* 提示词选择器标签的样式调整 */
+                flex: 0 0 auto; /* 不伸缩 */
                 margin-bottom: 0;
             }
 
-            .form-group:not(.config-select-group) {
-                display: block; /* 恢复其他form-group的默认布局 */
+            .form-group:not(.config-select-group) { /* 其他非提示词选择器的表单组恢复默认块级布局 */
+                display: block;
             }
-            .buttons {
+            .buttons { /* 面板底部按钮容器的样式 */
                 display: flex;
-                justify-content: space-around;
+                justify-content: space-around; /* 按钮平均分布 */
                 gap: 10px;
                 margin-top: 20px;
             }
-            .buttons button {
+            .buttons button { /* 面板底部操作按钮的通用样式：内边距、边框、圆角、光标、字体、过渡效果等 */
                 padding: 8px 8px;
                 border: none;
                 border-radius: 4px;
@@ -810,81 +944,30 @@
                 transition: background 0.3s;
                 color: #fff;
             }
-           .modal-action-btn {
+           .modal-action-btn { /* 通用模态框操作按钮（如“获取模型”模态框中的按钮）的基本样式 */
                min-width: 100px;
                padding: 8px 16px;
            }
-            .cancel-btn {
-                background: #6c757d;
-            }
-            .cancel-btn:hover {
-                background: #5a6268;
-            }
-            .clear-cache-btn {
-                background: #b47474cc !important;
-            }
-            .clear-cache-btn:hover {
-                background: #c82333 !important;
-            }
-            .ai-config-select {
+            .cancel-btn { background: #6c757d; } /* “关闭”按钮背景色 */
+            .cancel-btn:hover { background: #5a6268; }
+            .clear-cache-btn { background: #b47474cc !important; } /* “重置”按钮背景色 */
+            .clear-cache-btn:hover { background: #c82333 !important; }
+            .ai-config-select { /* 提示词模板下拉选择器样式 */
                 padding: 6px 12px;
                 border: 1px solid #ced4da;
                 border-radius: 4px;
                 font-size: 14px;
                 background: #fff;
                 color: #495057;
-                /* margin-right: 10px; */ /* 移除，因为提示词模板选择器已删除 */
-                flex-grow: 1; /* 让提示词选择器占据可用空间 */
+                flex-grow: 1; /* 占据可用空间 */
             }
-            .save-as-group {
-                margin-top: 10px;
-                padding-top: 10px;
-                border-top: 1px solid #dee2e6;
-            }
-            .delete-config-btn {
-                background: #b47474cc !important;
-            }
-            .delete-config-btn:hover {
-                background: #c82333 !important;
-            }
-            .save-as-input-group {
-                display: flex;
-                gap: 10px;
-                align-items: center;
-            }
-            .save-as-input-group input {
-                flex: 1;
-            }
-            .save-as-input-group button {
-                padding: 8px 16px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: bold;
-                color: #fff;
-            }
-            .save-btn, .confirm-save-as-btn {
-                background: #617043cc !important;
-            }
-            .save-btn:hover, .confirm-save-as-btn:hover {
-                background: #218838 !important;
-            }
-            .cancel-save-as-btn {
-                background: #6c757d;
-            }
-            .cancel-save-as-btn:hover {
-                background: #5a6268;
-            }
-            .save-as-btn, .rename-config-btn {
-                background: #647f96cc !important;
-            }
-            .save-as-btn:hover, .rename-config-btn:hover {
-                background: #2980b9 !important;
-            }
-            /* .ai-prompt-template-select styling can be removed as the element is removed */
+            .save-btn { background: #617043cc !important; } /* “保存”按钮背景色 */
+            .save-btn:hover { background: #218838 !important; }
+            /* 移除了与旧版“另存为配置”、“重命名配置”等已废弃功能相关的CSS样式，保持整洁 */
+
+            /* 通用模态框样式 (例如用于“获取模型”、“批量删除模型”等功能) */
             .ai-modal {
-                display: none;
+                display: none; /* 默认隐藏 */
                 position: fixed;
                 top: 50%;
                 left: 50%;
@@ -896,10 +979,10 @@
                 width: 90%;
                 max-width: 500px;
                 max-height: 70vh;
-                z-index: 100002;
-                flex-direction: column;
+                z-index: 100002; /* 层级高于设置面板的遮罩层，但低于设置面板本身（如果同时显示）*/
+                flex-direction: column; /* 内部元素垂直排列 */
             }
-            .modal-header {
+            .modal-header { /* 模态框头部样式 */
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -907,30 +990,30 @@
                 padding-bottom: 10px;
                 margin-bottom: 15px;
             }
-            .modal-header h3 {
+            .modal-header h3 { /* 模态框标题样式 */
                 margin: 0;
                 font-size: 18px;
                 font-weight: 600;
-                color: #495057; /* 确保字体颜色与背景有足够对比度, 与主总结模态框标题一致 */
+                color: #495057;
             }
-            .close-modal {
+            .close-modal { /* 模态框关闭按钮 (×) 样式 */
                 background: none;
                 border: none;
                 font-size: 24px;
                 cursor: pointer;
                 color: #6c757d;
             }
-            .modal-content {
-                overflow-y: auto;
-                flex-grow: 1;
+            .modal-content { /* 模态框内容区域样式 */
+                overflow-y: auto; /* 内容溢出时垂直滚动 */
+                flex-grow: 1; /* 占据可用垂直空间 */
                 margin-bottom: 15px;
             }
-            #model-list-container label {
+            #model-list-container label { /* 模型选择列表中的标签样式 */
                 font-weight: normal;
                 font-size: 14px;
-                color: #333333; /* 确保列表项字体颜色与背景有足够对比度 */
+                color: #333333;
             }
-            #model-list-container .model-item {
+            #model-list-container .model-item { /* 模型选择列表中的每个条目样式 */
                 padding: 8px;
                 border: 1px solid #eee;
                 border-radius: 4px;
@@ -939,19 +1022,17 @@
                 transition: background-color 0.2s;
                 cursor: pointer;
             }
-            #model-list-container .model-item:hover {
-                background-color: #f0f8ff;
-            }
-            #model-list-container .model-item label {
+            #model-list-container .model-item:hover { background-color: #f0f8ff; } /* 悬停时背景色变化 */
+            #model-list-container .model-item label { /* 模型条目内标签的样式 */
                 margin-left: 8px;
                 cursor: pointer;
             }
-            .modal-footer {
+            .modal-footer { /* 模态框底部样式 */
                 border-top: 1px solid #dee2e6;
                 padding-top: 15px;
-                text-align: right;
+                text-align: right; /* 按钮靠右对齐 */
             }
-            #save-selected-models {
+            #save-selected-models { /* “获取模型”模态框中的“保存”按钮样式 */
                 padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
@@ -961,86 +1042,44 @@
                 color: #fff;
                 background: #617043cc;
             }
-            #save-selected-models:hover {
-                background: #218838;
-            }
-            .form-group.config-select-group {
+            #save-selected-models:hover { background: #218838; }
+            .form-group.config-select-group { /* 再次定义以确保flex布局生效 */
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                flex-wrap: nowrap;
+                flex-wrap: nowrap; /* 防止换行 */
             }
-            .ai-config-select {
+            .ai-config-select { /* 再次定义以确保flex-grow生效 */
                 flex-grow: 1;
             }
-            .rename-input-group {
-                display: none;
-                gap: 10px;
-                margin: 10px 0;
-                padding: 10px 0;
-                border-top: 1px solid #dee2e6;
-            }
-
-            .rename-input-group input {
-                flex: 1;
-                padding: 8px 12px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-
-            .rename-input-group button {
-                padding: 8px 16px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: bold;
-                color: #fff;
-            }
-
-            .rename-input-group .confirm-rename-btn {
-                background: #617043cc;
-            }
-
-            .rename-input-group .confirm-rename-btn:hover {
-                background: #218838;
-            }
-
-            .rename-input-group .cancel-rename-btn {
-                background: #6c757d;
-            }
-
-            .rename-input-group .cancel-rename-btn:hover {
-                background: #5a6268;
-            }
-.model-tags-container {
-               display: flex;
-               flex-wrap: wrap;
-               gap: 8px;
+            /* 模型标签容器和单个模型标签的样式 */
+            .model-tags-container {
+               display: flex; /* 水平排列标签 */
+               flex-wrap: wrap; /* 允许换行 */
+               gap: 8px; /* 标签之间的间隙 */
                margin-bottom: 10px;
                padding: 8px;
-               background-color: #f8f9fa;
+               background-color: #f8f9fa; /* 轻微背景色 */
                border: 1px solid #dee2e6;
                border-radius: 4px;
            }
-           .model-tag {
+           .model-tag { /* 单个模型标签的样式 */
                display: flex;
                align-items: center;
                background-color: #e9ecef;
                padding: 5px 10px;
-               border-radius: 15px;
+               border-radius: 15px; /* 圆角标签 */
                font-size: 14px;
                color: #333;
-               cursor: pointer;
+               cursor: pointer; /* 可点击选择 */
                transition: background-color 0.2s;
            }
-           .model-tag.selected {
-               background-color: #60a5fa;
+           .model-tag.selected { /* 当前选中的模型标签的特殊样式 */
+               background-color: #60a5fa; /* 高亮背景色 */
                color: white;
                font-weight: bold;
            }
-           .model-tag .delete-btn {
+           .model-tag .delete-btn { /* 模型标签内部的删除按钮 (×) 样式 */
                background: none;
                border: none;
                color: #888;
@@ -1050,209 +1089,175 @@
                padding: 0;
                line-height: 1;
            }
-            .model-tag.selected .delete-btn {
-               color: white;
-           }
-           .model-tag .delete-btn:hover {
-               color: #f00;
-           }
+            .model-tag.selected .delete-btn { color: white; } /* 选中标签的删除按钮颜色 */
+           .model-tag .delete-btn:hover { color: #f00; } /* 删除按钮悬停时颜色变为红色 */
+           /* “自定义模型”和“获取模型”按钮的容器样式 */
            .model-actions {
                display: flex;
                gap: 10px;
                margin-top: 10px;
            }
-           .model-actions button {
+           .model-actions button { /* “自定义模型”和“获取模型”按钮的样式 */
                padding: 8px 12px;
                border: 1px solid #ced4da;
                border-radius: 4px;
                background-color: #f8f9fa;
-               color: #212529; /* 确保字体颜色有足够对比度 */
+               color: #212529;
                cursor: pointer;
                font-size: 14px;
                transition: background-color 0.2s;
            }
-           .model-actions button:hover {
-               background-color: #e2e6ea;
-           }
-        `;
+           .model-actions button:hover { background-color: #e2e6ea; }
+        `; // style.textContent 结束
 
-        // 创建新的覆盖层
+        // 创建设置面板的遮罩层 (Overlay) DOM元素
+        // 其作用是在设置面板显示时，覆盖页面其他内容，防止用户误操作，并提供视觉焦点。
+        // 其样式（如半透明背景、全屏覆盖）在上面的CSS块中通过 `.ai-settings-overlay` 选择器定义。
+        // initializeSettingsEvents 函数会处理其显示/隐藏以及点击遮罩层关闭设置面板的逻辑。
         const settingsOverlay = document.createElement('div');
         settingsOverlay.className = 'ai-settings-overlay';
         settingsOverlay.style.display = 'none'; // 默认隐藏
 
-        // 添加点击覆盖层关闭设置面板的事件
+        // 添加点击覆盖层关闭设置面板的事件 (此注释已过时，实际处理在 initializeSettingsEvents 中)
         // The overlay click is now handled inside initializeSettingsEvents
 
-        // 定义样式
+        // 创建用于定义遮罩层样式的 <style> 元素，并将其附加到 Shadow DOM
+        // （注意：此处的 overlayStyle 与上面的 style 内容有所不同，是专门针对遮罩层的）
         const overlayStyle = document.createElement('style');
         overlayStyle.textContent = `
-            .ai-settings-overlay {
-                display: none;
+            .ai-settings-overlay { /* 设置面板遮罩层的样式 */
+                display: none; /* 默认隐藏 */
                 position: fixed;
                 top: 0;
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 100000; /* 确保覆盖层在设置面板下方 */
+                background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+                z-index: 100000; /* 层级确保在设置面板下方，但在页面其他内容之上 */
             }
         `;
-        shadow.appendChild(overlayStyle);
-        shadow.appendChild(settingsOverlay);
-        shadow.appendChild(panel);
+        shadow.appendChild(overlayStyle); // 将遮罩层样式附加到Shadow DOM
+        shadow.appendChild(settingsOverlay); // 将遮罩层元素附加到Shadow DOM
+        shadow.appendChild(panel); // 将设置面板元素附加到Shadow DOM
 
-        // 事件监听
-        panel.querySelector('.save-btn').addEventListener('click', () => {
-            const newShortcut = panel.querySelector('#shortcut').value.trim();
-            if (!validateShortcut(newShortcut)) {
-                alert('快捷键格式不正确，请使用例如 Alt+S, Ctrl+Shift+Y 的格式。');
-                return;
+        // 事件监听器（如保存、取消、重置按钮的点击事件）现在统一在 initializeSettingsEvents 函数中初始化，
+        // 以便更好地管理作用域和元素引用，这里不再直接添加。
+
+        // 清除缓存按钮 (“重置”按钮) 的事件监听器
+        // 此监听器负责将所有配置恢复到默认值，并清除相关的本地存储数据。
+        panel.querySelector('.clear-cache-btn').addEventListener('click', () => {
+            // 弹出确认对话框，防止用户误操作
+            if (!confirm('确定要重置所有设置并清除缓存吗？这将恢复到默认配置。')) {
+                return; // 用户取消，则不执行任何操作
             }
 
-            const newConfig = {
-                BASE_URL: panel.querySelector('#base-url').value.trim() || DEFAULT_CONFIG.BASE_URL, // 读取BASE_URL
-                API_KEY: panel.querySelector('#api-key').value.trim(),
-                MAX_TOKENS: parseInt(panel.querySelector('#max-tokens').value) || DEFAULT_CONFIG.MAX_TOKENS,
-                SHORTCUT: newShortcut || DEFAULT_CONFIG.SHORTCUT,
-                PROMPT: panel.querySelector('#prompt').value.trim() || DEFAULT_CONFIG.PROMPT,
-                MODEL: (() => { // 从新的模型选择器获取值
-                    if (customModelCheckbox.checked) {
-                        return customModelInput.value.trim() || DEFAULT_CONFIG.MODEL;
-                    }
-                    const selectedRadioButton = modelSelectContainer.querySelector('input[type="radio"]:checked');
-                    return selectedRadioButton ? selectedRadioButton.value : DEFAULT_CONFIG.MODEL;
-                })()
-            };
-            saveConfig(newConfig);
-            panel.style.display = 'none';
-            settingsOverlay.style.display = 'none';
-        });
+            // 定义需要从GM存储中清除的键名列表
+            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition'];
+            // 遍历并清除每个键对应的值
+            keysToClear.forEach(key => GM_setValue(key, undefined));
 
-        // The cancel button click is now handled inside initializeSettingsEvents
-
-        // 清除缓存按钮事件
-        panel.querySelector('.clear-cache-btn').addEventListener('click', () => {
-            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts'];
-            // 移除了对 API_URL 的引用，因为它已不再使用
-            keysToClear.forEach(key => GM_setValue(key, undefined)); // 使用 undefined 来模拟删除或重置
-
-            // 重置为默认配置
+            // 重置内存中的 CONFIG 对象为默认配置 (使用深拷贝以防意外修改 DEFAULT_CONFIG)
             CONFIG = { ...DEFAULT_CONFIG };
-            // 确保将CONFIG中的默认值也写入GM_storage，以便下次加载时正确
-            GM_setValue('BASE_URL', CONFIG.BASE_URL);
-            // GM_setValue('API_URL', CONFIG.API_URL); // API_URL 不再使用
-            GM_setValue('API_KEY', CONFIG.API_KEY);
-            GM_setValue('MAX_TOKENS', CONFIG.MAX_TOKENS);
-            GM_setValue('SHORTCUT', CONFIG.SHORTCUT);
-            // GM_setValue('PROMPT', CONFIG.PROMPT); // PROMPT is no longer saved
-            GM_setValue('MODEL', CONFIG.MODEL);
-            GM_setValue('CURRENT_PROMPT_IDENTIFIER', CONFIG.CURRENT_PROMPT_IDENTIFIER);
-            GM_setValue('SAVED_MODELS', CONFIG.SAVED_MODELS);
-            GM_setValue('saved_prompts', {}); // 清空已保存的提示词
+            // 再次遍历默认配置，确保这些默认值也写回到 GM_setValue 中，以覆盖可能存在的旧值或确保初始状态
+            Object.keys(DEFAULT_CONFIG).forEach(key => {
+                GM_setValue(key, DEFAULT_CONFIG[key]);
+            });
+            GM_setValue('saved_prompts', {}); // 特别确保自定义提示词也被清空
 
-            // 更新输入框的值
+            // 更新设置面板UI上的各个输入字段，以反映重置后的默认值
             panel.querySelector('#base-url').value = CONFIG.BASE_URL;
-            // panel.querySelector('#api-url').value = CONFIG.API_URL; // #api-url 输入框已不存在
             panel.querySelector('#api-key').value = CONFIG.API_KEY;
             panel.querySelector('#max-tokens').value = CONFIG.MAX_TOKENS;
             panel.querySelector('#shortcut').value = CONFIG.SHORTCUT;
-            panel.querySelector('#prompt').value = getCurrentPromptContent();
-
-            // 更新提示词选择器以反映清空状态
+            // 提示词内容文本域 (#prompt) 的更新会通过下面触发 config-select 的 'change' 事件来间接完成
+            
+            // 更新提示词相关的UI：选择器选项和提示词内容文本域
             if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
-                updateAllPromptSelectors(globalElements);
-            } else {
-                // Fallback: 仅更新设置面板内部的选择器，如果 globalElements 不可用
-                const settingsSelectorInClear = panel.querySelector('#config-select');
-                if (settingsSelectorInClear) {
-                    const currentIdentifier = CONFIG.CURRENT_PROMPT_IDENTIFIER || PROMPT_TEMPLATES[0].identifier;
-                    settingsSelectorInClear.innerHTML = PROMPT_TEMPLATES.map(template =>
-                        `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title} (预设)</option>`
-                    ).join('');
-                    settingsSelectorInClear.value = currentIdentifier;
+                const configSelect = panel.querySelector('#config-select'); // 获取提示词模板选择器
+                if (configSelect) {
+                    configSelect.value = CONFIG.CURRENT_PROMPT_IDENTIFIER; // 将选择器的值设置为默认模板的标识符
+                    configSelect.dispatchEvent(new Event('change')); // 手动触发 'change' 事件，以更新提示词内容文本域
                 }
+                updateAllPromptSelectors(globalElements); // 调用全局函数，确保所有界面的提示词选择器都同步更新
             }
 
-            // 更新新模型选择UI以反映当前CONFIG
-            const customModelCheckbox = panel.querySelector('#custom-model-checkbox');
-            const customModelInput = panel.querySelector('#custom-model-input');
-            const modelSelectContainer = panel.querySelector('#model-select-container');
-            // 假设 availableModels 变量在此处仍然可访问，如果不可访问，则需要重新获取或从MODEL_OPTIONS构建
-            // 此处简化为，如果MODEL_OPTIONS有内容，则用它来填充
-            const modelsForPopulation = MODEL_OPTIONS && MODEL_OPTIONS.length > 0 ? MODEL_OPTIONS.map(m => m.value) : [];
-
-            if (modelsForPopulation.includes(CONFIG.MODEL)) {
-                customModelCheckbox.checked = false;
-                customModelInput.style.display = 'none';
-                customModelInput.value = '';
+            // 更新模型标签UI，以反映重置后的模型列表 (通常是默认模型) 和当前选中的模型
+            const modelTagsContainer = panel.querySelector('#model-tags-container');
+            if (modelTagsContainer && typeof modelTagsContainer.renderModelTags === 'function') {
+                // renderModelTags 函数会从 CONFIG.SAVED_MODELS 和 CONFIG.MODEL 读取数据并重新渲染标签
+                modelTagsContainer.renderModelTags();
             } else {
-                customModelCheckbox.checked = true;
-                customModelInput.style.display = 'block';
-                customModelInput.value = CONFIG.MODEL;
+                console.warn("renderModelTags function not found on modelTagsContainer during cache clear.");
             }
-            // 此处的 populateModelCheckboxes 需要在 initializeSettingsEvents 中定义并传入
-            // 暂时依赖 initializeSettingsEvents 中的 populateModelCheckboxes 函数能够正确处理
-            // 为了安全，最好确保 populateModelCheckboxes 在这里被调用
-             if (typeof populateSavedModelSelector === "function") {
-                 populateSavedModelSelector(panel, CONFIG.SAVED_MODELS, CONFIG.MODEL);
-             } else {
-                 // Fallback or error, e.g., manually clear and set default
-                 modelSelectContainer.innerHTML = ''; // 清空
-                 // 可能需要更复杂的逻辑来重新构建单选按钮
-             }
+            
+            // 确保重置操作后，设置面板的状态被标记为“干净”（没有未保存的更改）
+            // setDirtyStatus 函数通常在 initializeSettingsEvents 中附加到 panel 对象上
+            if (panel && typeof panel.setDirtyStatus === 'function') {
+                panel.setDirtyStatus(false);
+            }
 
+            // 如果主悬浮窗 (ai-summary-container) 存在，则将其位置也重置到默认状态
+            if (typeof globalElements !== 'undefined' && globalElements && globalElements.container) {
+                // loadPosition 函数会处理默认位置的加载逻辑（可能包括停靠状态或屏幕右下角）
+                loadPosition(globalElements.container);
+            }
 
-            alert('缓存已清除，已重置');
+            showToastNotification('设置已重置并清除缓存！'); // 显示操作成功的提示消息
         });
+        
+        // 旧的与 `promptTemplateSelect`（已废弃的提示词模板管理功能）相关的逻辑和注释已完全移除，以保持代码整洁。
 
-        // 移除旧的 promptTemplateSelect 事件监听器，因为该元素已被移除
-        // const promptTemplateSelect = panel.querySelector('#prompt-template-select');
-        // const promptTextarea = panel.querySelector('#prompt');
+        shadow.appendChild(style); // 将包含所有设置面板样式的 <style> 元素附加到 Shadow DOM
 
-        // if (promptTemplateSelect) { // Defensive check
-        //     promptTemplateSelect.addEventListener('change', (e) => {
-        //         const selectedTemplate = PROMPT_TEMPLATES.find(t => t.title === e.target.value);
-        //         if (selectedTemplate) {
-        //             promptTextarea.value = selectedTemplate.content;
-        //         }
-        //     });
-        // }
-
-        shadow.appendChild(style);
-
+        // 创建“获取模型”功能所使用的模态框 (`modelSelectionModal`) 的初始DOM结构。
+        // 此模态框用于显示从API获取的可用模型列表，允许用户搜索、选择并保存模型。
+        // 其内部的动态内容填充（如模型列表）和事件处理（如搜索、保存选择）由 initializeSettingsEvents 中的相关逻辑负责。
         const modelSelectionModal = document.createElement('div');
-        modelSelectionModal.id = 'model-selection-modal';
-        modelSelectionModal.className = 'ai-modal';
+        modelSelectionModal.id = 'model-selection-modal'; // 设置ID，方便后续查找
+        modelSelectionModal.className = 'ai-modal'; // 应用通用模态框样式
         modelSelectionModal.innerHTML = `
-            <div class="modal-header">
+            <div class="modal-header"> <!-- 模态框头部：标题和关闭按钮 -->
                 <h3>选择模型</h3>
                 <button class="close-modal">×</button>
             </div>
-            <div class="modal-content">
+            <div class="modal-content"> <!-- 模态框内容区域 -->
+                <!-- 模型搜索输入框 -->
                 <input type="text" id="model-search-input" placeholder="搜索模型..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <!-- 模型列表容器 (由JS动态填充) -->
                 <div id="model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 40vh; overflow-y: auto;"></div>
+                <!-- 模型描述区域 (鼠标悬停在模型上时显示信息) -->
                 <div id="model-description-area" style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px; border: 1px solid #e9ecef; color: #333333;">
                     <p><i>将鼠标悬停在模型上以查看描述。</i></p>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer"> <!-- 模态框底部：保存按钮 -->
                 <button id="save-selected-models">保存</button>
             </div>
         `;
-        shadow.appendChild(modelSelectionModal);
+        shadow.appendChild(modelSelectionModal); // 将模型选择模态框附加到 Shadow DOM
 
+        // 返回一个包含新创建的 panel (设置面板本身), overlay (其遮罩层),
+        // 和 modelSelectionModal (模型选择模态框) DOM元素的对象。
+        // 这些元素会被其他函数（如 createElements 和 initializeEvents）使用。
         return { panel, overlay: settingsOverlay, modelSelectionModal };
     }
 
-    // 快捷键验证
+    /**
+     * @description 验证快捷键字符串的格式是否有效。
+     * @param {string} shortcut - 需要验证的快捷键字符串 (例如: "Alt+S", "Ctrl+Shift+Y")。
+     * @returns {boolean} 如果快捷键格式有效则返回 true，否则返回 false。
+     */
     function validateShortcut(shortcut) {
         // 更新正则表达式以支持 Option 键
         const regex = /^((Ctrl|Alt|Shift|Meta|Option)\+)*[A-Za-z]$/;
         return regex.test(shortcut);
     }
 
-    // 创建DOM元素并使用 Shadow DOM
+    /**
+     * @description 创建脚本所需的所有主要DOM元素，并将它们附加到Shadow DOM中，最后将根容器附加到文档的body。
+     *              包括主控制按钮容器、总结模态框、设置面板及其各自的遮罩层。
+     * @returns {object} 包含所有创建的关键DOM元素的引用集合。
+     */
     function createElements() {
         // 创建根容器
         const rootContainer = document.createElement('div');
@@ -1692,7 +1697,6 @@
 
         // 将所有元素添加到Shadow DOM
         shadow.appendChild(style);
-        console.log('AI_WebSummary: Main styles appended to shadowRoot.');
         shadow.appendChild(container);
         shadow.appendChild(modal);
         shadow.appendChild(overlay);
@@ -1700,8 +1704,6 @@
 
         // 将根容器添加到body
         document.body.appendChild(rootContainer);
-        console.log('AI_WebSummary: rootContainer appended to body:', rootContainer);
-        console.log('AI_WebSummary: shadowRoot created:', shadow);
 
         return {
             container,
@@ -1719,7 +1721,11 @@
         };
     }
 
-    // 打开设置面板的函数
+    /**
+     * @description 打开设置面板，并使用当前配置填充面板中的各个输入字段。
+     *              同时会更新所有相关的提示词选择器，并为撤销更改功能创建设置快照。
+     * @param {object} elements - 包含所有主要UI元素的集合，特别是 settingsPanel 和 settingsOverlay。
+     */
     function openSettings(elements) { // 接收 elements 作为参数
         const { settingsPanel, settingsOverlay } = elements;
 
@@ -1765,7 +1771,12 @@
         settingsOverlay.style.display = 'block';
     }
 
-    // 获取完整API端点 (新版)
+    /**
+     * @description 根据基础URL构建完整的API completions端点。
+     *              如果基础URL包含'#'，则移除'#'并直接使用；否则，在其后附加'/v1/chat/completions'。
+     * @param {string} baseUrl - API的基础URL。
+     * @returns {string|null} 构建完成的API端点URL，如果基础URL无效则返回null。
+     */
     function getFullEndpoint(baseUrl) {
       if (!baseUrl || typeof baseUrl !== 'string' || baseUrl.trim() === '') {
         console.error("Base URL is not configured or invalid.");
@@ -1781,14 +1792,23 @@
         return trimmedBaseUrl + '/v1/chat/completions';
       }
     }
-    // 获取网页内容
+    /**
+     * @description 获取当前网页的标题和主要文本内容。
+     * @returns {object} 包含 `title` (网页标题) 和 `content` (网页主要文本内容) 的对象。
+     */
     function getPageContent() {
         const title = document.title;
         const content = document.body.innerText;
         return { title, content };
     }
 
-// 获取可用模型列表 (新版 fetchModels)
+    /**
+     * @async
+     * @description 从配置的API端点异步获取可用的模型列表。
+     *              需要 BASE_URL 和 API_KEY 已在 CONFIG 中配置。
+     * @throws {Error} 如果BASE_URL或API_KEY未配置，或API请求失败、返回数据格式不正确，则抛出错误。
+     * @returns {Promise<Array<object>>} 一个Promise，解析为一个包含模型对象的数组，每个对象至少包含一个 `id` 属性。
+     */
     async function fetchModels() {
       if (!CONFIG.BASE_URL) {
         console.error("BASE_URL is not configured. Cannot fetch models.");
@@ -1807,10 +1827,8 @@
       }
 
       const endpoint = chatCompletionsUrl.replace('/v1/chat/completions', '/v1/models');
-      console.log("Fetching models from new endpoint:", endpoint);
 
     try {
-        console.log('Attempting to fetch models from:', CONFIG.BASE_URL);
         const response = await GM.xmlHttpRequest({
             method: 'GET',
             url: endpoint,
@@ -1820,7 +1838,6 @@
             },
             timeout: 15000
         });
-        console.log('Fetch models response:', response.status, response.statusText);
 
         if (response.status === 200) {
           const responseData = JSON.parse(response.responseText);
@@ -1860,7 +1877,12 @@
         throw error;
     }
     }
-    // 显示错误信息
+    /**
+     * @description 在指定的DOM容器中显示错误信息。
+     * @param {HTMLElement} container - 用于显示错误的DOM元素。
+     * @param {string} error -主要的错误信息文本。
+     * @param {string} [details=''] - (可选) 额外的错误详情文本。
+     */
     function showError(container, error, details = '') {
         container.innerHTML = `
             <div class="ai-summary-error" style="color: red;">
@@ -1870,7 +1892,11 @@
         `;
     }
 
-    // 显示自动消失的提示消息
+    /**
+     * @description 显示一个自动消失的toast提示消息。
+     * @param {string} message - 要显示的提示消息文本。
+     * @param {number} [duration=3000] - (可选) 提示消息显示的持续时间（毫秒）。
+     */
     function showToastNotification(message, duration = 3000) {
         const toast = document.createElement('div');
         toast.textContent = message;
@@ -1931,9 +1957,17 @@
     }
 
     // 全局变量，用于存储原始的 Markdown 文本
-    let originalMarkdownText = '';
+    let originalMarkdownText = ''; // 全局变量，用于存储AI生成的原始Markdown文本
 
-    // 调用API进行总结
+    /**
+     * @async
+     * @description 调用AI API对给定的内容进行总结。使用流式响应逐步更新总结模态框的内容。
+     * @param {string} content - 需要总结的文本内容。
+     * @param {ShadowRoot} shadow - Shadow DOM的根节点，用于查找总结内容容器。
+     * @param {string} selectedModel - 当前选择用于总结的AI模型名称。
+     * @throws {Error} 如果API端点配置不正确、API请求失败或发生其他错误，则抛出错误。
+     * @returns {Promise<string>} 一个Promise，解析为AI生成的完整Markdown总结文本。
+     */
     async function summarizeContent(content, shadow, selectedModel) {
         const contentContainer = shadow.querySelector('.ai-summary-content');
         contentContainer.innerHTML = '<div class="ai-loading">正在总结中...</div>';
@@ -1955,14 +1989,6 @@
                 temperature: 0.7,
                 stream: true // 开启流式响应
             };
-            console.log('API request details:', {
-                url: apiUrlToUse,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${CONFIG.API_KEY}`
-                },
-                body: JSON.stringify(payload)
-            });
             // 使用 GM.xmlHttpRequest 替代 fetch
             return new Promise((resolve, reject) => {
                 const xhr = GM.xmlHttpRequest({
@@ -1977,70 +2003,102 @@
                     onloadstart: (stream) => {
                         const reader = stream.response.getReader();
                         const decoder = new TextDecoder('utf-8');
-                        let buffer = '';
+                        let buffer = ''; // 用于缓存可能被截断的数据流片段
 
+                        /**
+                         * @description 递归处理从API流式传输的数据。
+                         *              这个函数会持续读取数据流，直到流结束 ([DONE]标记或连接关闭)。
+                         *              每当接收到有效的数据块时，它会：
+                         *              1. 解析JSON数据。
+                         *              2. 提取文本内容。
+                         *              3. 将新文本追加到 `originalMarkdownText`。
+                         *              4. 使用 `marked.js` 和 `DOMPurify` 将完整的Markdown文本转换为安全的HTML。
+                         *              5. 更新UI (`contentContainer`) 以显示最新的总结内容，并添加一个模拟打字的闪烁光标。
+                         *              6. 自动滚动内容区域到底部，以确保用户始终能看到最新的文本。
+                         */
                         function processText() {
                             reader.read().then(({ done, value }) => {
+                                // 流读取结束的标志
                                 if (done) {
-                                    // 最后处理缓冲区中可能剩余的内容
+                                    // 流结束时，最后检查一次buffer中是否有未处理的残留数据。
+                                    // 这通常发生在API没有显式发送 [DONE] 标记，而是直接关闭连接的情况。
                                     if (buffer.startsWith('data: ')) {
-                                        const dataStr = buffer.substring(6);
-                                        if (dataStr.trim() !== '[DONE]') {
+                                        const dataStr = buffer.substring(6); // 移除 "data: " 前缀
+                                        if (dataStr.trim() !== '[DONE]') { // 确保不是一个明确的结束标记
                                             try {
                                                 const chunk = JSON.parse(dataStr);
                                                 if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                                                    originalMarkdownText += chunk.choices[0].delta.content;
+                                                    originalMarkdownText += chunk.choices[0].delta.content; // 累加最后的内容
                                                 }
-                                            } catch(e) { /* ignore */ }
+                                            } catch(e) { /* 忽略解析错误，因为这可能是流意外中断的最后一部分 */ }
                                         }
                                     }
+                                    // 最终渲染完整内容，移除打字光标
                                     contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                                    contentContainer.scrollTop = contentContainer.scrollHeight;
-                                    resolve(originalMarkdownText);
+                                    contentContainer.scrollTop = contentContainer.scrollHeight; // 确保滚动到底部
+                                    resolve(originalMarkdownText); // Promise 完成，返回完整总结
                                     return;
                                 }
 
+                                // 将接收到的 Uint8Array 数据块解码为字符串，并追加到缓冲区
+                                // { stream: true } 选项指示解码器这是一个流式数据，有助于正确处理多字节字符的边界情况
                                 buffer += decoder.decode(value, { stream: true });
+                                // 按换行符分割数据，因为API通常以换行符分隔每个数据事件 (SSE - Server-Sent Events)
                                 let lines = buffer.split('\n');
-                                buffer = lines.pop(); // 保留下次可能不完整的数据行
+                                // 最后一个元素可能是未完整接收的数据行，将其放回缓冲区，待下次读取时拼接处理
+                                buffer = lines.pop();
 
+                                // 遍历每一行接收到的数据
                                 for (const line of lines) {
+                                    // SSE事件通常以 "data: " 开头
                                     if (line.startsWith('data: ')) {
-                                        const dataStr = line.substring(6);
+                                        const dataStr = line.substring(6); // 提取JSON数据字符串
+                                        // 检查是否是API发送的结束信号 "[DONE]"
                                         if (dataStr.trim() === '[DONE]') {
-                                            // API 主动发送 [DONE]
-                                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                                            contentContainer.scrollTop = contentContainer.scrollHeight;
-                                            resolve(originalMarkdownText);
-                                            reader.cancel(); // 关闭流
-                                            return;
+                                            // API明确指示流结束
+                                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText)); // 最终渲染
+                                            contentContainer.scrollTop = contentContainer.scrollHeight; // 滚动到底部
+                                            resolve(originalMarkdownText); // Promise 完成
+                                            reader.cancel(); // 主动关闭读取流，防止后续操作
+                                            return; // 结束处理
                                         }
                                         try {
+                                            // 解析JSON数据块
                                             const chunk = JSON.parse(dataStr);
+                                            // 检查数据结构是否符合预期，并提取内容
                                             if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                                                const textChunk = chunk.choices[0].delta.content;
-                                                originalMarkdownText += textChunk;
+                                                const textChunk = chunk.choices[0].delta.content; // 获取AI生成的文本片段
+                                                originalMarkdownText += textChunk; // 累加到完整文本
+                                                // 将累积的Markdown文本转换为HTML，并进行净化处理
                                                 let htmlContent = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                                // 添加一个闪烁的光标效果，模拟打字过程，提升用户体验
                                                 htmlContent += '<span class="thinking-cursor">▋</span>';
-                                                contentContainer.innerHTML = htmlContent;
+                                                contentContainer.innerHTML = htmlContent; // 更新UI显示
+                                                // 实时滚动内容区域到底部，以便用户能看到新生成的内容
                                                 contentContainer.scrollTop = contentContainer.scrollHeight;
                                             }
                                         } catch (e) {
+                                            // 捕获并记录JSON解析错误，防止脚本中断，但会打印错误信息以便调试
                                             console.error('解析JSON块失败:', e, '原始数据:', dataStr);
                                         }
                                     }
                                 }
-                                processText(); // 继续读取下一块数据
+                                processText(); // 递归调用，继续读取下一块数据
                             }).catch(err => {
+                                // 捕获读取流时发生的错误
                                 if (err.name === 'AbortError') {
-                                    console.log('GM.xmlHttpRequest: reader.read() 中捕获到 AbortError');
+                                    // AbortError通常是由于用户操作（如点击“重试”按钮）导致流被主动中止
+                                    // 这种情况下通常不需要向用户显示错误，仅在控制台记录
+                                    console.log('GM.xmlHttpRequest: reader.read() 中捕获到 AbortError (通常由用户操作触发)');
                                 }
+                                // 对于其他类型的错误，将其传递给Promise的reject处理
                                 reject(err);
                             });
                         }
-                        processText();
+                        processText(); // 首次调用，启动流式数据处理
                     },
                     onerror: (response) => {
+                        // 处理 GM.xmlHttpRequest 请求本身的错误 (例如网络问题、CORS等)
                         let errorDetail = `GM.xmlHttpRequest 请求失败 (${response.status})。`;
                         try {
                             if (response.response) {
@@ -2069,7 +2127,11 @@
         }
     }
 
-    // 初始化事件监听
+    /**
+     * @description 初始化脚本所有UI元素的事件监听器。
+     *              包括主控制按钮、模态框操作（打开、关闭、重试、下载、复制、设置）、快捷键、拖动功能等。
+     * @param {object} elements - 包含所有主要UI元素的引用集合。
+     */
     function initializeEvents(elements) {
         const { container, button, templateBtn, modal, overlay, dragHandle, settingsPanel, settingsOverlay, shadow, modelSelectionModal } = elements;
 
@@ -2347,7 +2409,12 @@
             showToastNotification('模型列表已保存！');
         });
     }
-    // 判断快捷键是否被按下
+    /**
+     * @description 判断用户按下的组合键是否与配置的快捷键匹配。
+     * @param {KeyboardEvent} event - 键盘事件对象。
+     * @param {string} shortcut - 配置的快捷键字符串 (例如: "Alt+S")。
+     * @returns {boolean} 如果按下的键与快捷键匹配则返回 true，否则返回 false。
+     */
     function isShortcutPressed(event, shortcut) {
         const keys = shortcut.split('+');
         let ctrl = false, alt = false, shift = false, meta = false, key = null;
@@ -2372,7 +2439,12 @@
         return false;
     }
 
-    // 多系统适配的快捷键显示
+    /**
+     * @description 根据当前操作系统，获取快捷键的显示字符串。
+     *              例如，在Mac上将 "Alt+" 显示为 "Option+"，"Ctrl+" 或 "Meta+" 显示为 "⌘+"。
+     * @param {string} shortcut - 原始快捷键字符串。
+     * @returns {string} 适配当前操作系统的快捷键显示字符串。
+     */
     function getSystemShortcutDisplay(shortcut) {
         const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
         if (!isMac) return shortcut;
@@ -2383,93 +2455,126 @@
                     .replace(/Meta\+/g, '⌘+');
     }
 
-    // 显示模态框
+    /**
+     * @description 显示指定的模态框及其遮罩层。
+     * @param {HTMLElement} modal - 要显示的模态框元素。
+     * @param {HTMLElement} overlay - 模态框的遮罩层元素。
+     */
     function showModal(modal, overlay) {
         modal.style.display = 'block';
         overlay.style.display = 'block';
     }
 
-    // 隐藏模态框
+    /**
+     * @description 隐藏指定的模态框及其遮罩层。
+     * @param {HTMLElement} modal - 要隐藏的模态框元素。
+     * @param {HTMLElement} overlay - 模态框的遮罩层元素。
+     */
     function hideModal(modal, overlay) {
         modal.style.display = 'none';
         overlay.style.display = 'none';
     }
 
+    // 定义可能的停靠位置
     const DOCK_POSITIONS = {
-        LEFT: 'left',
-        RIGHT: 'right',
+        LEFT: 'left', // 左侧停靠
+        RIGHT: 'right', // 右侧停靠
         NONE: 'none'
     };
 
     const DEBOUNCE_TIME = 10; // 防抖时间
     const FOLD_DELAY = 1000; // 折叠延迟时间
 
-    const DOCK_THRESHOLD = 100; // 贴靠触发阈值
+    const DOCK_THRESHOLD = 100; // 贴靠触发阈值 (行内注释) 当容器拖动到距离屏幕边缘多少像素以内时，触发自动停靠。
 
+    /**
+     * @description 将悬浮窗 (`container`) 的当前位置信息和状态保存到 `GM_setValue`。
+     *              保存的内容包括：
+     *              - `left`, `top`, `right`, `bottom`: 容器当前的CSS样式值。
+     *              - `dockPosition`: 当前的停靠状态 (例如 DOCK_POSITIONS.LEFT, DOCK_POSITIONS.RIGHT, DOCK_POSITIONS.NONE)。
+     *              - `windowWidth`, `windowHeight`: 保存时的浏览器窗口内部宽度和高度。
+     *              这些信息用于在下次加载脚本或窗口大小调整后，能够恢复悬浮窗的状态。
+     * @param {HTMLElement} container - 主控制按钮容器元素。
+     */
     function savePosition(container) {
         const position = {
-            left: container.style.left,
-            top: container.style.top,
-            right: container.style.right,
-            bottom: container.style.bottom,
-            dockPosition: container.dataset.dockPosition || DOCK_POSITIONS.NONE,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight
+            left: container.style.left, // (行内注释) 容器左边距
+            top: container.style.top, // (行内注释) 容器上边距
+            right: container.style.right, // (行内注释) 容器右边距
+            bottom: container.style.bottom, // (行内注释) 容器下边距
+            dockPosition: container.dataset.dockPosition || DOCK_POSITIONS.NONE, // (行内注释) 停靠位置，默认为NONE
+            windowWidth: window.innerWidth, // (行内注释) 当前窗口宽度
+            windowHeight: window.innerHeight // (行内注释) 当前窗口高度
         };
-        GM_setValue('containerPosition', position);
+        GM_setValue('containerPosition', position); // (行内注释) 使用GM API保存位置信息
     }
 
+    /**
+     * @description 从 `GM_getValue` 中加载并恢复悬浮窗 (`container`) 的位置和状态。
+     *              处理逻辑包括：
+     *              - 如果存在已保存的位置信息：
+     *                  - 首先移除所有可能的旧停靠CSS类。
+     *                  - 如果保存的是停靠状态 (左侧或右侧)，则调用相应的 `dockToLeft` 或 `dockToRight` 函数，
+     *                    并根据保存的 `top` 值调整垂直位置，同时确保其在窗口可视范围内。
+     *                  - 如果保存的是自由浮动状态，则恢复 `left`, `top`, `right`, `bottom` 样式，并设置 `data-dockPosition`。
+     *                  - 如果保存了窗口尺寸且当前窗口尺寸已改变，则按比例调整 `left` 和 `top`，
+     *                    确保悬浮窗在新窗口尺寸下保持相对位置并可见。
+     *              - 如果不存在已保存的位置信息，则将悬浮窗设置到默认位置（例如屏幕右下角）。
+     * @param {HTMLElement} container - 主控制按钮容器元素。
+     */
     function loadPosition(container) {
-        const savedPosition = GM_getValue('containerPosition');
-        if (savedPosition) {
-            // Always clear previous docking classes before applying new state
+        const savedPosition = GM_getValue('containerPosition'); // (行内注释) 获取保存的位置信息
+        if (savedPosition) { // (行内注释) 如果存在保存的位置
+            // (段落注释) 始终先清除之前的停靠CSS类，为应用新的或恢复的状态做准备。
             container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
 
-            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT) {
-                if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) {
+            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT) { // (行内注释) 如果是停靠状态
+                if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) { // (行内注释) 如果是左停靠
                     dockToLeft(container);
-                } else {
+                } else { // (行内注释) 如果是右停靠
                     dockToRight(container);
                 }
 
-                let restoredTop = parseFloat(savedPosition.top);
-                const containerRect = container.getBoundingClientRect();
-                // Estimate height: drag handle (20) + prompt selector (30) + summary btn (30) + template btn (30) = 110
+                let restoredTop = parseFloat(savedPosition.top); // (行内注释) 解析保存的上边距
+                const containerRect = container.getBoundingClientRect(); // (行内注释) 获取容器的当前尺寸和位置
+                // (行内注释) 预估容器高度，如果实际高度无效则使用默认值。顺序：拖动手柄(20px) + 提示词选择器(30px) + 总结按钮(30px) + 打开面板按钮(30px) = 110px。
                 const containerHeight = containerRect.height > 0 ? containerRect.height : 110;
 
-                if (!isNaN(restoredTop)) {
+                if (!isNaN(restoredTop)) { // (行内注释) 如果保存的上边距有效
+                    // (行内注释) 确保恢复的上边距在窗口可视范围内
                     restoredTop = Math.max(0, Math.min(restoredTop, window.innerHeight - containerHeight));
                     container.style.top = `${restoredTop}px`;
                 } else {
-                    // Fallback if saved top is invalid: place it 20px from the top, ensuring it's within bounds.
+                    // (行内注释) 如果保存的上边距无效，则回退到默认值（例如距离顶部20px），并确保在可视范围内
                     let defaultTop = 20;
                     defaultTop = Math.max(0, Math.min(defaultTop, window.innerHeight - containerHeight));
                     container.style.top = `${defaultTop}px`;
                 }
-                container.style.bottom = 'auto';
-            } else if (savedPosition.left && savedPosition.top) {
-                // Free-floating or old save format
+                container.style.bottom = 'auto'; // (行内注释) 停靠时，底部位置自动
+            } else if (savedPosition.left && savedPosition.top) { // (行内注释) 如果是自由浮动状态或旧的保存格式
+                // (段落注释) 恢复自由浮动状态下的位置。
                 container.style.left = savedPosition.left;
                 container.style.top = savedPosition.top;
-                container.style.right = savedPosition.right || 'auto';
-                container.style.bottom = savedPosition.bottom || 'auto';
-                container.dataset.dockPosition = DOCK_POSITIONS.NONE; // Ensure dataset is correct
+                container.style.right = savedPosition.right || 'auto'; // (行内注释) 如果未保存right，则设为auto
+                container.style.bottom = savedPosition.bottom || 'auto'; // (行内注释) 如果未保存bottom，则设为auto
+                container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 明确设置停靠状态为NONE
 
-                // Adjust for window resize if dimensions are saved
+                // (段落注释) 如果窗口大小发生变化，按比例调整悬浮窗的位置以保持其相对位置。
                 if (savedPosition.windowWidth && savedPosition.windowHeight &&
                     (savedPosition.windowWidth !== window.innerWidth || savedPosition.windowHeight !== window.innerHeight)) {
-                    const widthRatio = window.innerWidth / savedPosition.windowWidth;
-                    const heightRatio = window.innerHeight / savedPosition.windowHeight;
+                    const widthRatio = window.innerWidth / savedPosition.windowWidth; // (行内注释) 计算宽度缩放比例
+                    const heightRatio = window.innerHeight / savedPosition.windowHeight; // (行内注释) 计算高度缩放比例
                     
-                    // Use offsetWidth/Height only if element is visible, otherwise it might be 0
+                    // (行内注释) 获取容器的实际宽度和高度，优先使用getBoundingClientRect，如果元素不可见导致为0，则尝试解析style或使用回退值。
                     const rect = container.getBoundingClientRect();
-                    const containerWidth = rect.width > 0 ? rect.width : parseFloat(container.style.width) || 50; // Fallback width
-                    const containerHeight = rect.height > 0 ? rect.height : parseFloat(container.style.height) || 90; // Fallback height
+                    const containerWidth = rect.width > 0 ? rect.width : parseFloat(container.style.width) || 50; // (行内注释) 容器宽度，带回退
+                    const containerHeight = rect.height > 0 ? rect.height : parseFloat(container.style.height) || 90; // (行内注释) 容器高度，带回退
 
 
-                    let newLeft = parseFloat(savedPosition.left) * widthRatio;
-                    let newTop = parseFloat(savedPosition.top) * heightRatio;
+                    let newLeft = parseFloat(savedPosition.left) * widthRatio; // (行内注释) 计算新的左边距
+                    let newTop = parseFloat(savedPosition.top) * heightRatio; // (行内注释) 计算新的上边距
 
+                    // (行内注释) 确保调整后的位置仍在窗口可视范围内
                     newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - containerWidth));
                     newTop = Math.max(0, Math.min(newTop, window.innerHeight - containerHeight));
 
@@ -2477,95 +2582,115 @@
                     container.style.top = `${newTop}px`;
                 }
             }
-            // If no specific condition met, element remains at default CSS position or last known valid state.
+            // (行内注释) 如果以上条件都不满足，元素将保持其CSS中定义的默认位置或上一个有效的已知状态。
         } else {
-            // No saved position, set to default (e.g., bottom right)
+            // (段落注释) 如果没有保存的位置信息，则将悬浮窗设置到默认位置（例如屏幕右下角）。
             container.style.right = '20px';
             container.style.bottom = '20px';
-            container.style.left = 'auto'; // Clear left and top
+            container.style.left = 'auto'; // (行内注释) 清除左边距和上边距
             container.style.top = 'auto';
-            container.dataset.dockPosition = DOCK_POSITIONS.NONE;
+            container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 设置停靠状态为NONE
         }
     }
 
+    /**
+     * @description 初始化主控制按钮容器 (`container`) 的拖动、屏幕边缘停靠（左右）、以及停靠后的自动折叠/展开交互功能。
+     *              - 通过监听 `dragHandle` 上的 `mousedown` 事件，以及 `document` 上的 `mousemove` 和 `mouseup` 事件来实现拖动。
+     *              - 通过监听 `container` 上的 `mouseenter` 和 `mouseleave` 事件，并结合 `foldTimeout` 计时器，实现停靠后悬浮窗按钮区域的自动折叠与展开。
+     *              - 使用 `loadPosition` 和 `savePosition` 函数来持久化悬浮窗的位置和停靠状态。
+     *              - 动态注入相关的CSS样式到 Shadow DOM 中，以控制拖动、停靠、折叠时的视觉表现和过渡效果。
+     * @param {HTMLElement} container - 可拖动的主控制按钮容器元素。
+     * @param {HTMLElement} dragHandle - 用于拖动的把手元素。
+     * @param {ShadowRoot} shadow - Shadow DOM的根节点，新创建的样式将被附加到此节点。
+     */
     function initializeDrag(container, dragHandle, shadow) {
-        let isDragging = false;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
-        let foldTimeout;
+        let isDragging = false; // (行内注释) 布尔值，标记当前是否处于拖动操作状态。
+        let currentX; // (行内注释) 数字，拖动过程中容器左上角的当前X坐标（相对于视口）。
+        let currentY; // (行内注释) 数字，拖动过程中容器左上角的当前Y坐标（相对于视口）。
+        let initialX; // (行内注释) 数字，鼠标按下时，鼠标指针相对于容器左上角的X轴偏移量。
+        let initialY; // (行内注释) 数字，鼠标按下时，鼠标指针相对于容器左上角的Y轴偏移量。
+        let foldTimeout; // (行内注释) 定时器ID，用于实现鼠标移开已停靠的悬浮窗后延迟自动折叠按钮区域。
 
+        // (段落注释) 创建并注入控制悬浮窗拖动、停靠和折叠/展开动画效果的CSS样式。
+        // 这些样式确保了拖动时的平滑过渡，定义了停靠状态下的特殊外观，
+        // 以及按钮区域在折叠（隐藏）和展开（显示）时的动画行为。
         const style = document.createElement('style');
         style.textContent = `
-            .ai-summary-container {
+            .ai-summary-container { /* (行内注释) 悬浮窗主容器的基础过渡效果，应用于 transform 属性。 */
                 transition: transform 0.3s ease;
             }
-            .ai-summary-container.docked {
+            .ai-summary-container.docked { /* (行内注释) 容器处于停靠状态时的通用过渡效果，应用于所有可过渡的CSS属性。 */
                 transition: all 0.3s ease;
             }
-            .ai-drag-handle {
+            .ai-drag-handle { /* (行内注释) 确保拖动手柄在任何状态下都能正确响应鼠标事件。 */
                 pointer-events: auto !important;
             }
+            /* (段落注释) 定义当容器停靠且未被鼠标悬停时，内部按钮和选择器如何隐藏。
+               通过将宽度、内边距、透明度、高度都设置为0，并配合 transition 实现平滑的隐藏动画。*/
             .ai-summary-container.docked .ai-summary-btn,
             .ai-summary-container.docked .ai-template-btn,
             .ai-summary-container.docked .ai-main-prompt-selector {
-                width: 0;
-                padding: 0;
-                opacity: 0;
-                overflow: hidden;
-                border: none;
-                height: 0;
-                transition: all 0.3s ease;
+                width: 0; /* (行内注释) 宽度为0 */
+                padding: 0; /* (行内注释) 内边距为0 */
+                opacity: 0; /* (行内注释) 透明度为0 */
+                overflow: hidden; /* (行内注释) 隐藏溢出内容 */
+                border: none; /* (行内注释) 移除边框 */
+                height: 0; /* (行内注释) 高度为0 */
+                transition: all 0.3s ease; /* (行内注释) 应用于所有属性的过渡动画 */
             }
+            /* (段落注释) 定义当容器停靠且具有 'show-btn' 类（通常由鼠标悬停触发添加）或直接被鼠标悬停时，
+               内部按钮和选择器如何恢复其原始尺寸和可见性，并配合过渡动画。*/
             .ai-summary-container.docked.show-btn .ai-summary-btn,
             .ai-summary-container.docked.show-btn .ai-template-btn,
             .ai-summary-container.docked.show-btn .ai-main-prompt-selector,
             .ai-summary-container.docked:hover .ai-summary-btn,
             .ai-summary-container.docked:hover .ai-template-btn,
             .ai-summary-container.docked:hover .ai-main-prompt-selector {
-                width: 100%;
-                padding: 5px 15px;
-                opacity: 1;
-                height: 30px;
+                width: 100%; /* (行内注释) 恢复完整宽度 */
+                padding: 5px 15px; /* (行内注释) 恢复内边距 */
+                opacity: 1; /* (行内注释) 完全可见 */
+                height: 30px; /* (行内注释) 恢复原始高度 */
             }
+            /* (行内注释) 特别为提示词选择器在展开时恢复其特有的内边距。 */
             .ai-summary-container.docked.show-btn .ai-main-prompt-selector,
             .ai-summary-container.docked:hover .ai-main-prompt-selector {
-                padding: 0 5px; /* Restore padding for selector */
+                padding: 0 5px;
             }
+            /* (行内注释) 为总结按钮在展开时恢复其顶边框。 */
             .ai-summary-container.docked.show-btn .ai-summary-btn,
             .ai-summary-container.docked:hover .ai-summary-btn {
                  border-top: 1px solid rgba(107, 114, 128, 0.5);
             }
-            .ai-summary-container.right-dock {
-                right: 0 !important;
-                left: auto !important;
+            .ai-summary-container.right-dock { /* (行内注释) 定义悬浮窗停靠在屏幕右侧时的定位规则。 */
+                right: 0 !important; /* (行内注释) 强制右边距为0 */
+                left: auto !important; /* (行内注释) 左边距自动 */
             }
-            .ai-summary-container.left-dock {
-                left: 0 !important;
-                right: auto !important;
+            .ai-summary-container.left-dock { /* (行内注释) 定义悬浮窗停靠在屏幕左侧时的定位规则。 */
+                left: 0 !important; /* (行内注释) 强制左边距为0 */
+                right: auto !important; /* (行内注释) 右边距自动 */
             }
         `;
-        shadow.appendChild(style);
+        shadow.appendChild(style); // (行内注释) 将样式添加到Shadow DOM
 
-        // 鼠标进入和离开事件处理
+        // (段落注释) 处理鼠标进入和离开悬浮窗容器的事件，以实现停靠状态下的自动展开和折叠功能。
         container.addEventListener('mouseenter', () => {
-            clearTimeout(foldTimeout); // 清除之前的折叠计时器
-            if (container.classList.contains('docked')) {
-                container.classList.add('show-btn');
+            clearTimeout(foldTimeout); // (行内注释) 清除可能存在的延迟折叠计时器
+            if (container.classList.contains('docked')) { // (行内注释) 如果容器当前已停靠
+                container.classList.add('show-btn'); // (行内注释) 添加 'show-btn' 类以立即展开按钮区域
             }
         });
 
         container.addEventListener('mouseleave', () => {
-            if (container.classList.contains('docked')) {
-                // 设置延迟折叠
+            if (container.classList.contains('docked')) { // (行内注释) 如果容器当前已停靠
+                // (行内注释) 设置一个新的计时器，在 FOLD_DELAY 毫秒后移除 'show-btn' 类以折叠按钮区域
                 foldTimeout = setTimeout(() => {
                     container.classList.remove('show-btn');
                 }, FOLD_DELAY);
             }
         });
 
-        // 防抖函数
+        // (行内注释) 防抖函数，用于限制高频事件（如窗口大小调整）的触发次数。
+        // 此函数已在外部定义，这里仅为示意其作用。
         function debounce(func, wait) {
             let timeout;
             return function executedFunction(...args) {
@@ -2578,16 +2703,17 @@
             };
         }
 
-        loadPosition(container);
+        loadPosition(container); // (行内注释) 初始化时，加载并应用悬浮窗上一次保存的位置和状态。
 
+        // (段落注释) 监听拖动手柄上的 `mousedown` 事件，标志着拖动操作的开始。
         dragHandle.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            const rect = container.getBoundingClientRect();
-            initialX = e.clientX - rect.left;
-            initialY = e.clientY - rect.top;
-            console.log('[DragStart] initialX:', initialX, 'initialY:', initialY, 'rect.left:', rect.left, 'rect.top:', rect.top, 'clientX:', e.clientX, 'clientY:', e.clientY); // DEBUG LOG
+            isDragging = true; // (行内注释) 设置拖动状态为真
+            const rect = container.getBoundingClientRect(); // (行内注释) 获取容器的当前几何属性
+            initialX = e.clientX - rect.left; // (行内注释) 计算鼠标在容器内的X轴初始偏移
+            initialY = e.clientY - rect.top; // (行内注释) 计算鼠标在容器内的Y轴初始偏移
 
-            // 开始拖动时，先记录当前位置
+            // (段落注释) 记录拖动开始前容器的实际X, Y坐标。
+            // 如果容器是停靠状态，其X坐标需要特殊计算（0或窗口宽度减容器宽度）。
             if (container.classList.contains('right-dock')) {
                 currentX = window.innerWidth - container.offsetWidth;
             } else if (container.classList.contains('left-dock')) {
@@ -2597,84 +2723,109 @@
             }
             currentY = rect.top;
 
+            // (段落注释) 开始拖动时，移除所有停靠相关的CSS类和数据属性，
+            // 并将right/bottom样式设为auto，为自由拖动做准备。
             container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
             container.dataset.dockPosition = DOCK_POSITIONS.NONE;
-            // Ensure right/bottom are auto when starting a free drag
             container.style.right = 'auto';
             container.style.bottom = 'auto';
-            document.body.style.userSelect = 'none';
+            document.body.style.userSelect = 'none'; // (行内注释) 禁止在拖动过程中选中文本
         });
 
+        // (段落注释) 监听整个文档的 `mousemove` 事件，处理拖动过程中的位置更新。
         document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
+            if (!isDragging) return; // (行内注释) 如果不是拖动状态，则不执行任何操作
+            e.preventDefault(); // (行内注释) 阻止默认的鼠标移动行为（例如文本选择）
 
-            const newX = e.clientX - initialX;
-            const newY = e.clientY - initialY;
-            const containerWidth = container.offsetWidth;
-            const containerHeight = container.offsetHeight;
+            const newX = e.clientX - initialX; // (行内注释) 计算容器左上角的新目标X坐标
+            const newY = e.clientY - initialY; // (行内注释) 计算容器左上角的新目标Y坐标
+            const containerWidth = container.offsetWidth; // (行内注释) 获取容器当前宽度
+            const containerHeight = container.offsetHeight; // (行内注释) 获取容器当前高度
 
-            if (e.clientX < DOCK_THRESHOLD) {
+            // (段落注释) 检查是否接近屏幕边缘以触发自动停靠。
+            if (e.clientX < DOCK_THRESHOLD) { // (行内注释) 如果接近左边缘
                 dockToLeft(container);
-                // container.classList.add('show-btn'); // 由 mouseenter 控制
+                // (行内注释) 'show-btn' 类的添加/移除由 mouseenter/mouseleave 事件处理，此处不再直接添加。
             }
-            else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) {
+            else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) { // (行内注释) 如果接近右边缘
                 dockToRight(container);
-                // container.classList.add('show-btn'); // 由 mouseenter 控制
+                // (行内注释) 'show-btn' 类的添加/移除由 mouseenter/mouseleave 事件处理。
             }
-            else {
-                const maxX = window.innerWidth - containerWidth;
-                const maxY = window.innerHeight - containerHeight;
+            else { // (行内注释) 如果不接近任何边缘，则执行自由拖动
+                const maxX = window.innerWidth - containerWidth; // (行内注释) 计算容器可移动的最大X坐标
+                const maxY = window.innerHeight - containerHeight; // (行内注释) 计算容器可移动的最大Y坐标
 
+                // (行内注释) 限制X, Y坐标在窗口可视范围内
                 currentX = Math.max(0, Math.min(newX, maxX));
                 currentY = Math.max(0, Math.min(newY, maxY));
 
+                // (行内注释) 更新容器的left和top样式以移动它
                 container.style.left = `${currentX}px`;
                 container.style.top = `${currentY}px`;
-                container.style.right = 'auto';
-                container.style.bottom = 'auto'; // Ensure bottom is auto for free drag
-                container.dataset.dockPosition = DOCK_POSITIONS.NONE;
-                container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
-                console.log('[DragMove] clientX:', e.clientX, 'clientY:', e.clientY, 'newX:', newX, 'newY:', newY, 'currentX:', currentX, 'currentY:', currentY); // DEBUG LOG
+                container.style.right = 'auto'; // (行内注释) 确保right为auto
+                container.style.bottom = 'auto'; // (行内注释) 确保bottom为auto，因为我们通过top/left定位
+                container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 设置停靠状态为NONE
+                container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // (行内注释) 移除所有停靠类
             }
-            // Removed GM_setValue from mousemove to avoid excessive writes. Saving is handled on mouseup.
+            // (行内注释) 注意：GM_setValue 已从 mousemove 事件中移除，以避免过多的写操作。位置保存将在 mouseup 事件中进行。
         });
 
+        // (段落注释) 监听整个文档的 `mouseup` 事件，标志着拖动操作的结束。
         document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                document.body.style.userSelect = 'auto';
-                savePosition(container); // Call the main savePosition function to save the full state
+            if (isDragging) { // (行内注释) 如果当前处于拖动状态
+                isDragging = false; // (行内注释) 重置拖动状态
+                document.body.style.userSelect = 'auto'; // (行内注释) 恢复文本可选状态
+                savePosition(container); // (行内注释) 调用 savePosition 函数保存悬浮窗的最终位置和状态
             }
         });
 
-        // 使用防抖处理窗口调整
+        // (行内注释) 创建一个经过防抖处理的 loadPosition 函数版本，用于窗口大小调整事件。
         const debouncedLoadPosition = debounce(() => {
             loadPosition(container);
         }, DEBOUNCE_TIME);
 
+        // (行内注释) 监听窗口的 `resize` 事件，当窗口大小改变时，调用防抖处理后的 `loadPosition` 函数，
+        // 以便根据新的窗口尺寸调整悬浮窗位置，保持其可见性和相对位置。
         window.addEventListener('resize', debouncedLoadPosition);
     }
 
+    /**
+     * @description 将主控制按钮容器 (`container`) 停靠到屏幕的左侧。
+     *              通过添加 `docked` 和 `left-dock` CSS类，设置 `container.dataset.dockPosition` 为 `DOCK_POSITIONS.LEFT`，
+     *              并将 `container.style.left` 设置为 `'0'`，`container.style.right` 设置为 `'auto'`。
+     *              注意：`show-btn` 类（用于展开按钮）由 `mouseenter` 事件控制，此处不直接添加。
+     * @param {HTMLElement} container - 主控制按钮容器元素。
+     */
     function dockToLeft(container) {
-        container.classList.add('docked', 'left-dock'); // show-btn 由 mouseenter 控制
-        container.dataset.dockPosition = DOCK_POSITIONS.LEFT;
-        container.style.left = '0';
-        container.style.right = 'auto';
+        container.classList.add('docked', 'left-dock'); // (行内注释) 添加停靠和左侧停靠的CSS类
+        container.dataset.dockPosition = DOCK_POSITIONS.LEFT; // (行内注释) 在dataset中记录停靠位置为左侧
+        container.style.left = '0'; // (行内注释) 将容器的左边距设置为0，使其紧贴屏幕左边缘
+        container.style.right = 'auto'; // (行内注释) 清除右边距定位，确保由左边距控制位置
     }
 
+    /**
+     * @description 将主控制按钮容器 (`container`) 停靠到屏幕的右侧。
+     *              通过添加 `docked` 和 `right-dock` CSS类，设置 `container.dataset.dockPosition` 为 `DOCK_POSITIONS.RIGHT`，
+     *              并将 `container.style.right` 设置为 `'0'`，`container.style.left` 设置为 `'auto'`。
+     *              注意：`show-btn` 类（用于展开按钮）由 `mouseenter` 事件控制，此处不直接添加。
+     * @param {HTMLElement} container - 主控制按钮容器元素。
+     */
     function dockToRight(container) {
-        container.classList.add('docked', 'right-dock'); // show-btn 由 mouseenter 控制
-        container.dataset.dockPosition = DOCK_POSITIONS.RIGHT;
-        container.style.right = '0';
-        container.style.left = 'auto';
+        container.classList.add('docked', 'right-dock'); // (行内注释) 添加停靠和右侧停靠的CSS类
+        container.dataset.dockPosition = DOCK_POSITIONS.RIGHT; // (行内注释) 在dataset中记录停靠位置为右侧
+        container.style.right = '0'; // (行内注释) 将容器的右边距设置为0，使其紧贴屏幕右边缘
+        container.style.left = 'auto'; // (行内注释) 清除左边距定位，确保由右边距控制位置
     }
 
-    let globalElements = {}; // 定义一个全局变量来存储elements
+    let globalElements = {}; // 全局变量，用于存储脚本创建的主要UI元素的引用
 
+    /**
+     * @description 脚本的主入口函数。
+     *              负责加载配置、创建UI元素、初始化事件监听器，并检查初始配置是否完整。
+     *              如果配置不完整，则会提示用户进行配置。
+     */
     function main() {
         try {
-            console.log('AI_WebSummary: Script attempting to initialize...');
             // 1. 加载配置
             loadConfig();
 
@@ -2685,20 +2836,16 @@
                 alert('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
                 return;
             }
-            console.log('AI_WebSummary: Elements created:', globalElements);
 
             // 3. 初始化事件
             initializeEvents(globalElements); // 传递 globalElements
-            console.log('AI_WebSummary: Events initialized.');
 
             // 4. 检查配置是否完整
             if (!CONFIG.BASE_URL || !CONFIG.API_KEY) {
                 globalElements.settingsPanel.style.display = 'block'; // 使用 globalElements
                 globalElements.settingsOverlay.style.display = 'block'; // 使用 globalElements
                 alert('请先配置Base URL和API Key。');
-                console.log('AI_WebSummary: Configuration incomplete, showing settings panel.');
             }
-            console.log('AI_WebSummary: Script initialized successfully.');
         } catch (error) {
             console.error('AI_WebSummary: Critical error during script initialization:', error);
             // Fallback display mechanism
@@ -2715,10 +2862,8 @@
     }
 
     if (document.readyState === 'loading') {
-        console.log('AI_WebSummary: DOM not ready, queuing main function.');
         document.addEventListener('DOMContentLoaded', main);
     } else {
-        console.log('AI_WebSummary: DOM ready, executing main function.');
         main();
     }
 })();
