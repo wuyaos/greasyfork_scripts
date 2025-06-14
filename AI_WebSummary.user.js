@@ -2,7 +2,7 @@
 // @name         AI网页内容总结(自用)
 // @namespace    http://tampermonkey.net/
 // @version      2.0.2
-// @description  使用AI总结网页内容的油猴脚本，采用Shadow DOM隔离样式
+// @description  使用AI总结网页内容的油猴脚本
 // @author       Jinfeng (modifed by ffwu)
 // @match        *://*/*
 // @grant        GM_getValue
@@ -24,6 +24,7 @@
  * - 实现模型列表实时更新功能
  * v2.0.2 (2025-06-14)
  * - 修复github页面的总结
+ * - 修复populateModalModelSelector is not defined
  */
 
 (function() {
@@ -200,6 +201,21 @@
             ...CONFIG,
             ...newConfig
         };
+    }
+// Function to populate the model selector in the modal
+    function populateModalModelSelector(modalElement) {
+        if (!modalElement) {
+            console.error("populateModalModelSelector: modalElement is undefined");
+            return;
+        }
+        const modelSelectInModal = modalElement.querySelector('#ai-model-select-modal');
+        if (modelSelectInModal) {
+            modelSelectInModal.innerHTML = CONFIG.SAVED_MODELS.map(modelId =>
+                `<option value="${modelId}" ${modelId === CONFIG.MODEL ? 'selected' : ''}>${modelId}</option>`
+            ).join('');
+        } else {
+            console.error("populateModalModelSelector: #ai-model-select-modal not found in modalElement");
+        }
     }
 
     // 更新提示词选择器 (原 updateConfigSelectors)
@@ -629,7 +645,7 @@
             // GM_setValue('PROMPT', CONFIG.PROMPT); // PROMPT is no longer saved
             GM_setValue('CURRENT_PROMPT_IDENTIFIER', CONFIG.CURRENT_PROMPT_IDENTIFIER);
             GM_setValue('SAVED_MODELS', CONFIG.SAVED_MODELS);
-            populateModalModelSelector(); // 刷新模态框模型选择器
+            populateModalModelSelector(modal); // 刷新模态框模型选择器
 
             // 更新快照以反映已保存的更改，修复关闭时“未保存更改”的误报
             if (typeof panel.takeSettingsSnapshot === 'function') {
@@ -643,7 +659,7 @@
 
             panel.style.display = 'none';
             settingsOverlay.style.display = 'none';
-            alert('设置已应用！');
+            showToastNotification('设置已应用！');
         });
 
         // Cancel button and overlay click
@@ -1832,6 +1848,66 @@
         `;
     }
 
+    // 显示自动消失的提示消息
+    function showToastNotification(message, duration = 3000) {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75); /* 稍微加深背景以便更清晰 */
+            color: white;
+            padding: 12px 22px; /* 稍微增大内边距 */
+            border-radius: 6px; /* 稍微增大圆角 */
+            z-index: 100005; /* 比其他模态框更高 */
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out; /* 动画更平滑 */
+            font-family: Microsoft Yahei, PingFang SC, HanHei SC, Arial;
+            font-size: 14px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25); /* 增加阴影效果 */
+            text-align: center;
+            max-width: 80%; /* 防止提示过宽 */
+        `;
+
+        // 尝试将toast添加到shadow DOM的根节点
+        let shadowRootForToast = null;
+        if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
+            shadowRootForToast = globalElements.shadow;
+        } else {
+            // 备用方案：尝试通过ID获取根元素的shadowRoot
+            const rootEl = document.getElementById('ai-summary-root');
+            if (rootEl && rootEl.shadowRoot) {
+                shadowRootForToast = rootEl.shadowRoot;
+            }
+        }
+
+        if (shadowRootForToast) {
+            shadowRootForToast.appendChild(toast);
+        } else {
+            console.warn('AI_WebSummary: Shadow DOM for toast not found, appending to body. Style conflicts may occur.');
+            document.body.appendChild(toast); // 最后手段
+        }
+
+        // 淡入效果
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.bottom = '40px'; // 动画效果更明显
+        }, 50); // 缩短延迟以更快显示
+
+        // 持续时间后淡出并移除
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.bottom = '20px';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 500); // 等待淡出动画完成
+        }, duration);
+    }
+
     // 全局变量，用于存储原始的 Markdown 文本和中断控制器
     let originalMarkdownText = '';
     let abortController = null;
@@ -2018,13 +2094,7 @@
         const modelSelectModal = modal.querySelector('#ai-model-select-modal');
         const promptSelectModal = modal.querySelector('#ai-prompt-select-modal');
 
-        function populateModalModelSelector() {
-            if (modelSelectModal) {
-                modelSelectModal.innerHTML = CONFIG.SAVED_MODELS.map(modelId =>
-                    `<option value="${modelId}" ${modelId === CONFIG.MODEL ? 'selected' : ''}>${modelId}</option>`
-                ).join('');
-            }
-        }
+        // Old populateModalModelSelector removed, new global one is used.
 
         function populateAllSelectors(elements) { // 接收 elements 作为参数
             updateAllPromptSelectors(elements); // 传递 elements
@@ -2062,7 +2132,7 @@
 
         // 点击“打开模板”按钮
         templateBtn.addEventListener('click', () => {
-             populateModalModelSelector(); // 在显示模态框前刷新模型列表
+             populateModalModelSelector(modal); // 在显示模态框前刷新模型列表
              showModal(modal, overlay);
              // Optionally, clear the content or show a specific message
              const contentContainer = modal.querySelector('.ai-summary-content');
@@ -2104,7 +2174,7 @@
                     throw new Error('网页内容为空，无法生成总结。');
                 }
 
-                populateModalModelSelector(); // Refresh selector when opening modal
+                populateModalModelSelector(modal); // Refresh selector when opening modal
                 updateAllPromptSelectors(); // 刷新所有选择器
                 const modelForApi = modelSelectModal.value;
                 if (!modelForApi) {
@@ -2263,7 +2333,7 @@
             }
 
             modelSelectionModal.style.display = 'none';
-            alert('模型列表已保存！');
+            showToastNotification('模型列表已保存！');
         });
     }
     // 判断快捷键是否被按下
