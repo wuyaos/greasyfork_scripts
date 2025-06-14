@@ -9,7 +9,7 @@
 // @grant        GM_setValue
 // @grant        GM_addStyle
 // @grant        GM.xmlHttpRequest
-// @icon         data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGH0lEQVR4nO2ZWWxUVRjHr+uDqA/64BITE6O+qIn4YoyJJkQTo5Y5Z0pRZBFBwCAakYgkYKb3TikUEhYhyBaLhbC0UqA7a1e60g0olC50YbpSliIEF87/b26nl7l3OsBDKZ0m/JN5uz33+51zvu/7f7eadl/3FR6ixgeMSI7WBefoY/m2x8MHtZEUvC7VbkOC1k8X6rAnio9qI0HRkhPtwQd+nKuNBOlSlVhBL51iOwWpzob9VTIiOdoK2DsO3LIBjPnMDsFPtHCWLlW8FeyaeeCuHeDq+Y5cSNfCWbpQl61gd24Gk5PArZtseSCU8ki+roWrDKky+nb/ezArHUzZC+5OAlfMsSez2quFq3IO8p3M3QrZh8FDB8DMfojt5im4HbkgtXCR51M+5nHxzf0JHFVWqsqKC8GCPDDnSD9EGrhvD/jrPEdFumJE8rXhjl0zXHzDkKreDGrd3BsNleVgWSlYZIM4uB/MSAP3JIJxUx0QPV433xuWwBOj+JAhONMQ6i8roFUzwOPVYIUJUQIWHQXzc0HzOvVBpIKJ8WDMeEdSX9cFf7xnXdrzPh/WJaN0qY7bu+ySCWBuKnjqZACiNAjiQBaYngru2AjGTnB2aV2oOkNw0oaZfGRoAv+IT5o7ZUjVFGwRVs8Cq4rBhnrwTC1YY0JUgRXHwNJisPAomGeHSAGTEsBl0wbaDV0ony64wBPFp+5a8IbgT4ZUvcEvW/oFmLkFbGkCW1vAprNOiOoqsNyCKADzcsAjh8D9mWBair9HbPQ6O7URyI+rhlT6oK1HtIvTgxdfPgXMigd9zWB3N9jRAfp8YEsLeLYfovY0WHMiAFESCmIfuOdPcEcCuHYhuPjzUCfCBYMC0KXaby227juwMBW8eAHs7QUvXQJ7esDuLrCjHfSdA1uawbONYH2dH+KkCVEJlpeBJUXg0Xwwtx8iKwNM3Qcm/wnu2g5ujQfXRoNLbAbQkKpyUACGVMesxdI3gF0+8OpV8MoV8PLlAETXHSCqKsFjdohs8PBBG0SSH2LLZnD1zw6AtsGeQIz9SGPGgYnLwMYTAYiLFwMQ7e3guSCI06fAk8fBqgo/RHEwRLo/qdfOB71RQddIqN8HBRA3lk/oUmWHGlC2LAIbTtwaorkZbLRBnDgOVpoQpeDNbp0NblgYavhB3/XxRPFZ7a6MiC5GGEIdCX6J1w0mrwJ7uvwQ58+DXZ1gext4rhVsbgIbG8C6M06Isn6IwxmhA492c/KQ9IS+gUWoBF2of+0vXf8D2NYcgOjsBNtCQJyqAStLwaydYFG+ai8oYKQh1AFdqBu6VKleyTF3PeiQIG6+YgiVbIdYMQ30NQ2EaG0Fm/ohaqrB1d9YE5uqsBtCbThkuDjVEOqfmycxF+zp9pfa891gZwfY5vM3OhNg0wJH1+3WwkFeyTF2CDMnzPJ64YK/0VkQKesdnRaG4HgtXBQt+KU9seurnRCNtWCsfbgXXHS79TxuvmRItUYXar1p2e8JhD0nzBJrdWsTYmec4+oUmZXtlsFH8XFdqlpbL+i4K+X0TvIIvmqvTuYpmD2itcHfAK2ro7v57u3W8Up+G8LcxWj3QrpQf1gvTVru79ZpGx2d9cCdbbvyhegNvZ6xfP6eftgyd/1cA7hski0QNz++1d8u/5CjDKGyrGfjJoPLpztOoSRW8Okhh9CFyr057Mx07OKZUP7eHE/7pjyh6gKg4L4EMGUb6I10DjzRkl8N6Qhqfj4M5W2iBWcEPxsj+Zzd8RpWKf7Nb/5M97pzrfOTjDWCeiL48pBBGEKt7Kv1gbufEGr3daE22QOLmwTm7PE7WdM7mTbchEiOB5dOHJDYqdpQanEEnzFcFB7JF271jC5Upj2og9v8jtZ0syZEbT9EYS4Y7x1wClXacKv/7t+wgloz2++l7BDlheCqWQN2H7rkbC0c5HXzA12qfLOHbF/MxN5e9bcF0XgGXDljwJBTrbsYqYWrrl2jqMpTqCkFt8c6Ar9uCE67XRcPCxmSX1ul1Ko+fVfGxQhtJMiQ/GWAlRAqSRsp8rr5ov/D1s0G+J9H8i1tJEl3McJ0pOY/Bg3JKcMdz33dlzZC9D+LzYH4r4ti5wAAAABJRU5ErkJggg==
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/ai.png
 // @require      https://cdn.jsdelivr.net/npm/marked/marked.min.js
 // @require      https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js
 // @license      Apache-2.0
@@ -520,9 +520,6 @@
                     const ownedBy = model.owned_by || 'N/A';
                     descriptionArea.innerHTML = `
                         <p style="margin:0; font-weight: bold;">${model.id}</p>
-                        <p style="margin:5px 0 0 0; font-size: 12px; color: #555;"><i>(这是一个占位符，未来可能会显示更详细的模型描述)</i></p>
-                        <p style="margin:5px 0 0 0; font-size: 12px; color: #555;">创建时间: ${createdDate}</p>
-                        <p style="margin:5px 0 0 0; font-size: 12px; color: #555;">所有者: ${ownedBy}</p>
                     `;
                 });
             });
