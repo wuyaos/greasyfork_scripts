@@ -2180,6 +2180,7 @@
                         CONFIG.CURRENT_PROMPT_IDENTIFIER = newIdentifier;
                         GM_setValue('CURRENT_PROMPT_IDENTIFIER', newIdentifier);
                         updateAllPromptSelectors(elements); // 同步所有选择器
+                        showToastNotification(`提示词已切换为: ${newIdentifier}`);
                     }
                 });
             }
@@ -2855,18 +2856,13 @@
 
             // 4. 检查配置是否完整，并处理首次打开
             const isDefaultApiKey = CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY;
-            const isBaseUrlMissing = !CONFIG.BASE_URL; // Check if Base URL is empty or undefined
 
-            if (isDefaultApiKey || isBaseUrlMissing) {
+            if (isDefaultApiKey) {
                 openSettings(globalElements); // 使用 openSettings 函数来正确打开和初始化设置面板
                 if (isDefaultApiKey) {
                     // 只有当 API Key 是初始默认值时，才显示首次配置的欢迎信息
-                    alert('欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。');
-                } else if (isBaseUrlMissing) {
-                    // 如果 API Key 不是默认值但 Base URL 缺失，则提示补充 Base URL
-                    alert('请完成配置：Base URL 尚未设置。');
+                    showToastNotification(`欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。`);
                 }
-                // 如果 API Key 和 Base URL 都已配置（非默认/非空），则此块不执行。
             }
         } catch (error) {
             console.error('AI_WebSummary: Critical error during script initialization:', error);
