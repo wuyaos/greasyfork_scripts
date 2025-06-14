@@ -149,15 +149,7 @@
         MODEL: 'gpt-4o-mini',
         CURRENT_PROMPT_IDENTIFIER: PROMPT_TEMPLATES[0].identifier, // 默认使用第一个预设模板的标识符
         SAVED_MODELS: ['gpt-4o-mini'], // 保存用户选择的模型列表
-        containerPosition: {
-            "left": "auto",
-            "top": "926px",
-            "right": "0px",
-            "bottom": "auto",
-            "dockPosition": "right",
-            "windowWidth": 2328,
-            "windowHeight": 1155
-        }
+
     };
 
     // 获取配置
@@ -176,7 +168,7 @@
             MODEL: GM_getValue('MODEL', DEFAULT_CONFIG.MODEL),
             CURRENT_PROMPT_IDENTIFIER: GM_getValue('CURRENT_PROMPT_IDENTIFIER', DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER),
             SAVED_MODELS: GM_getValue('SAVED_MODELS', DEFAULT_CONFIG.SAVED_MODELS),
-            containerPosition: GM_getValue('containerPosition', DEFAULT_CONFIG.containerPosition)
+            containerPosition: GM_getValue('containerPosition') // 不再提供默认值，loadPosition会处理
         };
         // API_URL 相关逻辑已完全移除
 
@@ -1162,17 +1154,11 @@
             }
 
             // 定义需要从GM存储中清除的键名列表
-            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition']; // 确保 containerPosition 已在此处
-            // 遍历并清除每个键对应的值
+            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition'];
             keysToClear.forEach(key => GM_setValue(key, undefined));
 
-            // 重置内存中的 CONFIG 对象为默认配置 (使用深拷贝以防意外修改 DEFAULT_CONFIG)
-            CONFIG = { ...DEFAULT_CONFIG };
-            // 再次遍历默认配置，确保这些默认值也写回到 GM_setValue 中，以覆盖可能存在的旧值或确保初始状态
-            Object.keys(DEFAULT_CONFIG).forEach(key => {
-                GM_setValue(key, DEFAULT_CONFIG[key]);
-            });
-            GM_setValue('saved_prompts', {}); // 特别确保自定义提示词也被清空
+            // 重新加载配置以应用默认值（除了containerPosition）
+            loadConfig(); // 这会重新加载除 containerPosition 之外的默认值
 
             // 更新设置面板UI上的各个输入字段，以反映重置后的默认值
             panel.querySelector('#base-url').value = CONFIG.BASE_URL;
@@ -1208,13 +1194,13 @@
 
             // 如果主悬浮窗 (ai-summary-container) 存在，则将其位置也重置到默认状态
             if (typeof globalElements !== 'undefined' && globalElements && globalElements.container) {
-                // loadPosition 函数会处理默认位置的加载逻辑（可能包括停靠状态或屏幕右下角）
+                // 清除缓存后，loadPosition会因为找不到containerPosition而调用setDefaultPosition
                 loadPosition(globalElements.container);
             }
 
             showToastNotification('设置已重置并清除缓存！'); // 显示操作成功的提示消息
         });
-        
+
         // 旧的与 `promptTemplateSelect`（已废弃的提示词模板管理功能）相关的逻辑和注释已完全移除，以保持代码整洁。
 
         shadow.appendChild(style); // 将包含所有设置面板样式的 <style> 元素附加到 Shadow DOM
@@ -2492,8 +2478,7 @@
     // 定义可能的停靠位置
     const DOCK_POSITIONS = {
         LEFT: 'left', // 左侧停靠
-        RIGHT: 'right', // 右侧停靠
-        NONE: 'none'
+        RIGHT: 'right' // 右侧停靠
     };
 
     const DEBOUNCE_TIME = 10; // 防抖时间
@@ -2503,109 +2488,90 @@
 
     /**
      * @description 将悬浮窗 (`container`) 的当前位置信息和状态保存到 `GM_setValue`。
-     *              保存的内容包括：
-     *              - `left`, `top`, `right`, `bottom`: 容器当前的CSS样式值。
-     *              - `dockPosition`: 当前的停靠状态 (例如 DOCK_POSITIONS.LEFT, DOCK_POSITIONS.RIGHT, DOCK_POSITIONS.NONE)。
-     *              - `windowWidth`, `windowHeight`: 保存时的浏览器窗口内部宽度和高度。
-     *              这些信息用于在下次加载脚本或窗口大小调整后，能够恢复悬浮窗的状态。
+     *              只保存 `dockPosition` ('left' 或 'right') 和 `bottom` (相对于视窗底部的像素值)。
      * @param {HTMLElement} container - 主控制按钮容器元素。
      */
     function savePosition(container) {
+        const containerRect = container.getBoundingClientRect();
+        const dockPosition = container.dataset.dockPosition || DOCK_POSITIONS.RIGHT; // 默认为右停靠
+        let bottomValue;
+
+        if (dockPosition === DOCK_POSITIONS.LEFT || dockPosition === DOCK_POSITIONS.RIGHT) {
+            // 对于停靠状态，bottom 是相对于窗口底部计算的
+            bottomValue = window.innerHeight - containerRect.bottom;
+        } else {
+            // 此分支理论上不应进入，因为我们强制停靠
+            // 但作为回退，如果意外进入非停靠状态，尝试从style.bottom读取或计算
+            if (container.style.bottom && container.style.bottom !== 'auto') {
+                bottomValue = parseFloat(container.style.bottom);
+            } else if (container.style.top && container.style.top !== 'auto') {
+                // 如果只有top，则计算bottom
+                bottomValue = window.innerHeight - (parseFloat(container.style.top) + containerRect.height);
+            } else {
+                // 极端回退，设为20px
+                bottomValue = 20;
+            }
+        }
+
         const position = {
-            left: container.style.left, // (行内注释) 容器左边距
-            top: container.style.top, // (行内注释) 容器上边距
-            right: container.style.right, // (行内注释) 容器右边距
-            bottom: container.style.bottom, // (行内注释) 容器下边距
-            dockPosition: container.dataset.dockPosition || DOCK_POSITIONS.NONE, // (行内注释) 停靠位置，默认为NONE
-            windowWidth: window.innerWidth, // (行内注释) 当前窗口宽度
-            windowHeight: window.innerHeight // (行内注释) 当前窗口高度
+            bottom: `${Math.round(bottomValue)}px`, // 四舍五入并转为字符串
+            dockPosition: dockPosition
         };
-        GM_setValue('containerPosition', position); // (行内注释) 使用GM API保存位置信息
+        GM_setValue('containerPosition', position);
+    }
+    /**
+     * @description 设置悬浮窗的默认位置（停靠在右侧，距离底部20px）并保存。
+     * @param {HTMLElement} container - 主控制按钮容器元素。
+     */
+    function setDefaultPosition(container) {
+        dockToRight(container); // 默认停靠到右侧
+        container.style.bottom = '20px'; // 默认距离底部20px
+        container.style.top = 'auto';
+        savePosition(container); // 保存这个默认位置
     }
 
     /**
      * @description 从 `GM_getValue` 中加载并恢复悬浮窗 (`container`) 的位置和状态。
-     *              处理逻辑包括：
-     *              - 如果存在已保存的位置信息：
-     *                  - 首先移除所有可能的旧停靠CSS类。
-     *                  - 如果保存的是停靠状态 (左侧或右侧)，则调用相应的 `dockToLeft` 或 `dockToRight` 函数，
-     *                    并根据保存的 `top` 值调整垂直位置，同时确保其在窗口可视范围内。
-     *                  - 如果保存的是自由浮动状态，则恢复 `left`, `top`, `right`, `bottom` 样式，并设置 `data-dockPosition`。
-     *                  - 如果保存了窗口尺寸且当前窗口尺寸已改变，则按比例调整 `left` 和 `top`，
-     *                    确保悬浮窗在新窗口尺寸下保持相对位置并可见。
-     *              - 如果不存在已保存的位置信息，则将悬浮窗设置到默认位置（例如屏幕右下角）。
+     *              仅处理新的 `{ bottom, dockPosition }` 格式。
+     *              如果找不到有效配置，则调用 `setDefaultPosition`。
      * @param {HTMLElement} container - 主控制按钮容器元素。
      */
     function loadPosition(container) {
-        const savedPosition = GM_getValue('containerPosition'); // (行内注释) 获取保存的位置信息
-        if (savedPosition) { // (行内注释) 如果存在保存的位置
-            // (段落注释) 始终先清除之前的停靠CSS类，为应用新的或恢复的状态做准备。
-            container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
+        const savedPosition = GM_getValue('containerPosition');
+        container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // 清理旧类
 
-            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT) { // (行内注释) 如果是停靠状态
-                if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) { // (行内注释) 如果是左停靠
-                    dockToLeft(container);
-                } else { // (行内注释) 如果是右停靠
-                    dockToRight(container);
-                }
+        if (savedPosition &&
+            typeof savedPosition.bottom === 'string' &&
+            (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT)) {
 
-                let restoredTop = parseFloat(savedPosition.top); // (行内注释) 解析保存的上边距
-                const containerRect = container.getBoundingClientRect(); // (行内注释) 获取容器的当前尺寸和位置
-                // (行内注释) 预估容器高度，如果实际高度无效则使用默认值。顺序：拖动手柄(20px) + 提示词选择器(30px) + 总结按钮(30px) + 打开面板按钮(30px) = 110px。
-                const containerHeight = containerRect.height > 0 ? containerRect.height : 110;
+            container.style.bottom = savedPosition.bottom;
+            container.style.top = 'auto'; // 确保基于底部定位
 
-                if (!isNaN(restoredTop)) { // (行内注释) 如果保存的上边距有效
-                    // (行内注释) 确保恢复的上边距在窗口可视范围内
-                    restoredTop = Math.max(0, Math.min(restoredTop, window.innerHeight - containerHeight));
-                    container.style.top = `${restoredTop}px`;
-                } else {
-                    // (行内注释) 如果保存的上边距无效，则回退到默认值（例如距离顶部20px），并确保在可视范围内
-                    let defaultTop = 20;
-                    defaultTop = Math.max(0, Math.min(defaultTop, window.innerHeight - containerHeight));
-                    container.style.top = `${defaultTop}px`;
-                }
-                container.style.bottom = 'auto'; // (行内注释) 停靠时，底部位置自动
-            } else if (savedPosition.left && savedPosition.top) { // (行内注释) 如果是自由浮动状态或旧的保存格式
-                // (段落注释) 恢复自由浮动状态下的位置。
-                container.style.left = savedPosition.left;
-                container.style.top = savedPosition.top;
-                container.style.right = savedPosition.right || 'auto'; // (行内注释) 如果未保存right，则设为auto
-                container.style.bottom = savedPosition.bottom || 'auto'; // (行内注释) 如果未保存bottom，则设为auto
-                container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 明确设置停靠状态为NONE
-
-                // (段落注释) 如果窗口大小发生变化，按比例调整悬浮窗的位置以保持其相对位置。
-                if (savedPosition.windowWidth && savedPosition.windowHeight &&
-                    (savedPosition.windowWidth !== window.innerWidth || savedPosition.windowHeight !== window.innerHeight)) {
-                    const widthRatio = window.innerWidth / savedPosition.windowWidth; // (行内注释) 计算宽度缩放比例
-                    const heightRatio = window.innerHeight / savedPosition.windowHeight; // (行内注释) 计算高度缩放比例
-                    
-                    // (行内注释) 获取容器的实际宽度和高度，优先使用getBoundingClientRect，如果元素不可见导致为0，则尝试解析style或使用回退值。
-                    const rect = container.getBoundingClientRect();
-                    const containerWidth = rect.width > 0 ? rect.width : parseFloat(container.style.width) || 50; // (行内注释) 容器宽度，带回退
-                    const containerHeight = rect.height > 0 ? rect.height : parseFloat(container.style.height) || 90; // (行内注释) 容器高度，带回退
-
-
-                    let newLeft = parseFloat(savedPosition.left) * widthRatio; // (行内注释) 计算新的左边距
-                    let newTop = parseFloat(savedPosition.top) * heightRatio; // (行内注释) 计算新的上边距
-
-                    // (行内注释) 确保调整后的位置仍在窗口可视范围内
-                    newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - containerWidth));
-                    newTop = Math.max(0, Math.min(newTop, window.innerHeight - containerHeight));
-
-                    container.style.left = `${newLeft}px`;
-                    container.style.top = `${newTop}px`;
-                }
+            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) {
+                dockToLeft(container);
+            } else {
+                dockToRight(container);
             }
-            // (行内注释) 如果以上条件都不满足，元素将保持其CSS中定义的默认位置或上一个有效的已知状态。
+            // 根据保存的bottom值，可能需要重新计算top以确保元素在可视范围内，但这通常由停靠逻辑和bottom样式处理。
+            // 确保元素在屏幕内 (主要垂直方向，因为水平方向由停靠决定)
+            const containerRect = container.getBoundingClientRect();
+            const containerHeight = containerRect.height > 0 ? containerRect.height : 110; // 估算高度
+            const bottomPx = parseFloat(savedPosition.bottom);
+
+            if (window.innerHeight - bottomPx < 0) { // 如果底部超出视窗顶部
+                container.style.bottom = `${window.innerHeight - containerHeight}px`;
+            }
+            if (bottomPx < 0) { // 如果底部低于视窗底部
+                 container.style.bottom = '0px';
+            }
+
+
         } else {
-            // (段落注释) 如果没有保存的位置信息，则将悬浮窗设置到默认位置（例如屏幕右下角）。
-            container.style.right = '20px';
-            container.style.bottom = '20px';
-            container.style.left = 'auto'; // (行内注释) 清除左边距和上边距
-            container.style.top = 'auto';
-            container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 设置停靠状态为NONE
+            // 如果没有有效的保存位置，或格式不正确，则设置默认位置
+            setDefaultPosition(container);
         }
     }
+
 
     /**
      * @description 初始化主控制按钮容器 (`container`) 的拖动、屏幕边缘停靠（左右）、以及停靠后的自动折叠/展开交互功能。
@@ -2717,83 +2683,95 @@
             };
         }
 
-        loadPosition(container); // (行内注释) 初始化时，加载并应用悬浮窗上一次保存的位置和状态。
+        loadPosition(container); // 初始化时，加载并应用悬浮窗上一次保存的位置和状态。
 
-        // (段落注释) 监听拖动手柄上的 `mousedown` 事件，标志着拖动操作的开始。
         dragHandle.addEventListener('mousedown', (e) => {
-            isDragging = true; // (行内注释) 设置拖动状态为真
-            const rect = container.getBoundingClientRect(); // (行内注释) 获取容器的当前几何属性
-            initialX = e.clientX - rect.left; // (行内注释) 计算鼠标在容器内的X轴初始偏移
-            initialY = e.clientY - rect.top; // (行内注释) 计算鼠标在容器内的Y轴初始偏移
+            isDragging = true;
+            const rect = container.getBoundingClientRect();
+            initialX = e.clientX - rect.left;
+            initialY = e.clientY - rect.top;
 
-            // (段落注释) 记录拖动开始前容器的实际X, Y坐标。
-            // 如果容器是停靠状态，其X坐标需要特殊计算（0或窗口宽度减容器宽度）。
-            if (container.classList.contains('right-dock')) {
-                currentX = window.innerWidth - container.offsetWidth;
-            } else if (container.classList.contains('left-dock')) {
-                currentX = 0;
-            } else {
-                currentX = rect.left;
-            }
-            currentY = rect.top;
+            // 开始拖动时，暂时移除停靠类，使其可以自由移动，但保持其当前的 dockPosition 数据
+            // container.classList.remove('docked', 'right-dock', 'left-dock');
+            // container.style.right = 'auto';
+            // container.style.bottom = 'auto';
+            // container.style.left = `${rect.left}px`;
+            // container.style.top = `${rect.top}px`;
+            container.style.transition = 'none'; // 拖动时移除过渡效果，使其更流畅
 
-            // (段落注释) 开始拖动时，移除所有停靠相关的CSS类和数据属性，
-            // 并将right/bottom样式设为auto，为自由拖动做准备。
-            container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
-            container.dataset.dockPosition = DOCK_POSITIONS.NONE;
-            container.style.right = 'auto';
-            container.style.bottom = 'auto';
-            document.body.style.userSelect = 'none'; // (行内注释) 禁止在拖动过程中选中文本
+            document.body.style.userSelect = 'none';
         });
 
-        // (段落注释) 监听整个文档的 `mousemove` 事件，处理拖动过程中的位置更新。
         document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return; // (行内注释) 如果不是拖动状态，则不执行任何操作
-            e.preventDefault(); // (行内注释) 阻止默认的鼠标移动行为（例如文本选择）
+            if (!isDragging) return;
+            e.preventDefault();
 
-            const newX = e.clientX - initialX; // (行内注释) 计算容器左上角的新目标X坐标
-            const newY = e.clientY - initialY; // (行内注释) 计算容器左上角的新目标Y坐标
-            const containerWidth = container.offsetWidth; // (行内注释) 获取容器当前宽度
-            const containerHeight = container.offsetHeight; // (行内注释) 获取容器当前高度
+            let newY = e.clientY - initialY;
+            const containerHeight = container.offsetHeight;
+            const maxY = window.innerHeight - containerHeight;
+            currentY = Math.max(0, Math.min(newY, maxY)); // 限制垂直范围
 
-            // (段落注释) 检查是否接近屏幕边缘以触发自动停靠。
-            if (e.clientX < DOCK_THRESHOLD) { // (行内注释) 如果接近左边缘
-                dockToLeft(container);
-                // (行内注释) 'show-btn' 类的添加/移除由 mouseenter/mouseleave 事件处理，此处不再直接添加。
+            container.style.top = `${currentY}px`;
+            container.style.bottom = 'auto'; // 拖动时基于top定位
+
+            // 水平停靠逻辑
+            if (e.clientX < DOCK_THRESHOLD) {
+                if (container.dataset.dockPosition !== DOCK_POSITIONS.LEFT) {
+                    dockToLeft(container);
+                }
+            } else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) {
+                if (container.dataset.dockPosition !== DOCK_POSITIONS.RIGHT) {
+                    dockToRight(container);
+                }
+            } else {
+                // 在中间区域拖动时，保持当前的停靠侧，仅更新垂直位置
+                // 如果是从非停靠状态（理论上不应该发生）开始拖动，则默认一个停靠侧，例如右侧
+                if (!container.dataset.dockPosition || container.dataset.dockPosition === 'none') {
+                     // dockToRight(container); // 如果之前是none，拖动时先尝试停靠右边
+                }
+                // 根据当前的dataset.dockPosition来设置left/right
+                if (container.dataset.dockPosition === DOCK_POSITIONS.LEFT) {
+                    container.style.left = '0px';
+                    container.style.right = 'auto';
+                } else { // Default to right or if it was right
+                    container.style.left = 'auto';
+                    container.style.right = '0px';
+                }
             }
-            else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) { // (行内注释) 如果接近右边缘
-                dockToRight(container);
-                // (行内注释) 'show-btn' 类的添加/移除由 mouseenter/mouseleave 事件处理。
-            }
-            else { // (行内注释) 如果不接近任何边缘，则执行自由拖动
-                const maxX = window.innerWidth - containerWidth; // (行内注释) 计算容器可移动的最大X坐标
-                const maxY = window.innerHeight - containerHeight; // (行内注释) 计算容器可移动的最大Y坐标
-
-                // (行内注释) 限制X, Y坐标在窗口可视范围内
-                currentX = Math.max(0, Math.min(newX, maxX));
-                currentY = Math.max(0, Math.min(newY, maxY));
-
-                // (行内注释) 更新容器的left和top样式以移动它
-                container.style.left = `${currentX}px`;
-                container.style.top = `${currentY}px`;
-                container.style.right = 'auto'; // (行内注释) 确保right为auto
-                container.style.bottom = 'auto'; // (行内注释) 确保bottom为auto，因为我们通过top/left定位
-                container.dataset.dockPosition = DOCK_POSITIONS.NONE; // (行内注释) 设置停靠状态为NONE
-                container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // (行内注释) 移除所有停靠类
-            }
-            // (行内注释) 注意：GM_setValue 已从 mousemove 事件中移除，以避免过多的写操作。位置保存将在 mouseup 事件中进行。
         });
 
-        // (段落注释) 监听整个文档的 `mouseup` 事件，标志着拖动操作的结束。
         document.addEventListener('mouseup', () => {
-            if (isDragging) { // (行内注释) 如果当前处于拖动状态
-                isDragging = false; // (行内注释) 重置拖动状态
-                document.body.style.userSelect = 'auto'; // (行内注释) 恢复文本可选状态
-                savePosition(container); // (行内注释) 调用 savePosition 函数保存悬浮窗的最终位置和状态
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.userSelect = 'auto';
+                container.style.transition = ''; // 恢复过渡效果
+
+                // 确定最终的停靠位置
+                const finalRect = container.getBoundingClientRect();
+                if (finalRect.left < DOCK_THRESHOLD / 2) { // 更严格的判断，防止在边缘反复横跳
+                    dockToLeft(container);
+                } else if (finalRect.right > window.innerWidth - DOCK_THRESHOLD / 2) {
+                    dockToRight(container);
+                } else {
+                    // 如果在中间区域释放，根据拖动时的clientX决定最终停靠在哪一边
+                    // 或者维持拖动开始时的停靠方向 (如果dataset.dockPosition有值)
+                    // 为简单起见，如果释放时不在明确的停靠区域，默认停靠到右侧（或最近的侧）
+                    if ( (finalRect.left + finalRect.width / 2) < window.innerWidth / 2 ) {
+                        dockToLeft(container);
+                    } else {
+                        dockToRight(container);
+                    }
+                }
+                // 更新 top 为 auto，并根据当前垂直位置计算 bottom
+                const newContainerRect = container.getBoundingClientRect();
+                container.style.top = 'auto';
+                container.style.bottom = `${window.innerHeight - newContainerRect.bottom}px`;
+
+                savePosition(container);
             }
         });
 
-        // (行内注释) 创建一个经过防抖处理的 loadPosition 函数版本，用于窗口大小调整事件。
+        // 创建一个经过防抖处理的 loadPosition 函数版本，用于窗口大小调整事件。
         const debouncedLoadPosition = debounce(() => {
             loadPosition(container);
         }, DEBOUNCE_TIME);
