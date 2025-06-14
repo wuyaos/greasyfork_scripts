@@ -148,7 +148,16 @@
         SHORTCUT: 'Alt+S',
         MODEL: 'gpt-4o-mini',
         CURRENT_PROMPT_IDENTIFIER: PROMPT_TEMPLATES[0].identifier, // 默认使用第一个预设模板的标识符
-        SAVED_MODELS: ['gpt-4o-mini'] // 保存用户选择的模型列表
+        SAVED_MODELS: ['gpt-4o-mini'], // 保存用户选择的模型列表
+        containerPosition: {
+            "left": "auto",
+            "top": "926px",
+            "right": "0px",
+            "bottom": "auto",
+            "dockPosition": "right",
+            "windowWidth": 2328,
+            "windowHeight": 1155
+        }
     };
 
     // 获取配置
@@ -166,7 +175,8 @@
             SHORTCUT: GM_getValue('SHORTCUT', DEFAULT_CONFIG.SHORTCUT),
             MODEL: GM_getValue('MODEL', DEFAULT_CONFIG.MODEL),
             CURRENT_PROMPT_IDENTIFIER: GM_getValue('CURRENT_PROMPT_IDENTIFIER', DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER),
-            SAVED_MODELS: GM_getValue('SAVED_MODELS', DEFAULT_CONFIG.SAVED_MODELS)
+            SAVED_MODELS: GM_getValue('SAVED_MODELS', DEFAULT_CONFIG.SAVED_MODELS),
+            containerPosition: GM_getValue('containerPosition', DEFAULT_CONFIG.containerPosition)
         };
         // API_URL 相关逻辑已完全移除
 
@@ -1152,7 +1162,7 @@
             }
 
             // 定义需要从GM存储中清除的键名列表
-            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition'];
+            const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition']; // 确保 containerPosition 已在此处
             // 遍历并清除每个键对应的值
             keysToClear.forEach(key => GM_setValue(key, undefined));
 
@@ -2296,8 +2306,11 @@
             }
             let firstLine = originalMarkdownText.split('\n')[0].trim().replace(/^#+\s*/, '');
             if (!firstLine) {
-                alert('总结内容格式错误，无法生成文件名。');
-                return;
+                // 如果第一行处理后为空 (例如，总结内容本身为空，或第一行只有#号)，则使用时间戳作为文件名基础
+                const now = new Date();
+                const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+                firstLine = `Summary_${timestamp}`;
+                showToastNotification('无法从总结内容生成标题，已使用默认文件名。', 3000);
             }
             let safeFirstLine = firstLine.length > 30 ? firstLine.substring(0, 30) : firstLine;
             safeFirstLine = safeFirstLine.replace(/[<>:"/\\|?*]/g, '');
@@ -2840,11 +2853,20 @@
             // 3. 初始化事件
             initializeEvents(globalElements); // 传递 globalElements
 
-            // 4. 检查配置是否完整
-            if (!CONFIG.BASE_URL || !CONFIG.API_KEY) {
-                globalElements.settingsPanel.style.display = 'block'; // 使用 globalElements
-                globalElements.settingsOverlay.style.display = 'block'; // 使用 globalElements
-                alert('请先配置Base URL和API Key。');
+            // 4. 检查配置是否完整，并处理首次打开
+            const isDefaultApiKey = CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY;
+            const isBaseUrlMissing = !CONFIG.BASE_URL; // Check if Base URL is empty or undefined
+
+            if (isDefaultApiKey || isBaseUrlMissing) {
+                openSettings(globalElements); // 使用 openSettings 函数来正确打开和初始化设置面板
+                if (isDefaultApiKey) {
+                    // 只有当 API Key 是初始默认值时，才显示首次配置的欢迎信息
+                    alert('欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。');
+                } else if (isBaseUrlMissing) {
+                    // 如果 API Key 不是默认值但 Base URL 缺失，则提示补充 Base URL
+                    alert('请完成配置：Base URL 尚未设置。');
+                }
+                // 如果 API Key 和 Base URL 都已配置（非默认/非空），则此块不执行。
             }
         } catch (error) {
             console.error('AI_WebSummary: Critical error during script initialization:', error);
