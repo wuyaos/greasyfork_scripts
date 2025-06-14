@@ -1241,21 +1241,22 @@
                 overflow: hidden; /* 防止子元素溢出圆角 */
             }
             .ai-drag-handle {
-                width: 15px;
-                height: 100%;
+                width: 100%; /* Changed from 15px */
+                height: 20px; /* Changed from 100% to a fixed height */
                 background-color: rgba(75, 85, 99, 0.5);
-                border-radius: 5px;
+                border-radius: 5px 5px 0 0; /* Top corners rounded */
                 cursor: move;
-                margin-right: 1px;
+                /* margin-right: 1px; Removed, or change to margin-bottom if needed */
+                margin-bottom: 1px; /* Optional: space between handle and first button */
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
             .ai-drag-handle::before {
-                content: "⋮";
+                content: "⋯"; /* Changed from ⋮ and removed rotation */
                 color: #f3f4f6;
                 font-size: 16px;
-                transform: rotate(90deg);
+                /* transform: rotate(90deg); Removed */
             }
             .ai-summary-btn, .ai-template-btn {
                 padding: 5px 15px;
@@ -2322,6 +2323,13 @@
                 }
             }
             // If no specific condition met, element remains at default CSS position or last known valid state.
+        } else {
+            // No saved position, set to default (e.g., bottom right)
+            container.style.right = '20px';
+            container.style.bottom = '20px';
+            container.style.left = 'auto'; // Clear left and top
+            container.style.top = 'auto';
+            container.dataset.dockPosition = DOCK_POSITIONS.NONE;
         }
     }
 
