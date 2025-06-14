@@ -27,6 +27,7 @@
  * - 修复populateModalModelSelector is not defined
  * - 修复失去焦点时总结内容消失的问题
  * - 清理无用代码、添加中文注释
+ * - 优化悬浮窗停靠动画
  */
 
 (function() {
@@ -2597,10 +2598,10 @@
         const style = document.createElement('style');
         style.textContent = `
             .ai-summary-container { /* (行内注释) 悬浮窗主容器的基础过渡效果，应用于 transform 属性。 */
-                transition: transform 0.3s ease;
+                transition: left 0.2s ease-out, top 0.2s ease-out, right 0.2s ease-out, bottom 0.2s ease-out, transform 0.3s ease;
             }
             .ai-summary-container.docked { /* (行内注释) 容器处于停靠状态时的通用过渡效果，应用于所有可过渡的CSS属性。 */
-                transition: all 0.3s ease;
+                /* transition: all 0.3s ease; 已被上方更具体的 transition 覆盖，可移除或保留作为回退 */
             }
             .ai-drag-handle { /* (行内注释) 确保拖动手柄在任何状态下都能正确响应鼠标事件。 */
                 pointer-events: auto !important;
@@ -2692,11 +2693,11 @@
             initialY = e.clientY - rect.top;
 
             // 开始拖动时，暂时移除停靠类，使其可以自由移动，但保持其当前的 dockPosition 数据
-            // container.classList.remove('docked', 'right-dock', 'left-dock');
-            // container.style.right = 'auto';
-            // container.style.bottom = 'auto';
-            // container.style.left = `${rect.left}px`;
-            // container.style.top = `${rect.top}px`;
+            container.style.left = `${rect.left}px`; // 设置初始 left
+            container.style.top = `${rect.top}px`;   // 设置初始 top
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+            container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // 移除停靠类以便自由移动
             container.style.transition = 'none'; // 拖动时移除过渡效果，使其更流畅
 
             document.body.style.userSelect = 'none';
@@ -2706,67 +2707,53 @@
             if (!isDragging) return;
             e.preventDefault();
 
-            let newY = e.clientY - initialY;
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            // 限制在视窗内
+            const containerWidth = container.offsetWidth;
             const containerHeight = container.offsetHeight;
+            const maxX = window.innerWidth - containerWidth;
             const maxY = window.innerHeight - containerHeight;
-            currentY = Math.max(0, Math.min(newY, maxY)); // 限制垂直范围
 
+            currentX = Math.max(0, Math.min(currentX, maxX));
+            currentY = Math.max(0, Math.min(currentY, maxY));
+
+            container.style.left = `${currentX}px`;
             container.style.top = `${currentY}px`;
-            container.style.bottom = 'auto'; // 拖动时基于top定位
-
-            // 水平停靠逻辑
-            if (e.clientX < DOCK_THRESHOLD) {
-                if (container.dataset.dockPosition !== DOCK_POSITIONS.LEFT) {
-                    dockToLeft(container);
-                }
-            } else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) {
-                if (container.dataset.dockPosition !== DOCK_POSITIONS.RIGHT) {
-                    dockToRight(container);
-                }
-            } else {
-                // 在中间区域拖动时，保持当前的停靠侧，仅更新垂直位置
-                // 如果是从非停靠状态（理论上不应该发生）开始拖动，则默认一个停靠侧，例如右侧
-                if (!container.dataset.dockPosition || container.dataset.dockPosition === 'none') {
-                     // dockToRight(container); // 如果之前是none，拖动时先尝试停靠右边
-                }
-                // 根据当前的dataset.dockPosition来设置left/right
-                if (container.dataset.dockPosition === DOCK_POSITIONS.LEFT) {
-                    container.style.left = '0px';
-                    container.style.right = 'auto';
-                } else { // Default to right or if it was right
-                    container.style.left = 'auto';
-                    container.style.right = '0px';
-                }
-            }
+            container.style.right = 'auto'; // 明确在拖动时基于 left/top
+            container.style.bottom = 'auto';
         });
 
         document.addEventListener('mouseup', () => {
             if (isDragging) {
                 isDragging = false;
                 document.body.style.userSelect = 'auto';
-                container.style.transition = ''; // 恢复过渡效果
+                container.style.transition = ''; // 恢复过渡效果，让吸附有动画
 
-                // 确定最终的停靠位置
                 const finalRect = container.getBoundingClientRect();
-                if (finalRect.left < DOCK_THRESHOLD / 2) { // 更严格的判断，防止在边缘反复横跳
-                    dockToLeft(container);
-                } else if (finalRect.right > window.innerWidth - DOCK_THRESHOLD / 2) {
-                    dockToRight(container);
-                } else {
-                    // 如果在中间区域释放，根据拖动时的clientX决定最终停靠在哪一边
-                    // 或者维持拖动开始时的停靠方向 (如果dataset.dockPosition有值)
-                    // 为简单起见，如果释放时不在明确的停靠区域，默认停靠到右侧（或最近的侧）
-                    if ( (finalRect.left + finalRect.width / 2) < window.innerWidth / 2 ) {
-                        dockToLeft(container);
-                    } else {
-                        dockToRight(container);
-                    }
-                }
-                // 更新 top 为 auto，并根据当前垂直位置计算 bottom
-                const newContainerRect = container.getBoundingClientRect();
-                container.style.top = 'auto';
-                container.style.bottom = `${window.innerHeight - newContainerRect.bottom}px`;
 
+                // 决定停靠到哪一边
+                if ((finalRect.left + finalRect.width / 2) < window.innerWidth / 2) {
+                    dockToLeft(container);
+                } else {
+                    dockToRight(container);
+                }
+
+                // 设置最终的垂直位置 (通过bottom)
+                // currentY 是拖动结束时容器的 top 值
+                container.style.top = 'auto'; // 清除 top 定位，改为 bottom 定位
+                container.style.bottom = `${window.innerHeight - (currentY + finalRect.height)}px`;
+
+                // 确保停靠后按钮是隐藏的，除非鼠标悬浮
+                if (container.classList.contains('docked')) {
+                     // 延迟一下移除 show-btn，确保动画效果，除非鼠标还在上面
+                    setTimeout(() => {
+                        if (!container.matches(':hover')) { // 检查鼠标是否还在容器上
+                            container.classList.remove('show-btn');
+                        }
+                    }, 50); // 短暂延迟
+                }
                 savePosition(container);
             }
         });
