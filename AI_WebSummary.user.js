@@ -25,6 +25,7 @@
  * v2.0.2 (2025-06-14)
  * - 修复github页面的总结
  * - 修复populateModalModelSelector is not defined
+ * - 修复失去焦点时总结内容消失的问题
  */
 
 (function() {
@@ -1159,7 +1160,19 @@
             panel.querySelector('#prompt').value = getCurrentPromptContent();
 
             // 更新提示词选择器以反映清空状态
-            updateAllPromptSelectors();
+            if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
+                updateAllPromptSelectors(globalElements);
+            } else {
+                // Fallback: 仅更新设置面板内部的选择器，如果 globalElements 不可用
+                const settingsSelectorInClear = panel.querySelector('#config-select');
+                if (settingsSelectorInClear) {
+                    const currentIdentifier = CONFIG.CURRENT_PROMPT_IDENTIFIER || PROMPT_TEMPLATES[0].identifier;
+                    settingsSelectorInClear.innerHTML = PROMPT_TEMPLATES.map(template =>
+                        `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title} (预设)</option>`
+                    ).join('');
+                    settingsSelectorInClear.value = currentIdentifier;
+                }
+            }
 
             // 更新新模型选择UI以反映当前CONFIG
             const customModelCheckbox = panel.querySelector('#custom-model-checkbox');
@@ -1552,6 +1565,15 @@
                 60% { content: '...'; }
                 80%, 100% { content: ''; }
             }
+            .thinking-cursor {
+                animation: blink 1s step-end infinite;
+                font-weight: bold;
+                margin-left: 2px;
+            }
+            @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0; }
+            }
             .ai-download-btn,
             .ai-summary-btn,
             .ai-retry-btn,
@@ -1908,22 +1930,14 @@
         }, duration);
     }
 
-    // 全局变量，用于存储原始的 Markdown 文本和中断控制器
+    // 全局变量，用于存储原始的 Markdown 文本
     let originalMarkdownText = '';
-    let abortController = null;
 
     // 调用API进行总结
     async function summarizeContent(content, shadow, selectedModel) {
         const contentContainer = shadow.querySelector('.ai-summary-content');
-        contentContainer.innerHTML = '<div class="ai-loading">正在生成总结<span class="ai-loading-dots"></span></div>';
+        contentContainer.innerHTML = '<div class="ai-loading">正在总结中...</div>';
         originalMarkdownText = ''; // 开始时清空
-
-        // 如果有正在进行的请求，先中断它
-        if (abortController) {
-            abortController.abort();
-        }
-        abortController = new AbortController();
-        const signal = abortController.signal;
 
         try {
             const apiUrlToUse = getFullEndpoint(CONFIG.BASE_URL);
@@ -1963,16 +1977,10 @@
                     onloadstart: (stream) => {
                         const reader = stream.response.getReader();
                         const decoder = new TextDecoder('utf-8');
-                        contentContainer.innerHTML = ''; // 清空加载提示
                         let buffer = '';
 
                         function processText() {
                             reader.read().then(({ done, value }) => {
-                                if (signal.aborted) {
-                                    console.log('GM.xmlHttpRequest: 请求被中断(在reader.read之后)。');
-                                    reject(new DOMException('Aborted', 'AbortError'));
-                                    return;
-                                }
                                 if (done) {
                                     // 最后处理缓冲区中可能剩余的内容
                                     if (buffer.startsWith('data: ')) {
@@ -2012,7 +2020,9 @@
                                             if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
                                                 const textChunk = chunk.choices[0].delta.content;
                                                 originalMarkdownText += textChunk;
-                                                contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                                let htmlContent = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                                htmlContent += '<span class="thinking-cursor">▋</span>';
+                                                contentContainer.innerHTML = htmlContent;
                                                 contentContainer.scrollTop = contentContainer.scrollHeight;
                                             }
                                         } catch (e) {
@@ -2046,35 +2056,16 @@
                     },
                     ontimeout: () => {
                         reject(new Error('GM.xmlHttpRequest 请求超时。'));
-                    },
-                    onabort: () => {
-                        console.log('GM.xmlHttpRequest: onabort 被触发。');
-                        reject(new DOMException('Aborted', 'AbortError'));
                     }
+                    // onabort is removed as abortController is removed
                 });
 
-                // 处理外部中断信号
-                signal.addEventListener('abort', () => {
-                    console.log('GM.xmlHttpRequest: 外部 signal aborted，尝试调用 xhr.abort()。');
-                    if (xhr && typeof xhr.abort === 'function') {
-                        xhr.abort();
-                    }
-                });
             });
         } catch (error) {
-            // 此处的 AbortError 应该由 Promise 的 reject(new DOMException('Aborted', 'AbortError')) 传递过来
-            if (error.name === 'AbortError' || (error.message && error.message.includes('Aborted'))) {
-                console.log('请求被用户中断。');
-                contentContainer.innerHTML = '<p>操作已取消。</p>';
-                return ''; // 返回空字符串表示中断
-            } else {
-                // 对于非中断错误，打印错误、显示错误信息，并重新抛出
-                console.error('总结生成错误:', error);
-                showError(contentContainer, error.message);
-                throw error; // 重新抛出，以便调用方可以更新UI状态
-            }
-        } finally {
-            abortController = null; // 清理控制器
+            // For non-abort errors, log and display the error
+            console.error('总结生成错误:', error);
+            showError(contentContainer, error.message);
+            throw error; // 重新抛出，以便调用方可以更新UI状态
         }
     }
 
@@ -2116,11 +2107,24 @@
                     if (CONFIG.CURRENT_PROMPT_IDENTIFIER !== newIdentifier) {
                         CONFIG.CURRENT_PROMPT_IDENTIFIER = newIdentifier;
                         GM_setValue('CURRENT_PROMPT_IDENTIFIER', newIdentifier);
-                        updateAllPromptSelectors(); // 同步所有选择器
+                        updateAllPromptSelectors(elements); // 同步所有选择器
                     }
                 });
             }
         });
+
+        // Event listener for model selection in the modal
+        const modelSelectInModalFromEvents = modal.querySelector('#ai-model-select-modal');
+        if (modelSelectInModalFromEvents) {
+            modelSelectInModalFromEvents.addEventListener('change', (e) => {
+                const newModel = e.target.value;
+                if (CONFIG.MODEL !== newModel) {
+                    CONFIG.MODEL = newModel;
+                    GM_setValue('MODEL', newModel);
+                    showToastNotification(`模型已切换为: ${newModel}`);
+                }
+            });
+        }
 
 
 
@@ -2133,10 +2137,17 @@
         // 点击“打开模板”按钮
         templateBtn.addEventListener('click', () => {
              populateModalModelSelector(modal); // 在显示模态框前刷新模型列表
+             // 新增：确保模态框的提示词选择器是最新的
+             if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
+                updateAllPromptSelectors(globalElements);
+            }
              showModal(modal, overlay);
-             // Optionally, clear the content or show a specific message
              const contentContainer = modal.querySelector('.ai-summary-content');
-             contentContainer.innerHTML = '<p>请选择一个模板或进行其他操作。</p>';
+             if (originalMarkdownText && originalMarkdownText.trim() !== '') {
+                 contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+             } else {
+                 contentContainer.innerHTML = '<p>请选择一个模板或进行其他操作。</p>';
+             }
         });
 
         // 点击按钮显示模态框
@@ -2175,7 +2186,7 @@
                 }
 
                 populateModalModelSelector(modal); // Refresh selector when opening modal
-                updateAllPromptSelectors(); // 刷新所有选择器
+                updateAllPromptSelectors(elements); // 刷新所有选择器
                 const modelForApi = modelSelectModal.value;
                 if (!modelForApi) {
                     throw new Error('未配置模型，请在设置中选择一个模型。');
