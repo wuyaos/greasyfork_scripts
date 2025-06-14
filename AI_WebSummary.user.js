@@ -534,7 +534,7 @@
                     <button class="close-modal">×</button>
                 </div>
                 <div class="modal-content" style="max-height: 50vh; overflow-y: auto;">
-                    ${modelsHTML} {/* 模型列表 */}
+                    ${modelsHTML}
                 </div>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
                      <button class="modal-action-btn cancel-btn" style="background:rgb(131, 194, 217); color: white;">取消</button>
@@ -582,7 +582,7 @@
                 });
 
                 if (selectedForDeletion.length === 0) { // 如果没有选择任何模型
-                    alert('请至少选择一个要删除的模型。');
+                    showToastNotification('请至少选择一个要删除的模型。');
                     return;
                 }
 
@@ -623,7 +623,7 @@
                     renderModelTags();           // 重新渲染模型标签
                     setDirtyStatus(true);        // 标记设置为有未保存更改
                 } else { // 如果所有输入的模型都已存在
-                    alert('所有输入的模型均已存在！');
+                    showToastNotification('所有输入的模型均已存在！');
                 }
             }
         });
@@ -702,18 +702,18 @@
             newShortcut = newShortcut.replace(/Option\+/g, 'Alt+'); // 将Mac的Option+替换为通用的Alt+
             if (!validateShortcut(newShortcut) && newShortcut !== "") { // 如果格式不正确且非空
                 isSaving = false; // 重置保存标志
-                alert(isMac ? '快捷键格式不正确。有效示例: Option+S, ⌘+Shift+Y' : '快捷键格式不正确。有效示例: Alt+S, Ctrl+Shift+Y');
+                showToastNotification(isMac ? '快捷键格式不正确。有效示例: Option+S, ⌘+Shift+Y' : '快捷键格式不正确。有效示例: Alt+S, Ctrl+Shift+Y');
                 return; // 中断保存
             }
 
             // 2. 获取并验证Base URL输入
             const baseURLValue = panel.querySelector('#base-url').value.trim();
             if (!baseURLValue) { // 不能为空
-                alert('Base URL 不能为空。');
+                showToastNotification('Base URL 不能为空。');
                 isSaving = false; return;
             }
             if (!baseURLValue.match(/^https?:\/\/.+/)) { // 必须以 http:// 或 https:// 开头
-                alert('Base URL 格式不正确，应以 http:// 或 https:// 开头。');
+                showToastNotification('Base URL 格式不正确，应以 http:// 或 https:// 开头。');
                 isSaving = false; return;
             }
 
@@ -2289,7 +2289,7 @@
         // 下载按钮功能
         modal.querySelector('.ai-download-btn').addEventListener('click', () => {
             if (!originalMarkdownText) {
-                alert('总结内容尚未生成或已失效。');
+                showToastNotification('总结内容尚未生成或已失效。');
                 return;
             }
             let firstLine = originalMarkdownText.split('\n')[0].trim().replace(/^#+\s*/, '');
@@ -2317,7 +2317,7 @@
         // 复制按钮功能
         modal.querySelector('.ai-copy-btn').addEventListener('click', () => {
             if (!originalMarkdownText) {
-                alert('总结内容尚未生成或已失效。');
+                showToastNotification('总结内容尚未生成或已失效。');
                 return;
             }
             navigator.clipboard.writeText(originalMarkdownText).then(() => {
@@ -2331,7 +2331,7 @@
                     textSpan.style.opacity = '1';
                 }, 2000);
             }).catch(() => {
-                alert('复制失败，请手动复制内容。');
+                showToastNotification('复制失败，请手动复制内容。');
             });
         });
 
@@ -2812,7 +2812,7 @@
             globalElements = createElements(); // 将 createElements() 的结果赋值给全局变量
             if (!globalElements || !globalElements.container) {
                 console.error('AI_WebSummary: createElements() failed to return valid elements. Aborting initialization.');
-                alert('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
+                showToastNotification('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
                 return;
             }
 
