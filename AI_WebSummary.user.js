@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI网页内容总结(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.0.1
+// @version      2.0.2
 // @description  使用AI总结网页内容的油猴脚本，采用Shadow DOM隔离样式
 // @author       Jinfeng (modifed by ffwu)
 // @match        *://*/*
@@ -22,6 +22,8 @@
  * - 修复多选删除/模型选择模态框字体对比度问题
  * - 优化设置面板状态同步机制
  * - 实现模型列表实时更新功能
+ * v2.0.2 (2025-06-14)
+ * - 修复github页面的总结
  */
 
 (function() {
@@ -202,7 +204,11 @@
 
     // 更新提示词选择器 (原 updateConfigSelectors)
     // 更新所有提示词选择器
-    function updateAllPromptSelectors() {
+    function updateAllPromptSelectors(elements) { // 接收 elements 作为参数
+        if (!elements || !elements.shadow) {
+            console.error('Elements or shadow root not initialized for updateAllPromptSelectors');
+            return;
+        }
         const currentIdentifier = CONFIG.CURRENT_PROMPT_IDENTIFIER || PROMPT_TEMPLATES[0].identifier;
         const optionsHTML = PROMPT_TEMPLATES.map(template =>
             `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title}</option>`
@@ -231,7 +237,7 @@
     }
 
     // 修改设置面板的事件处理
-    function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionModal, shadow) {
+    function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionModal, shadow, elements) { // 接收 elements 作为参数
         panel.setDirtyStatus = setDirtyStatus; // Attach setDirtyStatus to the panel object
         const saveBtn = panel.querySelector('.save-btn');
         const cancelBtn = panel.querySelector('.cancel-btn');
@@ -241,12 +247,18 @@
 
         // Helper to update dirty status and provide visual feedback
         function setDirtyStatus(dirty) {
+            // 如果正在保存 (isSaving is true) 并且尝试将状态设置为 dirty，则阻止
+            if (isSaving && dirty) {
+                // console.log("setDirtyStatus: Suppressed setting to dirty because isSaving is true.");
+                return;
+            }
+            // 如果不是正在保存，或者尝试将状态设置为 clean (dirty is false)
             isDirty = dirty;
             saveBtn.textContent = dirty ? '保存*' : '保存';
             if (dirty) {
                 saveBtn.style.cssText = 'background: #e67e22 !important;';
             } else {
-                saveBtn.style.cssText = 'background: #617043cc !important;';
+                saveBtn.style.cssText = 'background: #617043cc !important;'; // 绿色背景
             }
         }
 
@@ -1642,6 +1654,7 @@
 
         // 将所有元素添加到Shadow DOM
         shadow.appendChild(style);
+        console.log('AI_WebSummary: Main styles appended to shadowRoot.');
         shadow.appendChild(container);
         shadow.appendChild(modal);
         shadow.appendChild(overlay);
@@ -1649,6 +1662,8 @@
 
         // 将根容器添加到body
         document.body.appendChild(rootContainer);
+        console.log('AI_WebSummary: rootContainer appended to body:', rootContainer);
+        console.log('AI_WebSummary: shadowRoot created:', shadow);
 
         return {
             container,
@@ -1667,7 +1682,7 @@
     }
 
     // 打开设置面板的函数
-    function openSettings() {
+    function openSettings(elements) { // 接收 elements 作为参数
         const { settingsPanel, settingsOverlay } = elements;
 
         settingsPanel.querySelector('#base-url').value = CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL;
@@ -1677,7 +1692,7 @@
         settingsPanel.querySelector('#prompt').value = getCurrentPromptContent();
 
         // 更新所有选择器
-        updateAllPromptSelectors();
+        updateAllPromptSelectors(elements); // 传递 elements
 
         // Take a snapshot of the current settings AFTER all fields are populated
         const takeSnapshotFunc = settingsPanel.takeSettingsSnapshot;
@@ -1756,21 +1771,24 @@
       const endpoint = chatCompletionsUrl.replace('/v1/chat/completions', '/v1/models');
       console.log("Fetching models from new endpoint:", endpoint);
 
-      try {
-        const res = await GM.xmlHttpRequest({
-          method: 'GET',
-          url: endpoint,
-          headers: { Authorization: `Bearer ${CONFIG.API_KEY}` },
-          timeout: 15000 // 15秒超时
+    try {
+        console.log('Attempting to fetch models from:', CONFIG.BASE_URL);
+        const response = await GM.xmlHttpRequest({
+            method: 'GET',
+            url: endpoint,
+            headers: {
+                'Authorization': `Bearer ${CONFIG.API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 15000
         });
+        console.log('Fetch models response:', response.status, response.statusText);
 
-        if (res.status === 200) {
-          const responseData = JSON.parse(res.responseText);
-          // 假设API返回的结构是 { data: [{id: "model1"}, {id: "model2"}] }
+        if (response.status === 200) {
+          const responseData = JSON.parse(response.responseText);
           if (responseData.data && Array.isArray(responseData.data)) {
            return responseData.data.filter(m => m.id && typeof m.id === 'string');
          } else if (Array.isArray(responseData) && responseData.every(item => item && typeof item.id === 'string')) {
-           // 兼容直接返回数组 [{id: "model1"}, ...] 的情况 (非标准OpenAI但常见)
             return responseData.filter(m => m.id && typeof m.id === 'string');
          }
           else {
@@ -1778,13 +1796,13 @@
             throw new Error('API返回的模型列表数据格式不正确');
           }
         } else {
-          let errorDetail = `HTTP状态码 ${res.status}: ${res.statusText}`;
+          let errorDetail = `HTTP状态码 ${response.status}: ${response.statusText}`;
           try {
-            const errorResponse = JSON.parse(res.responseText);
+            const errorResponse = JSON.parse(response.responseText);
             if (errorResponse.error && errorResponse.error.message) {
-              errorDetail = `API错误 (${res.status}): ${errorResponse.error.message}`;
+              errorDetail = `API错误 (${response.status}): ${errorResponse.error.message}`;
             } else if (typeof errorResponse === 'string') {
-              errorDetail = `API错误 (${res.status}): ${errorResponse}`;
+              errorDetail = `API错误 (${response.status}): ${errorResponse}`;
             }
           } catch (parseError) {
             console.error('解析获取模型列表的错误响应失败:', parseError);
@@ -1792,21 +1810,17 @@
           console.error('模型加载失败:', errorDetail);
           throw new Error(errorDetail);
         }
-      } catch (e) {
-        console.error('模型加载失败', e);
-        let errorMessage = '获取模型列表时发生网络请求错误。';
-         if (e && e.message) { // 检查 e 是否存在以及是否有 message 属性
-            if (e.message.toLowerCase().includes('timeout')) {
-                errorMessage = '获取模型列表超时，请检查网络连接或API服务。';
-            } else {
-                errorMessage = e.message; // 使用原始错误信息
+    } catch (error) {
+        console.error('Detailed fetch error:', {
+            message: error.message,
+            stack: error.stack,
+            config: {
+                BASE_URL: CONFIG.BASE_URL,
+                endpoint: endpoint
             }
-        } else if (typeof e === 'string') { // 有时错误可能只是一个字符串
-            errorMessage = e;
-        }
-        // 抛出错误，以便调用者（如 refreshModelsBtn 点击事件）可以捕获并更新UI
-        throw new Error(errorMessage);
-      }
+        });
+        throw error;
+    }
     }
     // 显示错误信息
     function showError(container, error, details = '') {
@@ -1841,105 +1855,148 @@
                 throw new Error("API端点配置不正确，请检查BASE_URL设置。");
             }
 
-            const response = await fetch(apiUrlToUse, {
-                method: 'POST',
+            const payload = {
+                model: selectedModel,
+                messages: [
+                    { role: 'system', content: getCurrentPromptContent() },
+                    { role: 'user', content: content }
+                ],
+                max_tokens: CONFIG.MAX_TOKENS,
+                temperature: 0.7,
+                stream: true // 开启流式响应
+            };
+            console.log('API request details:', {
+                url: apiUrlToUse,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${CONFIG.API_KEY}`
                 },
-                body: JSON.stringify({
-                    model: selectedModel,
-                    messages: [
-                        { role: 'system', content: getCurrentPromptContent() },
-                        { role: 'user', content: content }
-                    ],
-                    max_tokens: CONFIG.MAX_TOKENS,
-                    temperature: 0.7,
-                    stream: true // 开启流式响应
-                }),
-                signal: signal // 传递 signal
+                body: JSON.stringify(payload)
             });
+            // 使用 GM.xmlHttpRequest 替代 fetch
+            return new Promise((resolve, reject) => {
+                const xhr = GM.xmlHttpRequest({
+                    method: 'POST',
+                    url: apiUrlToUse,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${CONFIG.API_KEY}`
+                    },
+                    data: JSON.stringify(payload),
+                    responseType: 'stream', // 请求流式响应
+                    onloadstart: (stream) => {
+                        const reader = stream.response.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        contentContainer.innerHTML = ''; // 清空加载提示
+                        let buffer = '';
 
-            if (!response.ok) {
-                let errorDetail = `API请求失败 (${response.status})。`;
-                try {
-                    const errorResponse = await response.json();
-                    if (errorResponse.error && errorResponse.error.message) {
-                        errorDetail = `API错误 (${response.status}): ${errorResponse.error.message}`;
-                    }
-                } catch (e) {
-                    errorDetail += ' 无法解析错误响应。';
-                }
-                throw new Error(errorDetail);
-            }
+                        function processText() {
+                            reader.read().then(({ done, value }) => {
+                                if (signal.aborted) {
+                                    console.log('GM.xmlHttpRequest: 请求被中断(在reader.read之后)。');
+                                    reject(new DOMException('Aborted', 'AbortError'));
+                                    return;
+                                }
+                                if (done) {
+                                    // 最后处理缓冲区中可能剩余的内容
+                                    if (buffer.startsWith('data: ')) {
+                                        const dataStr = buffer.substring(6);
+                                        if (dataStr.trim() !== '[DONE]') {
+                                            try {
+                                                const chunk = JSON.parse(dataStr);
+                                                if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
+                                                    originalMarkdownText += chunk.choices[0].delta.content;
+                                                }
+                                            } catch(e) { /* ignore */ }
+                                        }
+                                    }
+                                    contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                    contentContainer.scrollTop = contentContainer.scrollHeight;
+                                    resolve(originalMarkdownText);
+                                    return;
+                                }
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            contentContainer.innerHTML = ''; // 清空加载提示
+                                buffer += decoder.decode(value, { stream: true });
+                                let lines = buffer.split('\n');
+                                buffer = lines.pop(); // 保留下次可能不完整的数据行
 
-            let buffer = '';
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    break;
-                }
-                buffer += decoder.decode(value, { stream: true });
-
-                // 处理 SSE (Server-Sent Events) 数据块
-                let lines = buffer.split('\n');
-                buffer = lines.pop(); // 保留下次可能不完整的数据行
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const dataStr = line.substring(6);
-                        if (dataStr.trim() === '[DONE]') {
-                            break;
+                                for (const line of lines) {
+                                    if (line.startsWith('data: ')) {
+                                        const dataStr = line.substring(6);
+                                        if (dataStr.trim() === '[DONE]') {
+                                            // API 主动发送 [DONE]
+                                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                            contentContainer.scrollTop = contentContainer.scrollHeight;
+                                            resolve(originalMarkdownText);
+                                            reader.cancel(); // 关闭流
+                                            return;
+                                        }
+                                        try {
+                                            const chunk = JSON.parse(dataStr);
+                                            if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
+                                                const textChunk = chunk.choices[0].delta.content;
+                                                originalMarkdownText += textChunk;
+                                                contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                                contentContainer.scrollTop = contentContainer.scrollHeight;
+                                            }
+                                        } catch (e) {
+                                            console.error('解析JSON块失败:', e, '原始数据:', dataStr);
+                                        }
+                                    }
+                                }
+                                processText(); // 继续读取下一块数据
+                            }).catch(err => {
+                                if (err.name === 'AbortError') {
+                                    console.log('GM.xmlHttpRequest: reader.read() 中捕获到 AbortError');
+                                }
+                                reject(err);
+                            });
                         }
+                        processText();
+                    },
+                    onerror: (response) => {
+                        let errorDetail = `GM.xmlHttpRequest 请求失败 (${response.status})。`;
                         try {
-                            const chunk = JSON.parse(dataStr);
-                            if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                                const textChunk = chunk.choices[0].delta.content;
-                                originalMarkdownText += textChunk;
-                                // 实时渲染 Markdown
-                                contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                                // 滚动到底部
-                                contentContainer.scrollTop = contentContainer.scrollHeight;
+                            if (response.response) {
+                                const errorResponse = JSON.parse(response.response);
+                                if (errorResponse.error && errorResponse.error.message) {
+                                    errorDetail = `API错误 (${response.status}): ${errorResponse.error.message}`;
+                                }
                             }
                         } catch (e) {
-                            console.error('解析JSON块失败:', e, '原始数据:', dataStr);
+                            errorDetail += ' 无法解析错误响应。';
                         }
+                        reject(new Error(errorDetail));
+                    },
+                    ontimeout: () => {
+                        reject(new Error('GM.xmlHttpRequest 请求超时。'));
+                    },
+                    onabort: () => {
+                        console.log('GM.xmlHttpRequest: onabort 被触发。');
+                        reject(new DOMException('Aborted', 'AbortError'));
                     }
-                }
-            }
-             // 最后处理缓冲区中可能剩余的内容
-            if (buffer.startsWith('data: ')) {
-                const dataStr = buffer.substring(6);
-                if (dataStr.trim() !== '[DONE]') {
-                    try {
-                        const chunk = JSON.parse(dataStr);
-                         if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                            originalMarkdownText += chunk.choices[0].delta.content;
-                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                            contentContainer.scrollTop = contentContainer.scrollHeight;
-                        }
-                    } catch(e) {
-                        // ignore
+                });
+
+                // 处理外部中断信号
+                signal.addEventListener('abort', () => {
+                    console.log('GM.xmlHttpRequest: 外部 signal aborted，尝试调用 xhr.abort()。');
+                    if (xhr && typeof xhr.abort === 'function') {
+                        xhr.abort();
                     }
-                }
-            }
-
-
-            return originalMarkdownText;
-
+                });
+            });
         } catch (error) {
-            if (error.name === 'AbortError') {
+            // 此处的 AbortError 应该由 Promise 的 reject(new DOMException('Aborted', 'AbortError')) 传递过来
+            if (error.name === 'AbortError' || (error.message && error.message.includes('Aborted'))) {
                 console.log('请求被用户中断。');
                 contentContainer.innerHTML = '<p>操作已取消。</p>';
                 return ''; // 返回空字符串表示中断
+            } else {
+                // 对于非中断错误，打印错误、显示错误信息，并重新抛出
+                console.error('总结生成错误:', error);
+                showError(contentContainer, error.message);
+                throw error; // 重新抛出，以便调用方可以更新UI状态
             }
-            console.error('总结生成错误:', error);
-            showError(contentContainer, error.message);
-            throw error; // 重新抛出，以便调用方可以更新UI状态
         } finally {
             abortController = null; // 清理控制器
         }
@@ -1948,6 +2005,12 @@
     // 初始化事件监听
     function initializeEvents(elements) {
         const { container, button, templateBtn, modal, overlay, dragHandle, settingsPanel, settingsOverlay, shadow, modelSelectionModal } = elements;
+
+        // 确保elements完全初始化后再调用updateAllPromptSelectors
+        if (!elements.shadow) {
+            console.error('Shadow root not initialized for initializeEvents');
+            return;
+        }
 
         // 初始化拖动功能
         initializeDrag(container, dragHandle, shadow);
@@ -1963,11 +2026,11 @@
             }
         }
 
-        function populateAllSelectors() {
-            updateAllPromptSelectors();
+        function populateAllSelectors(elements) { // 接收 elements 作为参数
+            updateAllPromptSelectors(elements); // 传递 elements
         }
 
-        populateAllSelectors(); // 初始填充
+        populateAllSelectors(elements); // 初始填充，传递 elements
 
         // 为所有选择器添加事件监听器以实现同步
         const selectors = [
@@ -1994,7 +2057,7 @@
         // 右键打开设置菜单
         container.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            openSettings();
+            openSettings(elements); // 传递 elements
         });
 
         // 点击“打开模板”按钮
@@ -2153,7 +2216,7 @@
         });
 
         // 设置按钮功能（现在在模态框底部）
-        modal.querySelector('.ai-settings-btn').addEventListener('click', openSettings);
+        modal.querySelector('.ai-settings-btn').addEventListener('click', () => openSettings(elements)); // 传递 elements
 
         // 关闭设置面板时，隐藏其覆盖层
         settingsPanel.querySelector('.cancel-btn').addEventListener('click', () => {
@@ -2161,10 +2224,10 @@
         });
 
         // 初始化设置面板的事件
-        initializeSettingsEvents(settingsPanel, modal, settingsOverlay, modelSelectionModal, shadow);
+        initializeSettingsEvents(settingsPanel, modal, settingsOverlay, modelSelectionModal, shadow, elements); // 传递 elements
 
         // 初始化时更新一次所有提示词选择器
-        updateAllPromptSelectors();
+        updateAllPromptSelectors(elements); // 传递 elements
 
         // Model Selection Modal Events
         modelSelectionModal.querySelector('.close-modal').addEventListener('click', () => {
@@ -2281,16 +2344,27 @@
             // Always clear previous docking classes before applying new state
             container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn');
 
-            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) {
-                dockToLeft(container); // This sets left, right, adds classes, sets dataset
-                // Restore vertical position if available and it's a valid CSS value
-                if (savedPosition.top && savedPosition.top !== 'auto') container.style.top = savedPosition.top;
-                else container.style.top = 'auto'; // Default or clear if not specifically set for docked
-                container.style.bottom = 'auto'; // Usually bottom is not set for left/right dock
-            } else if (savedPosition.dockPosition === DOCK_POSITIONS.RIGHT) {
-                dockToRight(container); // This sets left, right, adds classes, sets dataset
-                if (savedPosition.top && savedPosition.top !== 'auto') container.style.top = savedPosition.top;
-                else container.style.top = 'auto';
+            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT) {
+                if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) {
+                    dockToLeft(container);
+                } else {
+                    dockToRight(container);
+                }
+
+                let restoredTop = parseFloat(savedPosition.top);
+                const containerRect = container.getBoundingClientRect();
+                // Estimate height: drag handle (20) + prompt selector (30) + summary btn (30) + template btn (30) = 110
+                const containerHeight = containerRect.height > 0 ? containerRect.height : 110;
+
+                if (!isNaN(restoredTop)) {
+                    restoredTop = Math.max(0, Math.min(restoredTop, window.innerHeight - containerHeight));
+                    container.style.top = `${restoredTop}px`;
+                } else {
+                    // Fallback if saved top is invalid: place it 20px from the top, ensuring it's within bounds.
+                    let defaultTop = 20;
+                    defaultTop = Math.max(0, Math.min(defaultTop, window.innerHeight - containerHeight));
+                    container.style.top = `${defaultTop}px`;
+                }
                 container.style.bottom = 'auto';
             } else if (savedPosition.left && savedPosition.top) {
                 // Free-floating or old save format
@@ -2461,11 +2535,11 @@
 
             if (e.clientX < DOCK_THRESHOLD) {
                 dockToLeft(container);
-                container.classList.add('show-btn'); // 贴靠时立即显示按钮
+                // container.classList.add('show-btn'); // 由 mouseenter 控制
             }
             else if (e.clientX > window.innerWidth - DOCK_THRESHOLD) {
                 dockToRight(container);
-                container.classList.add('show-btn'); // 贴靠时立即显示按钮
+                // container.classList.add('show-btn'); // 由 mouseenter 控制
             }
             else {
                 const maxX = window.innerWidth - containerWidth;
@@ -2502,33 +2576,68 @@
     }
 
     function dockToLeft(container) {
-        container.classList.add('docked', 'left-dock');
+        container.classList.add('docked', 'left-dock'); // show-btn 由 mouseenter 控制
         container.dataset.dockPosition = DOCK_POSITIONS.LEFT;
         container.style.left = '0';
         container.style.right = 'auto';
     }
 
     function dockToRight(container) {
-        container.classList.add('docked', 'right-dock');
+        container.classList.add('docked', 'right-dock'); // show-btn 由 mouseenter 控制
         container.dataset.dockPosition = DOCK_POSITIONS.RIGHT;
         container.style.right = '0';
         container.style.left = 'auto';
     }
 
-    // 1. 加载配置
-    loadConfig();
+    let globalElements = {}; // 定义一个全局变量来存储elements
 
-    // 2. 创建元素
-    const elements = createElements();
+    function main() {
+        try {
+            console.log('AI_WebSummary: Script attempting to initialize...');
+            // 1. 加载配置
+            loadConfig();
 
-    // 3. 初始化事件
-    initializeEvents(elements);
+            // 2. 创建元素
+            globalElements = createElements(); // 将 createElements() 的结果赋值给全局变量
+            if (!globalElements || !globalElements.container) {
+                console.error('AI_WebSummary: createElements() failed to return valid elements. Aborting initialization.');
+                alert('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
+                return;
+            }
+            console.log('AI_WebSummary: Elements created:', globalElements);
 
-    // 4. 检查配置是否完整
-    if (!CONFIG.BASE_URL || !CONFIG.API_KEY) {
-        elements.settingsPanel.style.display = 'block';
-        // elements.shadow.querySelector('.ai-summary-overlay').style.display = 'block'; // 这个是总结模态框的覆盖层
-        elements.settingsOverlay.style.display = 'block'; // 这个是设置面板的覆盖层
-        alert('请先配置Base URL和API Key。');
+            // 3. 初始化事件
+            initializeEvents(globalElements); // 传递 globalElements
+            console.log('AI_WebSummary: Events initialized.');
+
+            // 4. 检查配置是否完整
+            if (!CONFIG.BASE_URL || !CONFIG.API_KEY) {
+                globalElements.settingsPanel.style.display = 'block'; // 使用 globalElements
+                globalElements.settingsOverlay.style.display = 'block'; // 使用 globalElements
+                alert('请先配置Base URL和API Key。');
+                console.log('AI_WebSummary: Configuration incomplete, showing settings panel.');
+            }
+            console.log('AI_WebSummary: Script initialized successfully.');
+        } catch (error) {
+            console.error('AI_WebSummary: Critical error during script initialization:', error);
+            // Fallback display mechanism
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position:fixed; bottom:10px; left:10px; background:red; color:white; padding:10px; z-index:100000; border-radius:5px; font-family: sans-serif;';
+            errorDiv.textContent = 'AI Web Summary 脚本初始化失败，请检查控制台获取详细错误。';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => {
+                if (document.body.contains(errorDiv)) {
+                    document.body.removeChild(errorDiv);
+                }
+            }, 10000);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        console.log('AI_WebSummary: DOM not ready, queuing main function.');
+        document.addEventListener('DOMContentLoaded', main);
+    } else {
+        console.log('AI_WebSummary: DOM ready, executing main function.');
+        main();
     }
 })();
