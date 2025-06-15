@@ -537,8 +537,8 @@
                     ${modelsHTML}
                 </div>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-                     <button class="modal-action-btn cancel-btn" style="background:rgb(131, 194, 217); color: white;">取消</button>
-                    <button class="modal-action-btn delete-selected-btn" style="background: #dc3545; color: white;">删除</button>
+                    <button class="modal-action-btn cancel-btn" style="background:#83c2d9; color: white;">取消</button>
+                    <button class="modal-action-btn delete-selected-btn" style="background:#ab5961; color: white;">删除</button>
                 </div>
             `;
 
@@ -549,12 +549,12 @@
                     padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
                     font-size: 14px; font-weight: bold; transition: background 0.3s;
                 }
-                .delete-selected-btn:hover { background: #c82333 !important; }
+                .delete-selected-btn:hover { background:#ab5961 !important; }
                 .cancel-btn { /* 取消按钮样式 (此处指模态框内的取消按钮) */
                     padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
                     font-size: 14px; font-weight: bold; transition: background 0.3s;
                 }
-                .cancel-btn:hover { background: #5bc0de !important; }
+                .cancel-btn:hover { background:#4c94a9 !important; }
             `;
             multiDeleteModal.appendChild(style); // 将样式添加到模态框
 
@@ -804,7 +804,10 @@
         panel.className = 'ai-settings-panel';
         // 使用模板字符串构建设置面板的内部HTML结构
         panel.innerHTML = `
-            <h3>设置</h3> <!-- 面板标题 -->
+            <div class="panel-header">
+                <h3>设置</h3>
+                <button class="cancel-btn">×</button>
+            </div>
             <div class="form-group">
                 <label for="base-url">Base URL (例如: https://api.openai.com)</label> <!-- API基础地址输入 -->
                 <input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}">
@@ -845,7 +848,6 @@
             </div>
             <div class="buttons"> <!-- 面板底部的操作按钮区域 -->
                 <button class="clear-cache-btn">重置</button> <!-- 重置所有设置到默认值并清除缓存 -->
-                <button class="cancel-btn">关闭</button> <!-- 关闭设置面板 -->
                 <button class="save-btn">保存</button> <!-- 保存当前设置 -->
             </div>
         `; // panel.innerHTML 结束
@@ -877,11 +879,38 @@
             .ai-settings-panel h3 { /* 面板标题样式 */
                 margin: 0 0 20px 0;
                 padding-bottom: 10px;
-                border-bottom: 1px solid #dee2e6;
                 color: #495057;
                 font-size: 18px;
                 font-weight: 900;
             }
+            .panel-header { /* 模态框头部样式 */
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #dee2e6;
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+            .panel-header h3 { /* 模态框标题样式 */
+                margin: 0;
+                font-size: 18px;
+                font-weight: 600;
+                color: #495057;
+            }
+            .cancel-btn {
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+                color: #6c757d;
+                padding: 0 5px;
+                line-height: 1;
+                font-family: inherit;
+            }
+            .cancel-btn:hover {
+                color: #495057;
+            }
+
             .form-group { /* 表单组通用样式 */
                 margin-bottom: 15px;
             }
@@ -951,8 +980,7 @@
                min-width: 100px;
                padding: 8px 16px;
            }
-            .cancel-btn { background: #6c757d; } /* “关闭”按钮背景色 */
-            .cancel-btn:hover { background: #5a6268; }
+
             .clear-cache-btn { background: #b47474cc !important; } /* “重置”按钮背景色 */
             .clear-cache-btn:hover { background: #c82333 !important; }
             .ai-config-select { /* 提示词模板下拉选择器样式 */
@@ -964,8 +992,12 @@
                 color: #495057;
                 flex-grow: 1; /* 占据可用空间 */
             }
-            .save-btn { background: #617043cc !important; } /* “保存”按钮背景色 */
+            .save-btn { background: #617043cc !important; 
+                        padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
+                        font-size: 14px; font-weight: bold; transition: background 0.3s;
+            } /* “保存”按钮背景色 */
             .save-btn:hover { background: #218838 !important; }
+
             /* 移除了与旧版“另存为配置”、“重命名配置”等已废弃功能相关的CSS样式，保持整洁 */
 
             /* 通用模态框样式 (例如用于“获取模型”、“批量删除模型”等功能) */
@@ -1643,9 +1675,12 @@
                 <div class="modal-title-group" style="display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-start;">
                     <h3 style="margin-right: auto;">网页内容总结</h3>
                     <div class="modal-selectors" style="display: flex; align-items: center; gap: 10px;">
-                        <select id="ai-model-select-modal" class="ai-model-select-modal" title="选择当前对话使用的模型" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; max-width: 150px;"></select>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <label for="ai-prompt-select-modal" style="font-size: 14px; color: #495057; font-weight: 600;">提示词:</label>
+                            <label for="ai-prompt-select-modal" style="font-size: 14px; color: #495057; font-weight: 600;">模型 </label>
+                            <select id="ai-model-select-modal" class="ai-model-select-modal" title="选择当前对话使用的模型" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; max-width: 150px;"></select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="ai-prompt-select-modal" style="font-size: 14px; color: #495057; font-weight: 600;">提示词 </label>
                             <select id="ai-prompt-select-modal" class="ai-prompt-select-modal" title="选择当前对话使用的提示词" style="flex-grow: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;"></select>
                         </div>
                     </div>
