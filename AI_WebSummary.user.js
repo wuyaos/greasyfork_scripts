@@ -773,7 +773,6 @@
                 font-weight: 600;
                 color: #495057;
             }
-            /* .cancel-btn (设置面板头部的关闭按钮) 现在使用 .ai-btn.ai-btn-icon, 无需额外样式 */
 
             .form-group { /* 表单组通用样式 */
                 margin-bottom: 15px;
@@ -797,6 +796,7 @@
                 background: #fff;
                 color: #495057;
             }
+
             /* 输入框、文本域、选择器获取焦点时的样式 */
             .form-group input:focus,
             .form-group textarea:focus,
@@ -830,16 +830,11 @@
                 gap: 10px;
                 margin-top: 20px;
             }
-            /* .buttons button 的旧样式将被 .ai-btn-* 替代 */
-            /* .buttons button { ... } */
 
             .modal-action-btn { /* 通用模态框操作按钮（如“获取模型”模态框中的按钮）的基本样式 */
                /* 这个类名在HTML中是加在 .cancel-btn 和 .delete-selected-btn 上的，它们可以继续使用 .ai-btn-* */
             }
 
-            /* .clear-cache-btn 的旧样式将被 .ai-btn-danger 替代 */
-            /* .clear-cache-btn { ... } */
-            /* .clear-cache-btn:hover { ... } */
             .ai-config-select { /* 提示词模板下拉选择器样式 */
                 padding: 6px 12px;
                 border: 1px solid #ced4da;
@@ -849,12 +844,6 @@
                 color: #495057;
                 flex-grow: 1; /* 占据可用空间 */
             }
-            /* .save-btn 的旧样式将被 .ai-btn-success 替代 */
-            /* .save-btn { ... } */
-            /* .save-btn:hover { ... } */
-
-
-            /* 移除了与旧版“另存为配置”、“重命名配置”等已废弃功能相关的CSS样式，保持整洁 */
 
             /* 通用模态框样式 (例如用于“获取模型”、“批量删除模型”等功能) */
             .ai-modal {
@@ -981,10 +970,8 @@
                display: flex;
                gap: 10px;
                margin-top: 10px;
+               color:#ffffff;
            }
-           /* .model-actions button 的旧样式将被 .ai-btn-special 替代 */
-           /* .model-actions button { ... } */
-           /* .model-actions button:hover { ... } */
        `; // style.textContent 结束
 
         const settingsOverlay = document.createElement('div');
@@ -1155,17 +1142,17 @@
                 background-color:#218838; /* 暗绿色 */
             }
             .ai-btn-success:hover {
-                background-color:#196c2c;
+                background-color: #196c2c;
             }
 
             /* 特殊/文本按钮 */
             .ai-btn-special {
-                background-color: #495057; /* 深灰色 */
-                color: #f8f9fa; /* 浅灰色文字 */
-                border: 1px solid #6c757d;
+                background-color:#ffffff;
+                color: #495057;
+                border: 1px solid rgba(108, 117, 125, 0);
             }
             .ai-btn-special:hover {
-                background-color: #3a4045;
+                background-color:#ffffff;
             }
 
             /* 图标按钮，无背景，仅图标 */
@@ -1430,9 +1417,6 @@
                 background: #f0f2f4;
                 z-index: 1;
             }
-            /* 移除 .ai-summary-footer button 的旧样式，将由 .ai-btn-* 替代 */
-            /* .ai-summary-footer button { ... } */
-            /* .ai-summary-footer button:hover { ... } */
 
             /* SVG图标的样式保持不变，因为 .ai-btn-icon 会处理图标大小 */
             .ai-download-btn svg, /* 这些类名可能需要调整或与 .ai-btn-icon 结合 */
@@ -1467,8 +1451,6 @@
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0; }
             }
-            /* .ai-download-btn, ... 这些类名如果直接作为按钮，会被新的 .ai-btn-* 样式覆盖 */
-            /* 但如果它们是包含SVG的容器，则需要额外处理 */
 
             /* 优化移动端响应式布局 */
             @media (max-width: 768px) {
