@@ -2081,18 +2081,47 @@
                 showToastNotification('总结内容尚未生成或已失效。');
                 return;
             }
-            let firstLine = originalMarkdownText.split('\n')[0].trim().replace(/^#+\s*/, '');
-            if (!firstLine) {
-                // 如果第一行处理后为空 (例如，总结内容本身为空，或第一行只有#号)，则使用时间戳作为文件名基础
-                const now = new Date();
-                const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-                firstLine = `Summary_${timestamp}`;
-                showToastNotification('无法从总结内容生成标题，已使用默认文件名。', 3000);
+            let pageTitle = document.title.trim();
+            let decodedPageTitle = '';
+            if (pageTitle) {
+                try {
+                    decodedPageTitle = decodeURIComponent(pageTitle);
+                } catch (e) {
+                    console.warn('Failed to decode URI component in page title:', pageTitle, e);
+                    decodedPageTitle = pageTitle; // Fallback to original if decoding fails
+                }
+            } else {
+                decodedPageTitle = "Untitled_Page"; // Fallback if no title
             }
-            let safeFirstLine = firstLine.length > 30 ? firstLine.substring(0, 30) : firstLine;
-            safeFirstLine = safeFirstLine.replace(/[<>:"/\\|?*]/g, '');
-            const encodedFirstLine = encodeURIComponent(safeFirstLine).replace(/%20/g, '_');
-            const fileName = `网页总结-${encodedFirstLine}.md`;
+
+            const domain = window.location.hostname || "";
+            
+            // Combine decoded title and domain
+            let baseFileName = `${decodedPageTitle} - ${domain}`;
+
+            // Sanitize: remove illegal characters, replace spaces, ensure single underscores
+            baseFileName = baseFileName.replace(/[<>:"/\\|?*~#%&{}\\$;'@`=!,+()[\]^]/g, '_'); // More comprehensive illegal char list for filenames
+            baseFileName = baseFileName.replace(/\s+/g, ' '); // Replace all whitespace (including multiple spaces, tabs, newlines) with a single underscore
+            baseFileName = baseFileName.replace(/_{2,}/g, '_'); // Replace multiple underscores with a single one
+            baseFileName = baseFileName.replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+
+            // Truncate if too long (e.g., max 80 chars for the base part)
+            const maxLength = 80;
+            if (baseFileName.length > maxLength) {
+                baseFileName = baseFileName.substring(0, maxLength);
+                // Ensure it doesn't end with a partial multi-byte char or cut-off underscore
+                baseFileName = baseFileName.replace(/_$/,''); // Remove trailing underscore if truncation created one
+                baseFileName = baseFileName.replace(/^_|_$/g, ''); // Clean again after truncation
+            }
+
+            if (!baseFileName) { // If after all processing, it's empty
+                 const now = new Date();
+                 const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+                 baseFileName = `Summary_${timestamp}`;
+                 showToastNotification('无法从网页标题和域名生成有效文件名，已使用默认文件名。', 3000);
+            }
+
+            const fileName = `${baseFileName}.md`;
             const blob = new Blob([originalMarkdownText], { type: 'text/markdown;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
