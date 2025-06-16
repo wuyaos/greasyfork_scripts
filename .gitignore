@@ -2,3 +2,5 @@
 .vscode/
 .history/
 memory-bank/
+~syncthing~*
+*.sync-conflict*

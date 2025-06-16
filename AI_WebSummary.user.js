@@ -29,6 +29,7 @@
  * - 清理无用代码、添加中文注释
  * - 优化悬浮窗停靠动画
  * - 修改UI界面
+ * - 修复悬浮窗超出窗口的问题
  */
 
 (function() {
@@ -2337,7 +2338,7 @@
             const bottomPx = parseFloat(savedPosition.bottom);
 
             if (window.innerHeight - bottomPx < 0) { // 如果底部超出视窗顶部
-                container.style.bottom = `${window.innerHeight - containerHeight}px`;
+                container.style.bottom = `${window.innerHeight - containerHeight*6}px`;
             }
             if (bottomPx < 0) { // 如果底部低于视窗底部
                  container.style.bottom = '0px';
