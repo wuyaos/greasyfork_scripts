@@ -41,13 +41,10 @@
         }
     }
     function startMonitoring() {
-        //注意上面的注释的 @match  也要改成你的MoviePilot的IP地址不要加端口
         let uname = GM_getValue("auname"); //MoviePilot账号
         let upassword = GM_getValue("aupwd"); //MoviePilot密码
-        //let MoviePilotHost = localStorage.getItem("auurl"); //MoviePilot地址ip+端口 后缀不需要加 /
         let MoviePilotHost = window.location.origin; // 获取当前域名和端口
 
-        //不懂的不要动以下代码
         var currentUrl = window.location.href;
         let intervalId;
         let vueRouter;
@@ -120,60 +117,6 @@
                     }
                 });
         }
-
-        // function info11() {
-
-        //     let formData = new FormData();
-        //     formData.append('username', uname);
-        //     formData.append('password', upassword);
-
-
-
-
-        //     axios.post(MoviePilotHost + '/api/v1/login/access-token', formData, {
-        //         headers: {
-        //             'Content-Type': 'multipart/form-data'
-        //         }
-        //     })
-        //         .then(function (response) {
-
-        //             axios.get(MoviePilotHost + '/api/v1/user/config/Layout', {
-        //                 headers: {
-        //                     'Authorization': 'Bearer ' + response.data.access_token
-        //                 }
-        //             }).then((responsea) => {
-
-
-        //                 localStorage.setItem('auth', '{"token":"' + response.data.access_token + '","remember":true,"originalPath":"/dashboard"}');
-
-        //                 axios.get(MoviePilotHost + '/api/v1/user/config/Dashboard', {
-        //                     headers: {
-        //                         'Authorization': 'Bearer ' + response.data.access_token
-        //                     }
-        //                 }).then((responsea) => {
-
-        //                     location.reload();
-
-
-
-
-        //                 });
-        //             });
-
-        //         })
-        //         .catch(function (error) {
-        //             if (error.response && error.response.status === 401) {
-        //                 console.log('Unauthorized: 401 Status Code');
-        //                 GM_setValue('AutomaticLoginConfig', 'false');
-        //                 alert("账号密码错误，请重新输入");
-        //                 window.history.go(0);
-        //             } else {
-        //                 console.error('Error posting data:', error);
-        //                 window.history.go(0);
-        //             }
-        //         });
-        // }
-
 
         function startMonitoring() {
             intervalId = setInterval(checkUrlChange, 1000);
