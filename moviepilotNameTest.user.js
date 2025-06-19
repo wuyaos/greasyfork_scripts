@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.3.7
+// @version      2.3.8
 // @description  moviepilots名称测试
 // @author       yubanmeiqin9048, benz1(modify by ffwu)
 // @match        https://*/details.php?id=*
@@ -32,32 +32,6 @@
 // @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilotNameTest.user.js
 // ==/UserScript==
 
-// 函数：获取配置值，如果不存在则提示用户输入或使用默认值
-function getConfigValueOrDefault(key, defaultValue, promptMessage) {
-    let value = GM_getValue(key);
-    if (value === undefined || value === null || value === '') { // 检查空字符串以强制用户输入
-        if (promptMessage) {
-            // 对于布尔值，确保 prompt 的默认值是字符串
-            const promptDefault = typeof defaultValue === 'boolean' ? String(defaultValue) : defaultValue;
-            value = prompt(promptMessage, promptDefault);
-            if (value === null) { // 用户点击了取消
-                value = defaultValue;
-            }
-        } else {
-            value = defaultValue;
-        }
-        GM_setValue(key, value);
-    }
-    // 对于布尔值，确保 prompt 返回的是字符串 "true" 或 "false" 被正确转换为布尔类型
-    if (typeof defaultValue === 'boolean') {
-        // 如果 value 本身已经是布尔值了（比如从 GM_getValue 直接获取到的），就不需要转换
-        if (typeof value === 'string') {
-            return value.toLowerCase() === 'true';
-        }
-        return Boolean(value); // 确保返回的是布尔值
-    }
-    return value;
-}
 
 // --- BEGIN NEW CONFIGURATION LOGIC ---
 
@@ -132,7 +106,7 @@ function showConfigModal(isInitialSetup = false) {
     configModalElement.innerHTML = `
         <h2>配置 Moviepilot 参数</h2>
         <div>
-            <label for="mpUrl">Moviepilot 服务器 URL:</label>
+            <label for="mpUrl">Moviepilot服务器 URL:</label>
             <input type="text" id="mpUrl" value="${GM_getValue('moviepilotUrl', 'http://127.0.0.1:3000')}">
         </div>
         <div>
@@ -209,11 +183,10 @@ function resetConfig() {
 
 function ensureConfiguration() {
     const scriptName = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
-    let configInitialized = GM_getValue('config_initialized', true); // 默认设为 true
     let url = GM_getValue('moviepilotUrl');
     let user = GM_getValue('moviepilotUser');
 
-    if (!configInitialized || !url || url.trim() === '' || !user || user.trim() === '') {
+    if (!url || url.trim() === '' || !user || user.trim() === '') {
         GM_log(`[${scriptName}] 配置未初始化或关键信息缺失，将显示配置弹窗。`);
         showConfigModal(true); // true indicates it's an initial/mandatory setup
     } else {
@@ -240,11 +213,8 @@ let type = '';
 let torrent_info = { "site": 0, "site_name": "", "site_cookie": "", "site_ua": "", "site_proxy": null, "site_order": null, "title": "", "description": "", "imdbid": null, "enclosure": "", "page_url": "", "size": 0, "seeders": 0, "peers": 0, "grabs": 0, "pubdate": "", "date_elapsed": null, "uploadvolumefactor": 1, "downloadvolumefactor": 0, "hit_and_run": false, "labels": [], "pri_order": 0, "volume_factor": "普通" }
 
 function renderTag(type, string, background_color) {
-    if (type == 'common') {
-        return `<span style=\"background-color:${background_color};color:#ffffff;border-radius:0;font-size:12px;margin:0 4px 0 0;padding:1px 2px\">${string}</span>`
-    } else {
-        return `<span class="flex justify-center items-center rounded-md text-[12px] h-[18px] mr-2 px-[5px]  font-bold" style="background-color:${background_color};color:#ffffff;">${string}</span>`
-    }
+    // 统一标签样式，增加垂直内边距
+    return `<span class="flex justify-center items-center rounded-md text-[12px] px-2 py-2 font-bold" style="background-color:${background_color};color:#ffffff;">${string}</span>`
 }
 
 
@@ -473,55 +443,43 @@ function downloadTorrent(downloadButton, token, media_info, torrent_name, torren
 
 function creatRecognizeRow(row, type, torrent_name, torrent_description, download_link, torrent_size) {
     row.innerHTML = renderMoviepilotTag(type, "识别中");
-    if (window.location.href.includes("m-team")){
+    if (window.location.href.includes("m-team")) {
         row.setAttribute("class", "ant-descriptions-row")
     }
     login().then(token => {
         recognize(token, torrent_name, torrent_description).then(data => {
             GM_log(data.status)
             if (data.media_info) {
-                let prefixHtml = '';
-                prefixHtml += data.media_info.type ? renderTag(type, data.media_info.type, '#2775b6') : '';
-                prefixHtml += data.media_info.category ? renderTag(type, data.media_info.category, '#2775b6') : '';
+                const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
+                let finalHtml = `<div style="${containerStyle}">`;
 
-                // const controlsFlexContainerStart = '<div class="mp-controls-container" style="display: flex; align-items: center; gap: 5px;">'; // Flex container removed
-                let titleHtml = '';
+                // 下载按钮
+                if (!window.location.href.includes("m-team")) {
+                    const buttonStyle = `background-color:#27ae60; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;`;
+                    finalHtml += `<button id="download-button" class="px-3 py-1" style="${buttonStyle}">下载种子</button>`;
+                }
+
+                // 前缀、标题和后缀标签
+                finalHtml += data.media_info.type ? renderTag(type, data.media_info.type, '#2775b6') : '';
+                finalHtml += data.media_info.category ? renderTag(type, data.media_info.category, '#2775b6') : '';
+
                 if (data.media_info.title) {
                     const titleText = data.media_info.title;
                     const titleBgColor = '#c54640';
-                    // Added user-select: none to prevent text selection on click
-                    const commonStyle = `background-color:${titleBgColor};color:#ffffff;border-radius:0;font-size:12px;margin:0 4px 0 0;padding:1px 2px; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; display: inline-block; vertical-align: top; margin-right: 5px;`; // Added display, vertical-align, and margin-right for spacing
-                    const flexStyleBase = `background-color:${titleBgColor};color:#ffffff; cursor: pointer; text-decoration: underline; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; display: inline-block; vertical-align: top;`; // Added display, vertical-align. Margin is handled by existing 'mr-2' class on the span.
-
-                    if (type === 'common') {
-                        titleHtml = `<span class="mp-clickable-title" style="${commonStyle}">${titleText}</span>`;
-                    } else {
-                        titleHtml = `<span class="mp-clickable-title flex justify-center items-center rounded-md text-[12px] h-[18px] mr-2 px-[5px] font-bold" style="${flexStyleBase}">${titleText}</span>`;
-                    }
+                    const titleStyle = `background-color:${titleBgColor};color:#ffffff; cursor: pointer; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;`;
+                    finalHtml += `<span class="mp-clickable-title flex justify-center items-center rounded-md text-[12px] px-3 py-1 font-bold" style="${titleStyle}">${titleText}</span>`;
                 }
 
-                let downloadButtonHtml = '';
-                if (!window.location.href.includes("m-team")) {
-                    if (type === 'common') { // Matches original logic for button styling based on 'type'
-                        downloadButtonHtml = '<button id="download-button" style="display: inline-block; vertical-align: top;">下载种子</button>';
-                    } else {
-                        // Ensure button itself is inline-block. Removed "flex" from class.
-                        downloadButtonHtml = '<button id="download-button" class="justify-center items-center rounded-md text-[12px] h-[18px] mr-2 px-[5px] font-bold" style="background-color:#cdae9c;color:#ffffff; display: inline-block; vertical-align: top;">下载种子</button>';
-                    }
-                }
-                // const controlsFlexContainerEnd = '</div>'; // Flex container removed
-
-                let suffixHtml = '';
-                suffixHtml += data.meta_info.season_episode ? renderTag(type, data.meta_info.season_episode, '#e6702e') : '';
-                suffixHtml += data.meta_info.year ? renderTag(type, data.meta_info.year, '#e6702e') : '';
-                suffixHtml += data.media_info.tmdb_id ? '<a href="' + data.media_info.detail_link + '" target="_blank">' + renderTag(type, data.media_info.tmdb_id, '#5bb053') + '</a>' : '';
-                suffixHtml += data.meta_info.resource_type ? renderTag(type, data.meta_info.resource_type, '#677489') : '';
-                suffixHtml += data.meta_info.resource_pix ? renderTag(type, data.meta_info.resource_pix, '#677489') : '';
-                suffixHtml += data.meta_info.video_encode ? renderTag(type, data.meta_info.video_encode, '#677489') : '';
-                suffixHtml += data.meta_info.audio_encode ? renderTag(type, data.meta_info.audio_encode, '#677489') : '';
-                suffixHtml += data.meta_info.resource_team ? renderTag(type, data.meta_info.resource_team, '#701eeb') : '';
+                finalHtml += data.meta_info.season_episode ? renderTag(type, data.meta_info.season_episode, '#e6702e') : '';
+                finalHtml += data.meta_info.year ? renderTag(type, data.meta_info.year, '#e6702e') : '';
+                finalHtml += data.media_info.tmdb_id ? '<a href="' + data.media_info.detail_link + '" target="_blank" style="display: flex; align-items: center;">' + renderTag(type, data.media_info.tmdb_id, '#5bb053') + '</a>' : '';
+                finalHtml += data.meta_info.resource_type ? renderTag(type, data.meta_info.resource_type, '#677489') : '';
+                finalHtml += data.meta_info.resource_pix ? renderTag(type, data.meta_info.resource_pix, '#677489') : '';
+                finalHtml += data.meta_info.video_encode ? renderTag(type, data.meta_info.video_encode, '#677489') : '';
+                finalHtml += data.meta_info.audio_encode ? renderTag(type, data.meta_info.audio_encode, '#677489') : '';
+                finalHtml += data.meta_info.resource_team ? renderTag(type, data.meta_info.resource_team, '#701eeb') : '';
                 
-                const finalHtml = downloadButtonHtml + prefixHtml + titleHtml + suffixHtml; // Removed flex container variables
+                finalHtml += `</div>`;
                 row.innerHTML = renderMoviepilotTag(type, finalHtml);
 
                 // Event Listeners
