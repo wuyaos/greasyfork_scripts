@@ -64,8 +64,7 @@
             moviepilotUrl: 'http://127.0.0.1:3000',
             moviepilotUser: 'admin',
             moviepilotPassword: '',
-            isTip: false,
-            moviepilot_token: null
+            isTip: false
         }
     };
 
@@ -77,7 +76,6 @@
             this._values.user = GM_getValue('moviepilotUser', CONSTANTS.DEFAULT_CONFIG.moviepilotUser);
             this._values.pass = GM_getValue('moviepilotPassword', CONSTANTS.DEFAULT_CONFIG.moviepilotPassword);
             this._values.isTip = GM_getValue('isTip', CONSTANTS.DEFAULT_CONFIG.isTip);
-            this._values.token = GM_getValue('moviepilot_token', CONSTANTS.DEFAULT_CONFIG.moviepilot_token);
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
@@ -93,7 +91,10 @@
 
         reset() {
             if (confirm(`[${SCRIPT_NAME}]\n\n确定要重置所有配置吗？\n\n这将清除所有存储的 Moviepilot 设置并刷新页面。`)) {
-                Object.keys(CONSTANTS.DEFAULT_CONFIG).forEach(key => GM_deleteValue(key));
+                GM_deleteValue('moviepilotUrl');
+                GM_deleteValue('moviepilotUser');
+                GM_deleteValue('moviepilotPassword');
+                GM_deleteValue('isTip');
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 alert(`[${SCRIPT_NAME}] 所有配置已重置。页面将刷新。`);
                 location.reload();
@@ -278,6 +279,8 @@
     // ——————————————————————————————————————
 
     const API = {
+        _sessionToken: null,
+
         _request(options) {
             return new Promise((resolve, reject) => {
                 const { method, url, data, headers, responseType, token, isLogin = false } = options;
@@ -334,14 +337,14 @@
                 });
 
                 if (res && res.access_token) {
-                    CONFIG.set('moviepilot_token', res.access_token);
+                    this._sessionToken = res.access_token;
                     return res.access_token;
                 }
                 throw new Error('无效的登录响应');
 
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] 登录失败 (尝试 ${retryCount + 1}/${MAX_RETRIES})`, error);
-                CONFIG.set('moviepilot_token', null);
+                this._sessionToken = null;
                 if (retryCount < MAX_RETRIES - 1) {
                     await new Promise(res => setTimeout(res, RETRY_INTERVAL));
                     return this.login(retryCount + 1);
@@ -354,11 +357,10 @@
         },
 
         async getAuthenticatedToken() {
-            let token = CONFIG.get('token');
-            if (!token) {
-                token = await this.login();
+            if (this._sessionToken) {
+                return this._sessionToken;
             }
-            return token;
+            return await this.login();
         },
 
         async recognize(title, subtitle) {
