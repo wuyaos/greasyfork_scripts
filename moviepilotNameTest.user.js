@@ -214,7 +214,7 @@ let torrent_info = { "site": 0, "site_name": "", "site_cookie": "", "site_ua": "
 
 function renderTag(type, string, background_color) {
     // 统一标签样式，增加垂直内边距
-    return `<span class="flex justify-center items-center rounded-md text-[12px] px-2 py-2 font-bold" style="background-color:${background_color};color:#ffffff;">${string}</span>`
+    return `<span class="flex justify-center items-center rounded-md text-[12px] px-3 py-1 font-bold" style="background-color:${background_color};color:#ffffff;">${string}</span>`
 }
 
 
@@ -454,10 +454,8 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 let finalHtml = `<div style="${containerStyle}">`;
 
                 // 下载按钮
-                if (!window.location.href.includes("m-team")) {
-                    const buttonStyle = `background-color:#27ae60; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;`;
-                    finalHtml += `<button id="download-button" class="px-3 py-1" style="${buttonStyle}">下载种子</button>`;
-                }
+                const buttonStyle = `background-color:#27ae60; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;`;
+                finalHtml += `<button id="download-button" class="px-3 py-1" style="${buttonStyle}">下载种子</button>`;
 
                 // 前缀、标题和后缀标签
                 finalHtml += data.media_info.type ? renderTag(type, data.media_info.type, '#2775b6') : '';
@@ -499,13 +497,11 @@ function creatRecognizeRow(row, type, torrent_name, torrent_description, downloa
                 }
 
                 // Safely attach download button listener if it exists
-                if (!window.location.href.includes("m-team")) {
-                    const downloadButton = row.querySelector('#download-button');
-                    if (downloadButton) { // Check if the button was actually found in the row
-                        downloadButton.addEventListener("click", function () {
-                            downloadTorrent(downloadButton, token, data.media_info, torrent_name, torrent_description, download_link, torrent_size);
-                        });
-                    }
+                const downloadButton = row.querySelector('#download-button');
+                if (downloadButton) { // Check if the button was actually found in the row
+                    downloadButton.addEventListener("click", function () {
+                        downloadTorrent(downloadButton, token, data.media_info, torrent_name, torrent_description, download_link, torrent_size);
+                    });
                 }
             } else {
                 row.innerHTML = renderMoviepilotTag(type, `识别失败`);
