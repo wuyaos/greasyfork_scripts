@@ -28,8 +28,8 @@
 // @connect      *
 // @license      MIT
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png
-// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilotNameTest.user.js
-// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilotNameTest.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_NameTest.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_NameTest.user.js
 // ==/UserScript==
 
 

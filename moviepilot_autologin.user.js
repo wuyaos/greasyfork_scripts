@@ -11,8 +11,8 @@
 // @require      https://unpkg.com/axios/dist/axios.min.js
 // @license      GPL-3.0
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png
-// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilot_autologin.user.js
-// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/moviepilot_autologin.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js
 // ==/UserScript==
 
 (function () {
