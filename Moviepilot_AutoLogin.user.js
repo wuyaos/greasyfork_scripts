@@ -39,16 +39,34 @@
         #mp-config-popup input, #mp-config-popup select {
             width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; color: #333;
         }
-        #mp-config-popup .button-group { display: flex; justify-content: space-between; margin-top: 20px; }
+        #mp-config-popup .button-group { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
         #mp-config-popup button {
             padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;
         }
         #btn_save { background-color: #28a745; color: white; }
         #btn_delete { background-color: #dc3545; color: white; }
-        #btn_reset { background-color: #ffc107; color: black; }
         #btn_close_popup {
             position: absolute; top: 10px; right: 15px; font-size: 24px;
-            font-weight: bold; cursor: pointer; border: none; background: none;
+            font-weight: bold; cursor: pointer; border: none; background: none; color: #333;
+        }
+        @media (prefers-color-scheme: dark) {
+            #mp-config-popup {
+                background-color: #2d2d2d;
+                color: #f1f1f1;
+            }
+            #mp-config-popup h2, #mp-config-popup label, #mp-config-popup #btn_close_popup {
+                color: #f1f1f1;
+            }
+            #mp-config-popup input, #mp-config-popup select {
+                background-color: #3c3c3c;
+                color: #f1f1f1;
+                border: 1px solid #555;
+            }
+            #mp-config-popup button#btn_get_current_url {
+                background-color: #555;
+                color: #f1f1f1;
+                border: 1px solid #777;
+            }
         }
     `;
 
@@ -66,8 +84,13 @@
             <input type="text" id="config_name" readonly placeholder="由下方URL自动生成">
         </div>
         <div class="form-group">
-            <label for="config_url">MoviePilot URL</label>
-            <input type="text" id="config_url" placeholder="例如：http://192.168.1.10:3000">
+            <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 5px;">
+                <label for="config_url">MoviePilot URL</label>
+                <button type="button" id="btn_get_current_url" title="自动获取当前网址" style="flex-shrink: 0; padding: 4px; line-height: 0; border-radius: 4px; margin-left: 5px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
+                </button>
+            </div>
+            <input type="text" id="config_url" placeholder="例如：http://192.168.1.10:3000" style="width: 100%;">
         </div>
         <div class="form-group">
             <label for="config_username">账号</label>
@@ -78,7 +101,6 @@
             <input type="password" id="config_password">
         </div>
         <div class="button-group">
-            <button id="btn_reset">重置</button>
             <button id="btn_delete">删除</button>
             <button id="btn_save">保存</button>
         </div>
@@ -86,11 +108,11 @@
 
 
     // --- 核心逻辑 ---
-
-    /**
-     * 初始化脚本，轮询等待登录表单出现
-     */
     function initialize() {
+        if (document.title !== 'MoviePilot') {
+            return; // 如果页面标题不是 MoviePilot，则立即停止脚本，不执行任何后续操作。
+        }
+
         let intervalId = null;
 
         const timeoutId = setTimeout(() => {
@@ -123,7 +145,7 @@
         if (matchingConfig && matchingConfig.username && matchingConfig.password) {
             autofillAndLogin(matchingConfig, usernameInput, passwordInput);
         } else {
-            showConfigPopup(currentOrigin);
+            showConfigPopup(currentOrigin, true); // 传递 true 表示首次使用
         }
     }
 
@@ -157,11 +179,6 @@
         });
     }
 
-    /**
-     * 以编程方式设置输入框的值，以确保触发相关事件
-     * @param {HTMLInputElement} element - 目标输入框元素
-     * @param {string} value - 要设置的值
-     */
     function setInputValue(element, value) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
         nativeInputValueSetter.call(element, value);
@@ -171,31 +188,17 @@
 
 
     // --- 配置管理 ---
-
-    /**
-     * 从GM存储中获取所有配置
-     * @returns {Array} - 配置数组
-     */
     function getConfigs() {
         return JSON.parse(GM_getValue(CONFIG_KEY, '[]'));
     }
 
-    /**
-     * 将配置保存到GM存储
-     * @param {Array} configs - 要保存的配置数组
-     */
     function saveConfigs(configs) {
         GM_setValue(CONFIG_KEY, JSON.stringify(configs));
     }
 
 
     // --- UI (配置弹窗) ---
-
-    /**
-     * 显示配置弹窗
-     * @param {string} [defaultUrl=window.location.origin] - 默认填充的URL
-     */
-    function showConfigPopup(defaultUrl) {
+    function showConfigPopup(defaultUrl, isFirstTime = false) {
         // 如果是从菜单调用，defaultUrl可能不是字符串，进行修正
         if (typeof defaultUrl !== 'string') {
             defaultUrl = window.location.origin;
@@ -221,10 +224,6 @@
         bindPopupLogic(defaultUrl);
     }
 
-    /**
-     * 为配置弹窗绑定事件和逻辑
-     * @param {string} defaultUrl - 默认填充的URL
-     */
     function bindPopupLogic(defaultUrl) {
         const elements = {
             select: document.getElementById('config_select'),
@@ -234,10 +233,10 @@
             passwordInput: document.getElementById('config_password'),
             saveButton: document.getElementById('btn_save'),
             deleteButton: document.getElementById('btn_delete'),
-            resetButton: document.getElementById('btn_reset'),
             closeButton: document.getElementById('btn_close_popup'),
             overlay: document.getElementById('mp-config-overlay'),
-            popup: document.getElementById('mp-config-popup')
+            popup: document.getElementById('mp-config-popup'),
+            getCurrentUrlButton: document.getElementById('btn_get_current_url')
         };
 
         const closePopup = () => {
@@ -348,9 +347,12 @@
         elements.urlInput.addEventListener('input', updateConfigNameFromUrl);
         elements.saveButton.addEventListener('click', saveConfiguration);
         elements.deleteButton.addEventListener('click', deleteConfiguration);
-        elements.resetButton.addEventListener('click', () => displayConfigDetails(elements.select.value));
         elements.closeButton.addEventListener('click', closePopup);
         elements.overlay.addEventListener('click', closePopup);
+        elements.getCurrentUrlButton.addEventListener('click', () => {
+            elements.urlInput.value = window.location.origin;
+            updateConfigNameFromUrl();
+        });
 
         // --- 初始化 ---
         loadConfigsIntoSelect();
