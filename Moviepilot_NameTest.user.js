@@ -42,7 +42,6 @@ function showConfigModal(isInitialSetup = false) {
     const scriptName = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
 
     if (configModalElement) {
-        // Modal already exists, perhaps bring to front or simply return
         return;
     }
 
@@ -95,11 +94,8 @@ function showConfigModal(isInitialSetup = false) {
         document.head.appendChild(style);
     }
 
-    // Create backdrop
     configModalBackdrop = document.createElement('div');
     configModalBackdrop.id = 'mpConfigModalBackdrop';
-
-    // Create modal
     configModalElement = document.createElement('div');
     configModalElement.id = 'mpConfigModal';
 
@@ -199,15 +195,12 @@ function ensureConfiguration() {
 if (typeof GM_registerMenuCommand === 'function') {
     GM_registerMenuCommand("配置Moviepilot参数", () => showConfigModal(false), "c");
     GM_registerMenuCommand("重置所有配置", resetConfig, "r");
-    // You can add GM_unregisterMenuCommand in a cleanup function if needed, e.g. on script unload
 } else {
     GM_log("GM_registerMenuCommand is not available in this environment. Menu commands won't be created.");
 }
 
 // 脚本启动时检查并确保配置
 ensureConfiguration();
-
-// --- END NEW CONFIGURATION LOGIC ---
 
 let type = '';
 let torrent_info = { "site": 0, "site_name": "", "site_cookie": "", "site_ua": "", "site_proxy": null, "site_order": null, "title": "", "description": "", "imdbid": null, "enclosure": "", "page_url": "", "size": 0, "seeders": 0, "peers": 0, "grabs": 0, "pubdate": "", "date_elapsed": null, "uploadvolumefactor": 1, "downloadvolumefactor": 0, "hit_and_run": false, "labels": [], "pri_order": 0, "volume_factor": "普通" }
@@ -256,6 +249,51 @@ function getFormattedDate() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function showToast(message) {
+    const toastId = 'mp-toast-notification';
+    if (document.getElementById(toastId)) {
+        return; // Avoid multiple toasts
+    }
+
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.textContent = message;
+    
+    // Apply styles for the toast
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.backgroundColor = 'rgba(40, 40, 40, 0.85)';
+    toast.style.color = 'white';
+    toast.style.padding = '12px 24px';
+    toast.style.borderRadius = '8px';
+    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    toast.style.zIndex = '2147483647';
+    toast.style.fontSize = '16px';
+    toast.style.fontWeight = '600';
+    toast.style.fontFamily = `"Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif`;
+    toast.style.transition = 'opacity 0.3s ease-in-out';
+    toast.style.opacity = '0';
+
+    document.body.appendChild(toast);
+
+    // Fade in
+    setTimeout(() => {
+        toast.style.opacity = '1';
+    }, 10);
+
+    // Fade out and remove after a delay
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300); // Wait for fade-out transition to finish
+    }, 2500); // Toast visible for 2.5 seconds
 }
 
 function login(retryCount = 0) {
@@ -323,10 +361,10 @@ function recognize(token, title, subtitle) {
     return new Promise(function (resolve, reject) {
         const currentMoviepilotUrl = GM_getValue('moviepilotUrl');
         if (!currentMoviepilotUrl || currentMoviepilotUrl.trim() === '') {
-             const scriptName = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
-             GM_log(`[${scriptName}] 识别错误: Moviepilot URL 未配置。`);
-             reject(new Error('Moviepilot URL未配置'));
-             return;
+                const scriptName = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
+                GM_log(`[${scriptName}] 识别错误: Moviepilot URL 未配置。`);
+                reject(new Error('Moviepilot URL未配置'));
+                return;
         }
         GM_xmlhttpRequest({
             url: currentMoviepilotUrl + `/api/v1/media/recognize?title=${title}&subtitle=${subtitle}`,
@@ -385,6 +423,7 @@ function getSite(token) {
 
 function downloadTorrent(downloadButton, token, media_info, torrent_name, torrent_description, download_link, torrent_size) {
     downloadButton.disabled = true;
+    downloadButton.textContent = "正在推送中...";
     const currentMoviepilotUrl = GM_getValue('moviepilotUrl');
     const scriptName = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
 
@@ -405,7 +444,6 @@ function downloadTorrent(downloadButton, token, media_info, torrent_name, torren
         torrent_info.site_name = data.name
         torrent_info.site_cookie = data.cookie
         torrent_info.proxy = data.proxy
-        // torrent_info.pri_order=data.pri
         torrent_info.pubdate = getFormattedDate()
         torrent_info.site_ua = navigator.userAgent
         let download_info = {
@@ -423,16 +461,13 @@ function downloadTorrent(downloadButton, token, media_info, torrent_name, torren
                 "Authorization": `bearer ${token}`
             },
             onload: (res) => {
-                GM_log(res.response.data)
+                GM_log(JSON.stringify(res.response));
                 downloadButton.disabled = false;
                 if (res.status == 200) {
-                    if (res.response.success) {
-                        downloadButton.textContent = "下载完成";
-                    } else {
-                        downloadButton.textContent = "下载失败";
-                    }
+                    downloadButton.textContent = "推送成功";
+                    showToast("推送种子成功！");
                 } else {
-                    downloadButton.textContent = "下载失败";
+                    downloadButton.textContent = "推送失败";
                 }
             }
         })
