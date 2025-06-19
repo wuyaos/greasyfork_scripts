@@ -172,15 +172,11 @@ function showConfigModal(isInitialSetup = false) {
         GM_log(`[${scriptName}] 配置已保存。`);
         closeModal();
         alert(`[${scriptName}] 配置已保存。部分更改可能需要刷新页面生效。`);
-        // Optionally, re-run checks or re-initialize parts of the script if needed immediately
-        // For example, re-check login if URL/credentials changed.
     });
 
     configModalElement.querySelector('.mp-cancel-btn').addEventListener('click', () => {
         if (isInitialSetup) {
             alert(`[${scriptName}] 首次配置是必需的。请填写并保存配置。`);
-            // For initial setup, "Cancel" might not be truly allowed or should warn sternly.
-            // Or, keep the modal open. For now, it will close.
         }
         closeModal();
     });
@@ -216,7 +212,6 @@ function ensureConfiguration() {
     let configInitialized = GM_getValue('config_initialized', true); // 默认设为 true
     let url = GM_getValue('moviepilotUrl');
     let user = GM_getValue('moviepilotUser');
-    // Password check is tricky as it can be empty. URL and User are more critical for "initialized" state.
 
     if (!configInitialized || !url || url.trim() === '' || !user || user.trim() === '') {
         GM_log(`[${scriptName}] 配置未初始化或关键信息缺失，将显示配置弹窗。`);
@@ -295,12 +290,7 @@ function getFormattedDate() {
 
 function login(retryCount = 0) {
     return new Promise(function (resolve, reject) {
-        const storedToken = GM_getValue('moviepilot_token');
-        if (storedToken) {
-            resolve(storedToken);
-            return;
-        }
-
+        // 每次都重新获取 token，避免 token 失效问题
         const currentMoviepilotUrl = GM_getValue('moviepilotUrl');
         const currentMoviepilotUser = GM_getValue('moviepilotUser');
         const currentMoviepilotPassword = GM_getValue('moviepilotPassword');
