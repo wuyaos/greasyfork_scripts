@@ -1,24 +1,25 @@
 // ==UserScript==
 // @name         MoviePilot自动登录(自用)
-// @version      1.2.2
-// @namespace    https://www.muooy.com/
+// @namespace    http://tampermonkey.net/
+// @version      1.3.0
 // @description  MoviePilot自动填充账号密码。
-// @author       ffwu (Original author Daliyuer)
+// @author       ffwu
 // @match        *://*/*
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @grant        GM_deleteValue
-// @require      https://unpkg.com/axios/dist/axios.min.js
-// @license      GPL-3.0
+// @grant        GM_registerMenuCommand
+// @grant        GM_addStyle
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png
 // @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js
 // @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
     /*
     * 更新记录
+    * v1.3.0（2025-06-19）
+    * 新增配置窗口，支持多个MoviePilot站点的账号密码配置
     * v1.2.2（2025-06-11）
     * 修改了登录逻辑
     * v1.2（2025-04-01）
@@ -32,232 +33,305 @@
     * 修复会登录其他程序的问题
     *
     */
-    if (document.title == 'MoviePilot') {
-        console.log("当前网站为MoviePilot开始执行自动登录程序");
-        if (GM_getValue('AutomaticLoginConfig') === 'true') {
-            startMonitoring();
-        } else {
-            popUps();
-        }
-    }
-    function startMonitoring() {
-        let uname = GM_getValue("auname"); //MoviePilot账号
-        let upassword = GM_getValue("aupwd"); //MoviePilot密码
-        let MoviePilotHost = window.location.origin; // 获取当前域名和端口
+    const CONFIG_KEY = 'moviepilot_configs';
 
-        var currentUrl = window.location.href;
-        let intervalId;
-        let vueRouter;
-        var isCloud = 0;
-        function waitForVue() {
-            return new Promise((resolve) => {
-                const checkVue = () => {
-                    if (window.Vue && window.Vue.prototype.$router) {
-                        vueRouter = window.Vue.prototype.$router;
-                        resolve();
-                    } else {
-                        setTimeout(checkVue, 1000);
-                    }
-                };
-                checkVue();
-            });
-        }
+    // --- Main Logic ---
+    function initialize() {
+        const POLLING_INTERVAL = 500; // ms
+        const TIMEOUT = 10000; // 10 seconds
 
+        let intervalId = null;
 
-        function checkUrlChange() {
-            const newUrl = window.location.href;
-            if (!newUrl.includes(MoviePilotHost + '/#/login')) {
+        const timeoutId = setTimeout(() => {
+            clearInterval(intervalId);
+            console.log('Moviepilot AutoLogin: Timed out waiting for login form.');
+        }, TIMEOUT);
+
+        intervalId = setInterval(() => {
+            const usernameInput = document.querySelector('input[name="username"]');
+            const passwordInput = document.querySelector('input[name="current-password"]');
+
+            if (usernameInput && passwordInput) {
+                // Found the elements, stop polling and proceed.
                 clearInterval(intervalId);
-                currentUrl = newUrl;
-                startMonitoring();
-            } else {
-                info11();
-            }
-        }
+                clearTimeout(timeoutId);
 
+                // 2. Find a matching configuration for the current site
+                const configs = getConfigs();
+                const currentOrigin = window.location.origin;
+                const matchingConfig = configs.find(c => c.url === currentOrigin);
 
-        function info11() {
-
-            let formData = new FormData();
-            formData.append('username', uname);
-            formData.append('password', upassword);
-            // 查找用户名和密码输入框
-            let usernameInput = document.querySelector('input[name="username"]');
-            let passwordInput = document.querySelector('input[name="current-password"]');
-            let loginButton = document.querySelector('button[type="submit"], button.login-button'); // 适配不同按钮
-
-            function setInputValue(element, value) {
-                let nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                nativeInputValueSetter.call(element, value);
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            setInputValue(usernameInput, GM_getValue("auname"));
-            setInputValue(passwordInput, GM_getValue("aupwd"));
-
-            loginButton.click();
-
-            axios.post(MoviePilotHost + '/api/v1/login/access-token', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
+                // 3. Execute login or show configuration popup
+                if (matchingConfig && matchingConfig.username && matchingConfig.password) {
+                    startMonitoring(matchingConfig, usernameInput, passwordInput);
+                } else {
+                    // If no configuration matches, pop up the settings window immediately.
+                    popUps(currentOrigin);
                 }
-            })
-                .then(function (response) {
-                })
-                .catch(function (error) {
-                    if (error.response && error.response.status === 401) {
-                        console.log('Unauthorized: 401 Status Code');
-                        GM_setValue('AutomaticLoginConfig', 'false');
-                        alert("账号密码错误，请重新输入");
-                        window.history.go(0);
-                    } else {
-                        console.error('Error posting data:', error);
-                        window.history.go(0);
-                    }
-                });
-        }
-
-        function startMonitoring() {
-            intervalId = setInterval(checkUrlChange, 1000);
-        }
-
-
-        function setupRouteChangeListeners() {
-
-            const pushState = history.pushState;
-            history.pushState = function (state) {
-                pushState.apply(history, arguments);
-                checkUrlChange();
-            };
-
-
-            window.addEventListener('hashchange', checkUrlChange);
-
-
-            window.addEventListener('popstate', checkUrlChange);
-        }
-
-        async function navigateToNewUrl() {
-            await waitForVue();
-            const newPath = '/dashboard';
-            vueRouter.push(newPath);
-        }
-
-
-        window.onload = startMonitoring();
-        setupRouteChangeListeners();
-        console.log("本脚本出生于2024-11-20，功能原创，请勿盗版！博客：https://www.muooy.com")
-        return;
-
+            }
+        }, POLLING_INTERVAL);
     }
-    function popUps() {
-        const style = document.createElement('style');
-        style.innerHTML = `
-    .AutomaticLoginForm {
-    max-width: 650px;
-    margin: 50px auto;
-    padding: 20px;
-    background: #f2f2f2;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
 
-.AutomaticLoginForm h2 {
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
-}
-
-.AutomaticLoginForm input[type="text"],
-.AutomaticLoginForm input[type="password"] {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
-
-.AutomaticLoginForm input[type="submit"] {
-    width: 100%;
-    padding: 10px;
-    background: rgb(145, 85, 253);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.AutomaticLoginForm input[type="submit"]:hover {
-    background: rgb(148, 91, 255);
-}
-    `;
-        document.head.appendChild(style);
-
-        // 创建弹窗的 HTML（包含表单）
-        const modalHTML = `
-        <div id="AutomaticLoginMode" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; height: auto; z-index: 9999;">
-            <form id="AutomaticLoginForm"class="AutomaticLoginForm" action="#" method="post">
-                   <h2>MoviePilot自动登录配置</h2>
-                   <input type="text" id="ausername" name="ausername" placeholder="MoviePilot的账号" required>
-                   <input type="password" id="apassword" name="apassword" placeholder="MoviePilot的密码" required>
-                   <!--input type="text" id="aurls" name="aurls" placeholder="地址:ip+端口,如:http://192.168.5.10:3000" required--!>
-                   <p id="message" style="display:none;text-align: center; color: red;">配置成功!</p>
-                   <input type="submit" value="保存">
-            </form>
-             </div>
-        <div id="modalBackdrop" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9998;"></div>
-    `;
-
-
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-
-        const amodal = document.getElementById('AutomaticLoginMode');
-        const backdrop = document.getElementById('modalBackdrop');
-        const aform = document.getElementById('AutomaticLoginForm');
-        const amessage = document.getElementById('message');
-
-
-        function showModal() {
-            amodal.style.display = 'block';
-            backdrop.style.display = 'block';
-        }
-
-
-        function closeModal() {
-            amodal.style.display = 'none';
-            backdrop.style.display = 'none';
-            startMonitoring();
-            //location.reload();
-        }
-
-        // 表单提交处理
-        function handleSubmit(event) {
-            event.preventDefault();
-
-
-            const auname = document.getElementById('ausername').value;
-            const aupwd = document.getElementById('apassword').value;
-            //const auurl = document.getElementById('aurls').value;
-            GM_setValue("auname", auname);
-            GM_setValue("aupwd", aupwd);
-            // GM_setValue("auurl", auurl);
-
-
-
-            amessage.style.display = 'block';
-            GM_setValue('AutomaticLoginConfig', 'true'); // 设置提交标记
-
-            setTimeout(closeModal, 1000); // 1秒后关闭弹窗
-        }
-
-        // 绑定表单提交事件
-        aform.addEventListener('submit', handleSubmit);
-
-        // 在页面加载完成后，显示弹窗
-        window.addEventListener('load', showModal);
+    function setInputValue(element, value) {
+        let nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(element, value);
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
     }
+
+    function startMonitoring(config, usernameInput, passwordInput) {
+        const loginButton = document.querySelector('button[type="submit"]');
+
+        if (loginButton) {
+            setInputValue(usernameInput, config.username);
+            setInputValue(passwordInput, config.password);
+            loginButton.click();
+        }
+
+        const observer = new MutationObserver((mutations, obs) => {
+            const errorElement = document.querySelector('.bg-red-500');
+            if (errorElement) {
+                alert('账号或密码错误，请通过油猴菜单检查您的配置。');
+                obs.disconnect(); // Stop observing once the error is found
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // --- Configuration Management ---
+    function getConfigs() {
+        return JSON.parse(GM_getValue(CONFIG_KEY, '[]'));
+    }
+
+    function saveConfigs(configs) {
+        GM_setValue(CONFIG_KEY, JSON.stringify(configs));
+    }
+
+
+    // --- UI (Popup Window) ---
+    function popUps(defaultUrl) {
+        // Handle calls from menu command where the first arg is not a string
+        if (typeof defaultUrl !== 'string') {
+            defaultUrl = window.location.origin;
+        }
+
+        // Prevent multiple popups
+        if (document.getElementById('mp-config-popup')) {
+            return;
+        }
+
+        // Add CSS for the popup
+        GM_addStyle(`
+            #mp-config-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background-color: rgba(0,0,0,0.5); z-index: 9998;
+            }
+            #mp-config-popup {
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background-color: #f9f9f9; padding: 20px; border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 9999;
+                width: 400px; font-family: sans-serif;
+            }
+            #mp-config-popup h2 { margin-top: 0; color: #333; }
+            #mp-config-popup .form-group { margin-bottom: 15px; }
+            #mp-config-popup label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+            #mp-config-popup input, #mp-config-popup select {
+                width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; color: #333;
+            }
+            #mp-config-popup .button-group { display: flex; justify-content: space-between; margin-top: 20px; }
+            #mp-config-popup button {
+                padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer;
+            }
+            #btn_save { background-color: #28a745; color: white; }
+            #btn_delete { background-color: #dc3545; color: white; }
+            #btn_reset { background-color: #ffc107; color: black; }
+            #btn_close_popup {
+                position: absolute; top: 10px; right: 15px; font-size: 24px;
+                font-weight: bold; cursor: pointer; border: none; background: none;
+            }
+        `);
+
+        // Create HTML structure
+        const overlay = document.createElement('div');
+        overlay.id = 'mp-config-overlay';
+        const popup = document.createElement('div');
+        popup.id = 'mp-config-popup';
+
+        popup.innerHTML = `
+            <button id="btn_close_popup">&times;</button>
+            <h2>MoviePilot 登录配置</h2>
+            <div class="form-group">
+                <label for="config_select">选择配置</label>
+                <select id="config_select">
+                    <option value="new">-- 新建配置 --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="config_name">配置名称 (自动生成)</label>
+                <input type="text" id="config_name" readonly placeholder="由下方URL自动生成">
+            </div>
+            <div class="form-group">
+                <label for="config_url">MoviePilot URL</label>
+                <input type="text" id="config_url" placeholder="例如：http://192.168.1.10:3000">
+            </div>
+            <div class="form-group">
+                <label for="config_username">账号</label>
+                <input type="text" id="config_username">
+            </div>
+            <div class="form-group">
+                <label for="config_password">密码</label>
+                <input type="password" id="config_password">
+            </div>
+            <div class="button-group">
+                <button id="btn_reset">重置</button>
+                <button id="btn_delete">删除</button>
+                <button id="btn_save">保存</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        document.body.appendChild(popup);
+
+        // --- Popup Logic ---
+        const select = document.getElementById('config_select');
+        const nameInput = document.getElementById('config_name');
+        const urlInput = document.getElementById('config_url');
+        const usernameInput = document.getElementById('config_username');
+        const passwordInput = document.getElementById('config_password');
+
+        const loadConfigsIntoSelect = () => {
+            const configs = getConfigs();
+            select.innerHTML = '<option value="new">-- 新建配置 --</option>'; // Reset
+            configs.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = c.name;
+                select.appendChild(option);
+            });
+            displayConfigDetails('new'); // Display empty form initially
+        };
+
+        const displayConfigDetails = (configId) => {
+            if (configId === 'new') {
+                nameInput.value = '';
+                urlInput.value = '';
+                usernameInput.value = '';
+                passwordInput.value = '';
+                document.getElementById('btn_delete').disabled = true;
+            } else {
+                const configs = getConfigs();
+                const config = configs.find(c => c.id === configId);
+                if (config) {
+                    nameInput.value = config.name;
+                    urlInput.value = config.url;
+                    usernameInput.value = config.username;
+                    passwordInput.value = config.password;
+                }
+                document.getElementById('btn_delete').disabled = false;
+            }
+        };
+
+        const closePopup = () => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(popup);
+        };
+
+        // Event Listeners
+        select.addEventListener('change', () => displayConfigDetails(select.value));
+
+        const updateConfigName = () => {
+            try {
+                const url = new URL(urlInput.value);
+                const port = url.port ? `:${url.port}` : '';
+                nameInput.value = `MoviePilot(${url.hostname}${port})`;
+            } catch (e) {
+                nameInput.value = '';
+            }
+        };
+
+        urlInput.addEventListener('input', updateConfigName);
+
+
+        document.getElementById('btn_save').addEventListener('click', () => {
+            const name = nameInput.value.trim();
+            const url = urlInput.value.trim();
+            if (!name || !url) {
+                alert('配置名称和URL不能为空！');
+                return;
+            }
+
+            let configs = getConfigs();
+            const selectedId = select.value;
+            let savedConfig;
+
+            if (selectedId === 'new') { // Create new
+                const newConfig = {
+                    id: Date.now().toString(),
+                    name: name,
+                    url: url,
+                    username: usernameInput.value,
+                    password: passwordInput.value
+                };
+                configs.push(newConfig);
+                savedConfig = newConfig;
+            } else { // Edit existing
+                const configIndex = configs.findIndex(c => c.id === selectedId);
+                if (configIndex > -1) {
+                    configs[configIndex] = { ...configs[configIndex], name, url, username: usernameInput.value, password: passwordInput.value };
+                    savedConfig = configs[configIndex];
+                }
+            }
+            saveConfigs(configs);
+            alert('保存成功！');
+
+            // If the saved config matches the current page, start monitoring. Otherwise, just close.
+            if (savedConfig && savedConfig.url === window.location.origin) {
+                const usernameEl = document.querySelector('input[name="username"]');
+                const passwordEl = document.querySelector('input[name="current-password"]');
+                if (usernameEl && passwordEl) {
+                    startMonitoring(savedConfig, usernameEl, passwordEl);
+                }
+                closePopup();
+            } else {
+                closePopup(); // As per instructions, prefer closing over reloading.
+            }
+        });
+
+        document.getElementById('btn_delete').addEventListener('click', () => {
+            const selectedId = select.value;
+            if (selectedId === 'new') return;
+
+            if (confirm(`确定要删除配置 "${select.options[select.selectedIndex].text}" 吗？`)) {
+                let configs = getConfigs();
+                configs = configs.filter(c => c.id !== selectedId);
+                saveConfigs(configs);
+                alert('删除成功！');
+                loadConfigsIntoSelect(); // Refresh the list
+            }
+        });
+
+        document.getElementById('btn_reset').addEventListener('click', () => {
+            displayConfigDetails(select.value); // Reset to last selected state
+        });
+
+        document.getElementById('btn_close_popup').addEventListener('click', closePopup);
+        overlay.addEventListener('click', closePopup);
+
+        // Initial load
+        loadConfigsIntoSelect();
+        urlInput.value = defaultUrl;
+        updateConfigName(); // Initial name generation
+    }
+
+
+    // --- Greasemonkey Menu Command ---
+    GM_registerMenuCommand("⚙️ 配置 MoviePilot 登录", popUps);
+
+    // --- Script Entry Point ---
+    initialize();
+
 })();
