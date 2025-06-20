@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.0.1
 // @description  moviepilots名称测试 - 重构优化版
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -459,23 +459,44 @@
         },
         {
             id: 'm-team',
-            matches: () => window.location.href.includes('m-team.cc/detail/') || window.location.href.includes('m-team.io/detail/'),
+            matches: () => /m-team\.(cc|io)\/detail\//.test(window.location.href),
             getInfo: () => {
-                const rows = document.querySelectorAll('.ant-descriptions-item-label');
-                if (rows.length < 3) return null;
-                const nameRow = rows[0], dlRow = rows[1], sizeRow = rows[2];
-                if (!nameRow.nextElementSibling || !dlRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
-                const nameLink = nameRow.nextElementSibling.querySelector('a');
-                
-                return {
-                    name: nameLink?.textContent.replace(/\.torrent$/, '') || '',
-                    downloadLink: '', // 将 downloadLink 设为空字符串
-                    description: dlRow.nextElementSibling.innerText || '',
-                    size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                    insertPoint: nameRow.parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
-                };
+                // 检查新版UI,域名是否为next.m-team.cc
+                const isNewUI = window.location.hostname.includes('next.m-team.cc');
+                if (isNewUI) {
+                    // --- 新版UI逻辑 ---
+                    const titleElement = document.querySelector('h2 > span.align-middle');
+                    const descriptionElement = document.querySelector('p.text-mt-gray-4');
+                    const sizeElement = Array.from(document.querySelectorAll('.ant-space-item .ant-typography')).find(el => el.textContent.includes('體積:'));
+                    const insertPointElement = document.querySelector('h2')?.parentElement;
+                    if (!titleElement || !insertPointElement) return null;
+                    return {
+                        name: titleElement.textContent.trim(),
+                        description: descriptionElement ? descriptionElement.textContent.trim() : '',
+                        size: sizeElement ? UTILS.parseSize(sizeElement.textContent) : 0,
+                        downloadLink: '',
+                        insertPoint: insertPointElement,
+                        insertAction: (point, element) => point.after(element),
+                        rowType: 'div'
+                    };
+                } else {
+                    // --- 旧版UI逻辑 ---
+                    const rows = document.querySelectorAll('.ant-descriptions-item-label');
+                    if (rows.length < 3) return null;
+                    const nameRow = rows[0], dlRow = rows[1], sizeRow = rows[2];
+                    if (!nameRow.nextElementSibling || !dlRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
+                    const nameLink = nameRow.nextElementSibling.querySelector('a');
+                    
+                    return {
+                        name: nameLink?.textContent.replace(/\.torrent$/, '') || '',
+                        downloadLink: '', // 将 downloadLink 设为空字符串
+                        description: dlRow.nextElementSibling.innerText || '',
+                        size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
+                        insertPoint: nameRow.parentElement.parentElement,
+                        insertIndex: 2,
+                        rowType: 'common'
+                    };
+                }
             }
         },
         {
