@@ -27,6 +27,7 @@
 // @grant        GM_info
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
+// @grant        GM_notify
 // @connect      *
 // @license      MIT
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png
@@ -88,7 +89,7 @@
             GM_setValue('isTip', isTip);
             this.load(); // Reload config after saving
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
-            alert(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
+            showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
         },
 
         reset() {
@@ -98,7 +99,7 @@
                 GM_deleteValue('moviepilotPassword');
                 GM_deleteValue('isTip');
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
-                alert(`[${SCRIPT_NAME}] 所有配置已重置。页面将刷新。`);
+                showToast(`[${SCRIPT_NAME}] 所有配置已重置。页面将刷新。`);
                 location.reload();
             }
         },
@@ -173,7 +174,7 @@
 
             const cancelAction = () => {
                 if (isInitialSetup) {
-                    alert(`[${SCRIPT_NAME}] 首次配置是必需的。请填写并保存配置。`);
+                    showToast(`[${SCRIPT_NAME}] 首次配置是必需的。请填写并保存配置。`);
                 } else {
                     this.closeConfigModal();
                 }
@@ -324,7 +325,7 @@
             const RETRY_INTERVAL = 1000;
 
             if (!CONFIG.get('url') || !CONFIG.get('user') || !CONFIG.get('pass')) {
-                alert(`[${SCRIPT_NAME}] Moviepilot 配置不完整！请填写URL、用户名和密码。`);
+                showToast(`[${SCRIPT_NAME}] Moviepilot 配置不完整！请填写URL、用户名和密码。`);
                 throw new Error('配置不完整');
             }
 
@@ -352,7 +353,7 @@
                     return this.login(retryCount + 1);
                 } else {
                     const status = error.status || 'N/A';
-                    alert(`[${SCRIPT_NAME}] 登录 Moviepilot 失败！\n\n已尝试 ${MAX_RETRIES} 次。\n请检查您的配置是否正确。\n服务器返回状态: ${status}`);
+                    showToast(`[${SCRIPT_NAME}] 登录 Moviepilot 失败！\n\n已尝试 ${MAX_RETRIES} 次。\n请检查您的配置是否正确。\n服务器返回状态: ${status}`);
                     throw new Error(`登录失败，已达最大重试次数`);
                 }
             }
