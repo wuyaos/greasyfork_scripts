@@ -9,12 +9,7 @@
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
-// @match        https://bangumi.moe/*
-// @match        https://*.acgnx.se/*
 // @match        https://*.dmhy.org/*
-// @match        https://nyaa.si/*
-// @match        https://mikanani.me/*
-// @match        https://*.skyey2.com/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @grant        GM_log
@@ -476,10 +471,15 @@
                 const nameRow = rows[0], descRow = rows[1], sizeRow = rows[2];
                 if (!nameRow.nextElementSibling || !descRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
                 const nameLink = nameRow.nextElementSibling.querySelector('a');
+                let description; 
+                description = descRow.nextElementSibling.innerText || '';
+                if ( descRow.nextElementSibling.innerText.includes('https://')) {
+                    description = '';
+                }
                 return {
                     name: nameLink?.textContent || '',
                     downloadLink: nameLink?.href || '',
-                    description: descRow.nextElementSibling.innerText,
+                    description: description,
                     size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
                     insertPoint: nameRow.parentElement.parentElement,
                     insertIndex: 2,
@@ -527,44 +527,6 @@
                         rowType: 'common'
                     };
                 }
-            }
-        },
-        {
-            id: 'hdsky',
-            matches: () => window.location.href.includes('hdsky'),
-            getInfo: () => {
-                const rows = document.querySelectorAll('#details > table tr');
-                if (rows.length < 4) return null;
-                return {
-                    name: rows[0].querySelector('input[type=text]')?.value || '',
-                    downloadLink: rows[1].querySelector('a')?.href || '',
-                    description: rows[2].querySelectorAll('td')[1]?.innerText || '',
-                    size: UTILS.parseSize(rows[3].querySelectorAll('td')[1]?.innerText || ''),
-                    insertPoint: rows[0].parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
-                };
-            }
-        },
-        {
-            id: 'bangumi',
-            matches: () => window.location.href.includes('bangumi.moe'),
-            getInfo: () => {
-                const torrent_index_div = document.querySelector('a.index');
-                const divs = document.getElementsByClassName('font-bold leading-6');
-                if (!torrent_index_div || divs.length < 6) return null;
-                return {
-                    name: torrent_index_div.textContent,
-                    downloadLink: torrent_index_div.href,
-                    description: divs[3].innerText,
-                    size: UTILS.parseSize(divs[5].nextElementSibling.innerText),
-                    insertPoint: divs[3],
-                    insertAction: (point, element) => {
-                        point.insertAdjacentHTML('afterend', '<div class="font-bold leading-6">moviepilot</div><div class="font-light leading-6 flex flex-wrap" id="moviepilot-container"></div>');
-                        document.getElementById('moviepilot-container').appendChild(element);
-                    },
-                    rowType: 'div'
-                };
             }
         }
     ];
@@ -724,7 +686,7 @@
                 GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
                 // 主 catch 块现在也可以捕获站点或下载错误
                 if (button.textContent !== "链接获取失败") {
-                    button.textContent = error.message.includes('站点') ? '站点不存在' : '推送失败';
+                    button.textContent = error.message.includes('站点') ? '站点未适配' : '推送失败';
                 }
                 setTimeout(() => { 
                     button.textContent = originalText; 
