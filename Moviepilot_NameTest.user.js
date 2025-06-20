@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.0.1
+// @version      3.0.2
 // @description  moviepilots名称测试 - 重构优化版
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -58,8 +58,7 @@
         DEFAULT_CONFIG: {
             moviepilotUrl: 'http://127.0.0.1:3000',
             moviepilotUser: 'admin',
-            moviepilotPassword: '',
-            isTip: false
+            moviepilotPassword: ''
         }
     };
 
@@ -70,15 +69,13 @@
             this._values.url = GM_getValue('moviepilotUrl', CONSTANTS.DEFAULT_CONFIG.moviepilotUrl);
             this._values.user = GM_getValue('moviepilotUser', CONSTANTS.DEFAULT_CONFIG.moviepilotUser);
             this._values.pass = GM_getValue('moviepilotPassword', CONSTANTS.DEFAULT_CONFIG.moviepilotPassword);
-            this._values.isTip = GM_getValue('isTip', CONSTANTS.DEFAULT_CONFIG.isTip);
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass, isTip }) {
+        save({ url, user, pass }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
-            GM_setValue('isTip', isTip);
             this.load(); // Reload config after saving
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
             UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
@@ -89,7 +86,6 @@
                 GM_deleteValue('moviepilotUrl');
                 GM_deleteValue('moviepilotUser');
                 GM_deleteValue('moviepilotPassword');
-                GM_deleteValue('isTip');
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
             }
@@ -151,8 +147,7 @@
                 const newConfig = {
                     url: document.getElementById('mpUrl').value.trim(),
                     user: document.getElementById('mpUser').value.trim(),
-                    pass: document.getElementById('mpPass').value,
-                    isTip: document.getElementById('mpIsTip').checked
+                    pass: document.getElementById('mpPass').value
                 };
                 CONFIG.save(newConfig);
                 this.closeConfigModal();
@@ -187,10 +182,6 @@
                     <label for="mpPass">密码:</label>
                     <input type="password" id="mpPass" value="${CONFIG.get('pass') || ''}">
                 </div>
-                <div class="mp-checkbox-container">
-                    <input type="checkbox" id="mpIsTip" ${CONFIG.get('isTip') ? 'checked' : ''}>
-                    <label for="mpIsTip" class="mp-checkbox-label">启用划词识别</label>
-                </div>
                 <div class="mp-modal-buttons">
                     <button class="mp-cancel-btn">取消</button>
                     <button class="mp-save-btn">保存</button>
@@ -208,9 +199,6 @@
                 #mpConfigModal label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
                 #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 24px); padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
                 #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus { border-color: #3498db; outline: none; }
-                #mpConfigModal .mp-checkbox-container { display: flex; align-items: center; margin-bottom: 20px; }
-                #mpConfigModal input[type="checkbox"] { margin-right: 8px; transform: scale(1.1); }
-                #mpConfigModal .mp-checkbox-label { font-weight: normal; margin-bottom:0; font-size: 14px; }
                 #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 25px; }
                 #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
@@ -694,108 +682,12 @@
                     button.disabled = false; 
                 }, 2000);
             }
-        },
-        
-        initSelectionRecognition() {
-            if (!CONFIG.get('isTip')) return;
-            SelectionRecognizer.init();
         }
     };
 
 
     // ——————————————————————————————————————
-    // [6] 划词识别 (SELECTION RECOGNIZER)
-    // ——————————————————————————————————————
-
-    const SelectionRecognizer = {
-        tip: null,
-        icon: null,
-
-        init() {
-            this.tip = this._createTip();
-            this.icon = this._createIcon();
-            document.addEventListener('mouseup', (e) => {
-                const text = window.getSelection().toString().trim();
-                if (!text) {
-                    this.icon.hide();
-                    this.tip.hide();
-                } else {
-                    this.icon.pop(e);
-                }
-            });
-        },
-
-        async _queryText(text, ev) {
-            if (!text) return;
-            this.icon.hide();
-            this.tip.pop(ev);
-            this.tip.showText('识别中...');
-
-            try {
-                const data = await API.recognize(text, '');
-                if (data && data.media_info) {
-                    let html = '';
-                    html += data.media_info.type ? `类型：${data.media_info.type}<br>` : '';
-                    html += data.media_info.category ? `分类：${data.media_info.category}<br>` : '';
-                    html += data.media_info.title ? `标题：${data.media_info.title}<br>` : '';
-                    html += data.meta_info.season_episode ? `季集：${data.meta_info.season_episode}<br>` : '';
-                    html += data.meta_info.year ? `年份：${data.media_info.year}<br>` : '';
-                    html += data.meta_info.resource_team ? `制作：${data.meta_info.resource_team}<br>` : '';
-                    html += data.media_info.tmdb_id ? `tmdb：<a href="${data.media_info.detail_link}" target="_blank">${data.media_info.tmdb_id}</a>` : 'tmdb：未识别';
-                    this.tip.showText(html);
-                } else {
-                    this.tip.showText('识别失败');
-                }
-            } catch (error) {
-                this.tip.showText(`识别失败: ${error.message}`);
-            }
-        },
-
-        _createTip() {
-            const div = document.createElement('div');
-            div.hidden = true;
-            div.style.cssText = `position:absolute!important; font-size:13px!important; overflow:auto!important; background:#fff!important; font-family:sans-serif,Arial!important; text-align:left!important; color:#000!important; padding:0.5em 1em!important; line-height:1.5em!important; border-radius:5px!important; border:1px solid #ccc!important; box-shadow:4px 4px 8px #888!important; max-width:350px!important; max-height:216px!important; z-index:2147483647!important;`;
-            document.documentElement.appendChild(div);
-            div.addEventListener('mouseup', e => e.stopPropagation());
-            return {
-                _element: div,
-                showText(text) { this._element.innerHTML = text; this._element.hidden = false; },
-                hide() { this._element.innerHTML = ''; this._element.hidden = true; },
-                pop(ev) {
-                    this._element.style.top = ev.pageY + 'px';
-                    this._element.style.left = (ev.pageX + 350 <= document.body.clientWidth ? ev.pageX : document.body.clientWidth - 350) + 'px';
-                }
-            };
-        },
-
-        _createIcon() {
-            const icon = document.createElement('span');
-            icon.hidden = true;
-            icon.innerHTML = `<svg style="margin:4px !important;" width="16" height="16" viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12Z" style="fill:none;stroke:#3e84f4;stroke-width:2;"></path></svg>`;
-            icon.style.cssText = `width:24px!important; height:24px!important; background:#fff!important; border-radius:50%!important; box-shadow:4px 4px 8px #888!important; position:absolute!important; z-index:2147483647!important; cursor:pointer;`;
-            document.documentElement.appendChild(icon);
-            icon.addEventListener('mousedown', e => e.preventDefault(), true);
-            icon.addEventListener('mouseup', e => e.preventDefault(), true);
-            icon.addEventListener('click', ev => {
-                const text = window.getSelection().toString().trim().replace(/\s{2,}/g, ' ');
-                this._queryText(text, ev);
-            });
-            return {
-                _element: icon,
-                pop(ev) {
-                    this._element.style.top = ev.pageY + 9 + 'px';
-                    this._element.style.left = ev.pageX + -18 + 'px';
-                    this._element.hidden = false;
-                    setTimeout(() => this.hide(), 2000);
-                },
-                hide() { this._element.hidden = true; }
-            };
-        }
-    };
-
-
-    // ——————————————————————————————————————
-    // [7] 辅助函数 & 初始化 (UTILS & INITIALIZATION)
+    // [6] 辅助函数 & 初始化 (UTILS & INITIALIZATION)
     // ——————————————————————————————————————
 
     const UTILS = {
@@ -838,11 +730,8 @@
         if (!Site.adapter) {
             return; // 如果没有适配器，则不执行页面注入
         }
-        
-        // 5. 初始化划词识别功能
-        Core.initSelectionRecognition();
     
-        // 6. 执行页面核心逻辑
+        // 5. 执行页面核心逻辑
         // 特殊处理 M-Team 的动态加载, 拦截API请求来触发
         if (Site.adapter.id === 'm-team') {
             const originOpen = XMLHttpRequest.prototype.open;
