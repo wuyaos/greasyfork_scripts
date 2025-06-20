@@ -86,7 +86,7 @@
             GM_setValue('isTip', isTip);
             this.load(); // Reload config after saving
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
-            showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
+            UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
         },
 
         reset() {
@@ -96,7 +96,6 @@
                 GM_deleteValue('moviepilotPassword');
                 GM_deleteValue('isTip');
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
-                showToast(`[${SCRIPT_NAME}] 所有配置已重置。页面将刷新。`);
                 location.reload();
             }
         },
@@ -166,7 +165,7 @@
 
             const cancelAction = () => {
                 if (isInitialSetup) {
-                    showToast(`[${SCRIPT_NAME}] 首次配置是必需的。请填写并保存配置。`);
+                    GM_log(`[${SCRIPT_NAME}] 首次配置是必需的。请填写并保存配置。`);
                 } else {
                     this.closeConfigModal();
                 }
@@ -230,29 +229,6 @@
             document.head.appendChild(style);
         },
 
-        showToast(message) {
-            const toastId = 'mp-toast-notification';
-            if (document.getElementById(toastId)) return;
-
-            const toast = document.createElement('div');
-            toast.id = toastId;
-            toast.textContent = message;
-            toast.style.cssText = `
-                position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-                background-color: rgba(40, 40, 40, 0.85); color: white; padding: 12px 24px;
-                border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 2147483647;
-                font-size: 16px; font-weight: 600; font-family: "Segoe UI", sans-serif;
-                transition: opacity 0.3s ease-in-out; opacity: 0;
-            `;
-
-            document.body.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '1'; }, 10);
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 2500);
-        },
-
         renderTag(text, color) {
             return `<span style="background-color:${color};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;border-radius:0.375rem;font-size:12px;padding:0.25rem 0.75rem;font-weight:bold;">${text}</span>`;
         },
@@ -265,6 +241,47 @@
                 return `<td class="rowhead nowrap" valign="top" align="right">MoviePilot</td><td class="rowfollow" valign="top" align="left">${html}</td>`;
             }
             return html;
+        },
+
+        showToast(message, duration = 3000) {
+            const toastId = 'mp-toast-message';
+            // 移除已存在的 toast
+            const existingToast = document.getElementById(toastId);
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background-color: ${CONSTANTS.COLORS.SUCCESS};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                z-index: 2147483647;
+                font-size: 16px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transition: opacity 0.3s ease-in-out;
+                opacity: 0;
+            `;
+            document.body.appendChild(toast);
+
+            // Fade in
+            setTimeout(() => {
+                toast.style.opacity = '1';
+            }, 10);
+
+            // Fade out and remove
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    toast.remove();
+                }, 300); // 等待淡出动画完成
+            }, duration);
         }
     };
 
@@ -317,7 +334,6 @@
             const RETRY_INTERVAL = 1000;
 
             if (!CONFIG.get('url') || !CONFIG.get('user') || !CONFIG.get('pass')) {
-                showToast(`[${SCRIPT_NAME}] Moviepilot 配置不完整！请填写URL、用户名和密码。`);
                 throw new Error('配置不完整');
             }
 
@@ -430,8 +446,30 @@
 
     const SITE_ADAPTERS = [
         {
+            id: 'totheglory',
+            matches: () => window.location.href.includes('totheglory.im/t/'),
+            getInfo: () => {
+                // rowhead + heading
+                const rows = document.querySelectorAll('.rowhead, .heading');
+                const nameLink = rows[0].nextElementSibling.querySelector('a');
+                const sizeString = Array.from(rows)
+                    .find(row => row.textContent.includes('尺寸'))
+                    ?.nextElementSibling?.innerText || '';
+                const description = document.querySelector("h1").textContent.replace(/.*?\[/, '[').trim();
+                return {
+                    name: nameLink?.textContent.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || '',
+                    downloadLink: document.querySelector("td[valign='top'] a").getAttribute("href") || '',
+                    description: description,
+                    size: UTILS.parseSize(sizeString || 0),
+                    insertPoint: rows[1].parentElement.parentElement,
+                    insertIndex: 2,
+                    rowType: 'common'
+                };
+            }
+        },
+        {
             id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead'),
+            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
                 if (rows.length < 3) return null;
@@ -503,24 +541,6 @@
                     description: rows[2].querySelectorAll('td')[1]?.innerText || '',
                     size: UTILS.parseSize(rows[3].querySelectorAll('td')[1]?.innerText || ''),
                     insertPoint: rows[0].parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
-                };
-            }
-        },
-        {
-            id: 'totheglory',
-            matches: () => window.location.href.includes('totheglory.im/t/'),
-            getInfo: () => {
-                const nameEl = document.querySelector('a[href*="download.php"]');
-                const sizeEl = Array.from(document.querySelectorAll('.main .heading')).find(el => el.textContent.includes('大小'));
-                if (!nameEl || !sizeEl) return null;
-                return {
-                    name: nameEl.textContent,
-                    downloadLink: nameEl.href,
-                    description: '', // TTG doesn't have a clear description field here
-                    size: UTILS.parseSize(sizeEl.nextElementSibling.innerText),
-                    insertPoint: document.querySelector('.main > table > tbody'),
                     insertIndex: 2,
                     rowType: 'common'
                 };
@@ -606,7 +626,7 @@
                 }
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Recognition failed:`, error);
-                const errorMessage = error.message.includes('登录') ? `登录失败: ${error.message}` : '识别失败';
+                const errorMessage = (error.message || '').includes('配置不完整') ? '登录失败，请检查配置' : '识别失败';
                 row.innerHTML = UI.renderRecognizeRow(rowType, errorMessage);
             }
         },
@@ -663,7 +683,9 @@
         async handleDownload(button, media_info, torrentInfo) {
             button.disabled = true;
             button.textContent = "正在推送...";
-
+        
+            const originalText = "下载种子";
+        
             try {
                 // 如果是 M-Team, 在此时获取下载链接
                 if (Site.adapter.id === 'm-team') {
@@ -674,11 +696,11 @@
                     } catch (linkError) {
                         GM_log(`[${SCRIPT_NAME}] M-Team link acquisition failed:`, linkError);
                         button.textContent = "链接获取失败";
-                        button.disabled = false;
+                        setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
                         return; // 获取失败，终止操作
                     }
                 }
-
+        
                 const siteData = await API.getSite();
                 const torrentPayload = {
                     title: torrentInfo.name,
@@ -693,18 +715,21 @@
                     pubdate: UTILS.getFormattedDate(),
                     site_ua: navigator.userAgent
                 };
-
+        
                 await API.download(media_info, torrentPayload);
                 button.textContent = "推送成功";
-                UI.showToast("推送种子成功！");
+                // 成功后不再禁用按钮，并保持“推送成功”状态
+                button.disabled = false; 
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
                 // 主 catch 块现在也可以捕获站点或下载错误
                 if (button.textContent !== "链接获取失败") {
                     button.textContent = error.message.includes('站点') ? '站点不存在' : '推送失败';
                 }
-            } finally {
-                button.disabled = false;
+                setTimeout(() => { 
+                    button.textContent = originalText; 
+                    button.disabled = false; 
+                }, 2000);
             }
         },
         
