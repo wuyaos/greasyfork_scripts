@@ -23,11 +23,8 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_setClipboard
-// @grant        GM_getC
 // @grant        GM_info
 // @grant        GM_registerMenuCommand
-// @grant        GM_unregisterMenuCommand
-// @grant        GM_notify
 // @connect      *
 // @license      MIT
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png
@@ -106,11 +103,6 @@
 
         get(key) {
             return this._values[key];
-        },
-
-        set(key, value) {
-            this._values[key] = value;
-            GM_setValue(key, value);
         },
 
         ensure() {
