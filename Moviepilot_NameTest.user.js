@@ -16,12 +16,14 @@
 // @match        https://mikanani.me/*
 // @match        https://*.skyey2.com/*
 // @match        https://*.m-team.cc/detail/*
+// @match        https://*.m-team.io/detail/*
 // @grant        GM_log
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_setClipboard
+// @grant        GM_getC
 // @grant        GM_info
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
@@ -386,6 +388,45 @@
                 token,
                 responseType: 'json'
             });
+        },
+
+        async getMteamDownloadLink() {
+            try {
+                const torrentId = window.location.pathname.split('/').pop();
+                if (!torrentId) throw new Error("在URL中未找到种子ID");
+
+                const tokenResponse = await new Promise((resolve, reject) => {
+                    GM_xmlhttpRequest({
+                        method: "POST",
+                        url: `${localStorage.getItem("apiHost")}/torrent/genDlToken`,
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "TS": String(Math.floor(Date.now() / 1000)),
+                            "Authorization": localStorage.getItem("auth") || ""
+                        },
+                        data: `id=${torrentId}`,
+                        responseType: 'json',
+                        onload: (res) => {
+                            if (res.status === 200 && res.response?.code === "0") {
+                                resolve(res.response);
+                            } else {
+                                const errorMsg = res.response?.message || `HTTP ${res.status}`;
+                                reject(new Error(`生成下载令牌失败: ${errorMsg}`));
+                            }
+                        },
+                        onerror: (err) => reject(new Error('生成下载令牌时发生网络错误'))
+                    });
+                });
+
+                if (tokenResponse && tokenResponse.data) {
+                    return tokenResponse.data;
+                } else {
+                    throw new Error("下载令牌响应无效");
+                }
+            } catch (error) {
+                GM_log(`[Moviepilot] M-Team adapter: 获取下载链接失败. ${error.message}`);
+                throw error; // 将错误向上抛出
+            }
         }
     };
 
@@ -396,17 +437,38 @@
 
     const SITE_ADAPTERS = [
         {
+            id: 'generic-nexusphp',
+            matches: () => document.querySelector('.rowhead'),
+            getInfo: () => {
+                const rows = document.querySelectorAll('.rowhead');
+                if (rows.length < 3) return null;
+                const nameRow = rows[0], descRow = rows[1], sizeRow = rows[2];
+                if (!nameRow.nextElementSibling || !descRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
+                const nameLink = nameRow.nextElementSibling.querySelector('a');
+                return {
+                    name: nameLink?.textContent || '',
+                    downloadLink: nameLink?.href || '',
+                    description: descRow.nextElementSibling.innerText,
+                    size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
+                    insertPoint: nameRow.parentElement.parentElement,
+                    insertIndex: 2,
+                    rowType: 'common'
+                };
+            }
+        },
+        {
             id: 'm-team',
-            matches: () => window.location.href.includes('m-team.cc/detail/'),
+            matches: () => window.location.href.includes('m-team.cc/detail/') || window.location.href.includes('m-team.io/detail/'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.ant-descriptions-item-label');
                 if (rows.length < 3) return null;
                 const nameRow = rows[0], dlRow = rows[1], sizeRow = rows[2];
                 if (!nameRow.nextElementSibling || !dlRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
                 const nameLink = nameRow.nextElementSibling.querySelector('a');
+                
                 return {
                     name: nameLink?.textContent.replace(/\.torrent$/, '') || '',
-                    downloadLink: dlRow.nextElementSibling.querySelector('a')?.href || '',
+                    downloadLink: '', // 将 downloadLink 设为空字符串
                     description: dlRow.nextElementSibling.innerText || '',
                     size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
                     insertPoint: nameRow.parentElement.parentElement,
@@ -451,27 +513,7 @@
             }
         },
         {
-            id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead'),
-            getInfo: () => {
-                const rows = document.querySelectorAll('.rowhead');
-                if (rows.length < 3) return null;
-                const nameRow = rows[0], descRow = rows[1], sizeRow = rows[2];
-                if (!nameRow.nextElementSibling || !descRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
-                const nameLink = nameRow.nextElementSibling.querySelector('a');
-                return {
-                    name: nameLink?.textContent || '',
-                    downloadLink: nameLink?.href || '',
-                    description: descRow.nextElementSibling.innerText,
-                    size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                    insertPoint: nameRow.parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
-                };
-            }
-        },
-        {
-            id: 'bangumi.moe',
+            id: 'bangumi',
             matches: () => window.location.href.includes('bangumi.moe'),
             getInfo: () => {
                 const torrent_index_div = document.querySelector('a.index');
@@ -503,8 +545,8 @@
                 GM_log(`[${SCRIPT_NAME}] No matching site adapter found.`);
             }
         },
-        getTorrentInfo() {
-            return this.adapter ? this.adapter.getInfo() : null;
+        async getTorrentInfo() {
+            return this.adapter ? await this.adapter.getInfo() : null;
         }
     };
 
@@ -515,7 +557,10 @@
 
     const Core = {
         async handlePage() {
-            const torrentInfo = Site.getTorrentInfo();
+            const torrentInfo = await Site.getTorrentInfo();
+            // 日志
+            GM_log(`MP 消息: 正在处理页面，匹配到的种子信息:`, torrentInfo && (({ insertPoint, insertAction, ...rest }) => rest)(torrentInfo));
+
             if (!torrentInfo || !torrentInfo.name) {
                 GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
                 return;
@@ -606,6 +651,20 @@
             button.textContent = "正在推送...";
 
             try {
+                // 如果是 M-Team, 在此时获取下载链接
+                if (Site.adapter.id === 'm-team') {
+                    button.textContent = "获取链接...";
+                    try {
+                        torrentInfo.downloadLink = await API.getMteamDownloadLink();
+                        button.textContent = "正在推送..."; // 获取成功后更新文本
+                    } catch (linkError) {
+                        GM_log(`[${SCRIPT_NAME}] M-Team link acquisition failed:`, linkError);
+                        button.textContent = "链接获取失败";
+                        button.disabled = false;
+                        return; // 获取失败，终止操作
+                    }
+                }
+
                 const siteData = await API.getSite();
                 const torrentPayload = {
                     title: torrentInfo.name,
@@ -626,7 +685,10 @@
                 UI.showToast("推送种子成功！");
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
-                button.textContent = error.message.includes('站点') ? '站点不存在' : '推送失败';
+                // 主 catch 块现在也可以捕获站点或下载错误
+                if (button.textContent !== "链接获取失败") {
+                    button.textContent = error.message.includes('站点') ? '站点不存在' : '推送失败';
+                }
             } finally {
                 button.disabled = false;
             }
@@ -752,39 +814,23 @@
         getFormattedDate() {
             return new Date().toISOString().slice(0, 19).replace('T', ' ');
         },
-        mutationObserver(target, className, callback) {
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (mutation.type === 'childList') {
-                        for (const node of mutation.addedNodes) {
-                            if (node.nodeType === 1 && node.classList.contains(className)) {
-                                callback();
-                                observer.disconnect();
-                                return;
-                            }
-                        }
-                    }
-                }
-            });
-            observer.observe(target, { childList: true, subtree: true });
-        }
     };
 
     function main() {
         // 1. 加载配置
         CONFIG.load();
-
+    
         // 2. 注册菜单命令
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand("配置Moviepilot参数", () => UI.showConfigModal(false), "c");
             GM_registerMenuCommand("重置所有配置", CONFIG.reset, "r");
         }
-
+    
         // 3. 确保配置存在，否则弹窗并终止
         if (!CONFIG.ensure()) {
             return;
         }
-
+    
         // 4. 初始化站点适配器
         Site.init();
         if (!Site.adapter) {
@@ -793,11 +839,34 @@
         
         // 5. 初始化划词识别功能
         Core.initSelectionRecognition();
-
+    
         // 6. 执行页面核心逻辑
-        // 特殊处理 M-Team 的动态加载
+        // 特殊处理 M-Team 的动态加载, 拦截API请求来触发
         if (Site.adapter.id === 'm-team') {
-            UTILS.mutationObserver(document.body, 'ant-descriptions-row', () => Core.handlePage());
+            const originOpen = XMLHttpRequest.prototype.open;
+            let executed = false;
+            XMLHttpRequest.prototype.open = function(...args) {
+                const url = args[1];
+                if (typeof url === 'string' && url.includes("/api/torrent/detail")) {
+                    this.addEventListener("readystatechange", function() {
+                        if (this.readyState === 4 && this.status === 200) {
+                            if (executed) return; // 防止重复执行
+                            try {
+                                const res = JSON.parse(this.responseText);
+                                if (res && res.message === 'SUCCESS') {
+                                    executed = true;
+                                    GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Running Core.handlePage()`);
+                                    // 延迟一小段时间，确保页面可能依赖的其他脚本已执行完毕
+                                    setTimeout(() => Core.handlePage(), 200);
+                                }
+                            } catch (e) {
+                                GM_log(`[${SCRIPT_NAME}] Error parsing M-Team API response.`, e);
+                            }
+                        }
+                    });
+                }
+                originOpen.apply(this, args);
+            };
         } else {
             Core.handlePage();
         }
