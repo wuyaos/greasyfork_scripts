@@ -2546,6 +2546,7 @@
     let globalElements = {}; // 全局变量，用于存储脚本创建的主要UI元素的引用
 
     function main() {
+        if (window.self !== window.top) { return; }
         try {
             // 1. 加载配置
             loadConfig();
