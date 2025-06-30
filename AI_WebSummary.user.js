@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI网页内容总结(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.0.2
+// @version      2.0.3
 // @description  使用AI总结网页内容的油猴脚本
 // @author       Jinfeng (modifed by ffwu)
 // @match        *://*/*
@@ -18,10 +18,8 @@
 // ==/UserScript==
 
 /* ==更新日志==
- * v2.0.1 (2025-06-14)
- * - 修复多选删除/模型选择模态框字体对比度问题
- * - 优化设置面板状态同步机制
- * - 实现模型列表实时更新功能
+ * v2.0.3 (2025-06-30)
+ * - 修改悬浮菜单交互逻辑和样式，支持菜单吸附
  * v2.0.2 (2025-06-14)
  * - 修复github页面的总结
  * - 修复populateModalModelSelector is not defined
@@ -30,10 +28,16 @@
  * - 优化悬浮窗停靠动画
  * - 修改UI界面
  * - 修复悬浮窗超出窗口的问题
+ * v2.0.1 (2025-06-14)
+ * - 修复多选删除/模型选择模态框字体对比度问题
+ * - 优化设置面板状态同步机制
+ * - 实现模型列表实时更新功能
  */
 
 (function() {
     'use strict';
+
+    let hasDragged = false; // 全局（IIFE作用域内）标志，用于区分点击和拖拽
 
     // 默认配置
     const PROMPT_TEMPLATES = [
@@ -258,7 +262,7 @@
 
         // isDirty: 标记设置是否有未保存的更改。
         let isDirty = false;
-        // settingsSnapshot: 存储打开设置面板时各项配置的初始值，用于“取消”操作时恢复。
+        // settingsSnapshot: 存储打开设置面板时各项配置的初始值，用于"取消"操作时恢复。
         let settingsSnapshot = {};
         // isSaving: 标志位，指示当前是否正在执行保存操作。
         let isSaving = false;
@@ -314,11 +318,11 @@
                 // 弹出确认对话框
                 if (confirm('您有未保存的更改。确定要放弃吗？')) {
                     restoreSettingsFromSnapshot(); // 用户确认放弃，则从快照恢复设置
-                    setDirtyStatus(false);       // 将状态标记为“干净”
+                    setDirtyStatus(false);       // 将状态标记为"干净"
                     panel.style.display = 'none';      // 隐藏设置面板
                     settingsOverlay.style.display = 'none'; // 隐藏遮罩层
                 }
-                // 如果用户选择“取消”放弃，则不做任何操作，面板保持打开状态。
+                // 如果用户选择"取消"放弃，则不做任何操作，面板保持打开状态。
             } else {
                 panel.style.display = 'none';
                 settingsOverlay.style.display = 'none';
@@ -328,8 +332,8 @@
         // 获取设置面板中的关键UI元素
         const promptSelect = panel.querySelector('#config-select'); // 提示词模板选择器
         const shortcutInput = panel.querySelector('#shortcut');       // 快捷键输入框
-        const customModelBtn = panel.querySelector('#custom-model-btn'); // “自定义模型”按钮
-        const fetchModelsBtn = panel.querySelector('#fetch-model-btn'); // “获取模型”按钮
+        const customModelBtn = panel.querySelector('#custom-model-btn'); // "自定义模型"按钮
+        const fetchModelsBtn = panel.querySelector('#fetch-model-btn'); // "获取模型"按钮
         const modelTagsContainer = panel.querySelector('#model-tags-container'); // 模型标签容器
 
         // 根据用户操作系统判断是否为Mac，以显示不同的快捷键占位符提示
@@ -472,7 +476,7 @@
             multiDeleteModal.querySelector('.cancel-btn').addEventListener('click', closeModal);
             overlay.addEventListener('click', closeModal);
 
-            // 为“删除已选”按钮添加点击事件监听器
+            // 为"删除已选"按钮添加点击事件监听器
             multiDeleteModal.querySelector('.delete-selected-btn').addEventListener('click', () => {
                 const selectedForDeletion = []; // 存储用户选中的要删除的模型ID
                 // 遍历模态框中所有选中的复选框
@@ -500,7 +504,7 @@
             });
         }
 
-        // “使用自定义模型”按钮的点击事件监听器
+        // "使用自定义模型"按钮的点击事件监听器
         customModelBtn.addEventListener('click', () => {
             // 提示用户输入自定义模型的名称，支持多个，用逗号分隔
             const newModelsInput = prompt('请输入要添加的自定义模型名称（多个模型请用英文逗号,隔开）：');
@@ -527,7 +531,7 @@
             }
         });
 
-        // --- “获取模型”按钮相关逻辑 ---
+        // --- "获取模型"按钮相关逻辑 ---
         // fetchedModelsCache: 用于缓存从API获取的模型列表，避免重复请求。
         let fetchedModelsCache = [];
         const searchInput = modelSelectionModal.querySelector('#model-search-input'); // 模型选择模态框内的搜索框
@@ -567,7 +571,7 @@
         // 为模型选择模态框中的搜索输入框添加 'input' 事件监听，实现实时过滤模型列表
         searchInput.addEventListener('input', () => renderModelList(searchInput.value));
 
-        // “获取模型”按钮的点击事件监听器
+        // "获取模型"按钮的点击事件监听器
         fetchModelsBtn.addEventListener('click', async () => {
             // 初始化模态框状态：显示加载提示，清空描述区和搜索框
             modelListContainer.innerHTML = '<div class="ai-loading">正在获取模型列表...</div>';
@@ -586,7 +590,7 @@
         });
 
 
-        // “保存”按钮的点击事件监听器
+        // "保存"按钮的点击事件监听器
         saveBtn.addEventListener('click', () => {
             isSaving = true; // 设置保存状态标志，防止在保存过程中触发不必要的 dirty 状态更新
 
@@ -655,15 +659,15 @@
             populateModalModelSelector(modal);
 
             // 9. 更新设置快照以反映已保存的更改。
-            //    这确保了如果用户在保存后立即关闭面板，不会误报“未保存更改”。
+            //    这确保了如果用户在保存后立即关闭面板，不会误报"未保存更改"。
             if (typeof panel.takeSettingsSnapshot === 'function') {
                 panel.takeSettingsSnapshot();
             }
-            // 10. 将设置状态标记为“干净”。这必须在更新快照之后执行。
+            // 10. 将设置状态标记为"干净"。这必须在更新快照之后执行。
             setDirtyStatus(false);
             
             // 11. 重置保存状态标志。这必须在 setDirtyStatus(false) 之后执行，
-            //     以确保 dirty 状态和UI完全更新为“干净”后，才允许其他事件（如输入框修改）再次更改 dirty 状态。
+            //     以确保 dirty 状态和UI完全更新为"干净"后，才允许其他事件（如输入框修改）再次更改 dirty 状态。
             isSaving = false;
 
             // 12. 隐藏设置面板和遮罩层，并显示成功提示
@@ -672,7 +676,7 @@
             showToastNotification('设置已应用！');
         });
 
-        // 为“取消”按钮和设置面板的遮罩层添加点击事件监听器，调用 closeSettingsPanel 函数来关闭面板。
+        // 为"取消"按钮和设置面板的遮罩层添加点击事件监听器，调用 closeSettingsPanel 函数来关闭面板。
         cancelBtn.addEventListener('click', closeSettingsPanel);
         settingsOverlay.addEventListener('click', closeSettingsPanel);
     }
@@ -832,7 +836,7 @@
                 margin-top: 20px;
             }
 
-            .modal-action-btn { /* 通用模态框操作按钮（如“获取模型”模态框中的按钮）的基本样式 */
+            .modal-action-btn { /* 通用模态框操作按钮（如"获取模型"模态框中的按钮）的基本样式 */
                /* 这个类名在HTML中是加在 .cancel-btn 和 .delete-selected-btn 上的，它们可以继续使用 .ai-btn-* */
             }
 
@@ -846,7 +850,7 @@
                 flex-grow: 1; /* 占据可用空间 */
             }
 
-            /* 通用模态框样式 (例如用于“获取模型”、“批量删除模型”等功能) */
+            /* 通用模态框样式 (例如用于"获取模型"、"批量删除模型"等功能) */
             .ai-modal {
                 display: none; /* 默认隐藏 */
                 position: fixed;
@@ -907,7 +911,7 @@
                 padding-top: 15px;
                 text-align: right; /* 按钮靠右对齐 */
             }
-            #save-selected-models { /* “获取模型”模态框中的“保存”按钮样式，将使用 .ai-btn-success */
+            #save-selected-models { /* "获取模型"模态框中的"保存"按钮样式，将使用 .ai-btn-success */
                  /* padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
@@ -966,7 +970,7 @@
            }
             .model-tag.selected .delete-btn { color: white; } /* 选中标签的删除按钮颜色 */
            .model-tag .delete-btn:hover { color: #f00; } /* 删除按钮悬停时颜色变为红色 */
-           /* “自定义模型”和“获取模型”按钮的容器样式 */
+           /* "自定义模型"和"获取模型"按钮的容器样式 */
            .model-actions {
                display: flex;
                gap: 10px;
@@ -1175,81 +1179,185 @@
                 background-color: rgba(255,255,255,0.1); /* 轻微背景反馈 */
             }
             /* --- 原有样式开始 --- */
+            /* --- 动画 Keyframes 定义 --- */
+            /* Keyframes for smooth animations with better easing */
+            @keyframes slide-in-from-right {
+                from { transform: translateX(50%); }
+                to { transform: translateX(0); }
+            }
+            @keyframes slide-out-to-right {
+                from { transform: translateX(0); }
+                to { transform: translateX(50%); }
+            }
+            @keyframes slide-in-from-left {
+                from { transform: translateX(-50%); }
+                to { transform: translateX(0); }
+            }
+            @keyframes slide-out-to-left {
+                from { transform: translateX(0); }
+                to { transform: translateX(-50%); }
+            }
+
+            @keyframes panel-popup-in {
+                from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.98); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+            }
+            @keyframes panel-popup-out {
+                from { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+                to { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.98); }
+            }
+            @keyframes menu-expand-in {
+                from { opacity: 0; transform: scale(0.95); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            @keyframes menu-collapse-out {
+                from { opacity: 1; transform: scale(1); }
+                to { opacity: 0; transform: scale(0.95); }
+            }
+
             .ai-summary-container {
-                position: fixed; /* Draggable, left/top will be set dynamically */
-                display: flex;
-                align-items: center;
+                position: fixed;
                 z-index: 99990;
                 user-select: none;
-                flex-direction: column; /* New: for vertical layout */
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-                background-color: rgba(75, 85, 99, 0.8);
-                border-radius: 5px;
-                overflow: hidden; /* 防止子元素溢出圆角 */
+                /* Default state (snapped right) */
+                transform: translateX(50%);
+                /* Smoother transitions for position and transform */
+                /* 只对 transform 应用过渡，以获得最佳性能 */
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 更平缓的动画曲线 */
             }
-            .ai-drag-handle {
-                width: 100%; /* Changed from 15px */
-                height: 20px; /* Changed from 100% to a fixed height */
-                background-color: rgba(75, 85, 99, 0.5);
-                border-radius: 5px 5px 0 0; /* Top corners rounded */
-                cursor: move;
-                margin-bottom: 1px; /* Optional: space between handle and first button */
+
+            /* State modifiers for snapping */
+            .ai-summary-container.snap-left {
+                /* 当贴靠左侧时，其左边缘应为0，然后由 transform 将其移出视野 */
+                transform: translateX(-50%);
+            }
+            .ai-summary-container.snap-right {
+                transform: translateX(50%);
+            }
+            .ai-summary-container.is-expanded {
+                transform: translateX(0);
+            }
+
+            /* 折叠时没有特殊的过渡，它由状态改变处理 */
+
+            .ai-summary-btn {
+                width: 40px;
+                height: 40px;
+                background-color: #3b82f6;
+                color: white;
+                border-radius: 50%;
+                border: none;
+                cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                font-size: 18px;
+                font-weight: bold;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                transition: background-color 0.2s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
             }
-            .ai-drag-handle::before {
-                content: "⋯"; /* Changed from ⋮ and removed rotation */
+            .ai-summary-btn:hover {
+                background-color: #2563eb;
+                transform: scale(1.05);
+            }
+            .ai-actions-container {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                opacity: 0;
+                pointer-events: none;
+                gap: 8px;
+                background-color: rgba(55, 65, 81, 0.95);
+                padding: 8px;
+                border-radius: 8px;
+                z-index: -1;
+                transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                will-change: opacity, transform;
+            }
+            /* V4 对齐修复: 仅在snap-left时覆盖动画原点，保持其居中定位 */
+            .ai-summary-container.snap-left .ai-actions-container {
+                transform-origin: left center;
+            }
+            .ai-summary-container.is-expanded .ai-actions-container {
+                opacity: 1;
+                pointer-events: auto;
+                animation: panel-popup-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+            }
+             .ai-summary-container:not(.is-expanded) .ai-actions-container {
+                opacity: 0;
+                pointer-events: none;
+                animation: panel-popup-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+            }
+
+            .ai-hover-wrapper {
+                padding: 10px;
+                margin: -10px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                position: relative;
+            }
+            .ai-prompt-btn-container, .ai-model-btn-container {
+                position: relative;
+            }
+            .ai-actions-list {
+                display: none;
+                position: absolute;
+                background-color: #2d3748;
+                border-radius: 6px;
+                padding: 5px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.4); /* 增加阴影 */
+                z-index: 10;
+                width: 200px;
+                /* max-height 由JS动态设置 */
+                overflow-y: auto;
+                transform-origin: top center; /* JS会动态调整 */
+                animation: menu-expand-in 0.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+                will-change: opacity, transform; /* 性能优化提示 */
+            }
+            .ai-actions-list.is-collapsing {
+                animation: menu-collapse-out 0.15s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+            }
+            .ai-actions-list.show {
+                display: block;
+            }
+            .ai-actions-list-item {
+                padding: 8px 12px;
+                color: #e2e8f0;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                transition: background-color 0.15s ease-in-out;
+            }
+            .ai-actions-list-item:hover {
+                background-color: #4a5568;
+            }
+            .ai-actions-list-item.selected {
+                background-color: #3b82f6;
+                font-weight: bold;
+            }
+            /* 为所有圆形图标按钮应用统一的样式 */
+            .ai-template-btn, .ai-settings-btn-float, .ai-prompt-btn, .ai-model-btn {
+                padding: 0;
+                background-color: transparent;
                 color: #f3f4f6;
-                font-size: 16px;
-            }
-            /* 悬浮窗按钮的特殊处理 */
-            .ai-summary-btn, .ai-template-btn {
-                padding: 5px 15px;
-                background-color: #374151; /* 深灰蓝 */
-                color: #f3f4f6; /* 浅灰色文字 */
                 border: none;
-                border-top: 1px solid #4B5563; /* 深灰蓝边框 */
                 cursor: pointer;
-                font-size: 12px;
-                transition: all 0.3s;
                 height: 30px;
-                line-height: 1;
-                font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
-                width: 100%;
-                border-radius: 0;
+                width: 30px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background-color 0.2s;
             }
-            .ai-template-btn {
-                border-radius: 0 0 4px 4px;
-            }
-            .ai-summary-btn:hover, .ai-template-btn:hover { /* 合并hover */
-                background-color: #4B5563; /* 稍亮的深灰蓝 */
-            }
-            .ai-main-prompt-selector {
-                height: 30px;
-                background-color: #374151; /* 深灰蓝 */
-                color: #f3f4f6; /* 浅灰色文字 */
-                border: none;
-                border-radius: 4px 4px 0 0;
-                padding: 0 5px;
-                font-size: 12px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-                font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
-                width: 100%;
-                text-align: center;
-                border-bottom: 1px solid #4B5563; /* 深灰蓝边框 */
-            }
-            .ai-main-prompt-selector:hover {
-                background-color: #4B5563; /* 稍亮的深灰蓝 */
-            }
-            .ai-main-prompt-selector option {
-                background: #4B5563; /* 下拉选项背景 */
-                color: #f3f4f6; /* 下拉选项文字 */
-            }
-            .ai-summary-btn:active { /* 保持原有active效果 */
-                transform: scale(0.95);
-                transition: transform 0.1s;
+            .ai-template-btn:hover, .ai-settings-btn-float:hover, .ai-prompt-btn:hover, .ai-model-btn:hover {
+                background-color: rgba(255, 255, 255, 0.2);
             }
             .ai-summary-modal {
                 user-select: none;
@@ -1497,10 +1605,29 @@
         const container = document.createElement('div');
         container.className = 'ai-summary-container';
         container.innerHTML = `
-            <div class="ai-drag-handle"></div>
-            <select class="ai-main-prompt-selector" title="选择提示词"></select>
-            <button class="ai-summary-btn">总结网页</button>
-            <button class="ai-template-btn">打开面板</button>
+            <div class="ai-hover-wrapper">
+                <div class="ai-actions-container">
+                    <button class="ai-template-btn" title="打开面板">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                    </button>
+                    <button class="ai-settings-btn-float" title="打开设置">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    </button>
+                    <div class="ai-model-btn-container">
+                         <button class="ai-model-btn" title="选择模型">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/><path d="M6 8L2 12L6 16"/></svg>
+                        </button>
+                        <div class="ai-model-list ai-actions-list"></div>
+                    </div>
+                    <div class="ai-prompt-btn-container">
+                        <button class="ai-prompt-btn" title="选择提示词">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        </button>
+                        <div class="ai-prompt-list ai-actions-list"></div>
+                    </div>
+                </div>
+                <button class="ai-summary-btn">AI</button>
+            </div>
         `;
 
         // 创建模态框
@@ -1575,12 +1702,18 @@
 
         return {
             container,
+            hoverWrapper: container.querySelector('.ai-hover-wrapper'),
             button: container.querySelector('.ai-summary-btn'),
             templateBtn: container.querySelector('.ai-template-btn'),
-            mainPromptSelector: container.querySelector('.ai-main-prompt-selector'),
+            settingsBtnFloat: container.querySelector('.ai-settings-btn-float'),
+            actionsContainer: container.querySelector('.ai-actions-container'),
+            promptBtn: container.querySelector('.ai-prompt-btn'),
+            promptList: container.querySelector('.ai-prompt-list'),
+            modelBtn: container.querySelector('.ai-model-btn'),
+            modelList: container.querySelector('.ai-model-list'),
             modal,
             overlay,
-            dragHandle: container.querySelector('.ai-drag-handle'),
+            dragHandle: container.querySelector('.ai-summary-btn'),
             settingsPanel,
             settingsOverlay,
             shadow,
@@ -1929,51 +2062,232 @@
     }
 
     function initializeEvents(elements) {
-        const { container, button, templateBtn, modal, overlay, dragHandle, settingsPanel, settingsOverlay, shadow, modelSelectionModal } = elements;
+        const { container, hoverWrapper, button, templateBtn, settingsBtnFloat, promptBtn, modelBtn, modal, overlay, dragHandle, settingsPanel, settingsOverlay, shadow, modelSelectionModal, promptList, modelList, actionsContainer } = elements;
 
-        // 确保elements完全初始化后再调用updateAllPromptSelectors
         if (!elements.shadow) {
             console.error('Shadow root not initialized for initializeEvents');
             return;
         }
 
-        // 初始化拖动功能
-        initializeDrag(container, dragHandle, shadow);
+        initializeDrag(container, dragHandle, button, actionsContainer); // Pass more elements
 
-        const modelSelectModal = modal.querySelector('#ai-model-select-modal');
-        const promptSelectModal = modal.querySelector('#ai-prompt-select-modal');
+        let leaveTimeout;
+        const HIDE_DELAY = 500; // 鼠标移开后收起UI的延迟时间
 
-        function populateAllSelectors(elements) { // 接收 elements 作为参数
-            updateAllPromptSelectors(elements); // 传递 elements
+        // 辅助函数：收起所有子菜单（模型列表、提示词列表）
+        const hideSubMenus = (force = false) => {
+            let wasVisible = false;
+            [promptList, modelList].forEach(list => {
+                if (list.classList.contains('show')) {
+                    wasVisible = true;
+                    if (force) {
+                        // 强制立即隐藏，无动画
+                        list.classList.remove('show', 'is-collapsing');
+                        list.style.display = 'none';
+                    } else {
+                        // 带动画隐藏
+                        list.classList.add('is-collapsing');
+                        list.addEventListener('animationend', () => {
+                            list.classList.remove('show', 'is-collapsing');
+                            list.style.display = 'none'; // 动画结束后再隐藏
+                        }, { once: true });
+                    }
+                }
+            });
+            return wasVisible; // 返回是否有菜单被收起
+        };
+
+        // 核心函数：显示完整交互UI
+        const showUi = () => {
+            clearTimeout(leaveTimeout); // 取消准备收起UI的计时器
+            container.classList.remove('is-collapsing');
+            container.classList.add('is-expanded');
+
+            // --- 智能定位主面板 (actionsContainer) ---
+            requestAnimationFrame(() => {
+                const mainButtonRect = button.getBoundingClientRect();
+                const GAP = 12; // 悬浮按钮和面板之间的间距
+
+                // 预计算面板尺寸
+                actionsContainer.style.visibility = 'hidden';
+                actionsContainer.style.display = 'flex';
+                const actionsHeight = actionsContainer.offsetHeight;
+                actionsContainer.style.display = '';
+                actionsContainer.style.visibility = '';
+
+                // 默认在按钮下方弹出
+                let panelTop = mainButtonRect.height + GAP;
+                actionsContainer.style.top = `${panelTop}px`;
+                actionsContainer.style.bottom = 'auto';
+
+                // 如果下方空间不足，则在上方弹出
+                if (mainButtonRect.bottom + actionsHeight + GAP > window.innerHeight) {
+                    actionsContainer.style.top = 'auto';
+                    actionsContainer.style.bottom = `${mainButtonRect.height + GAP}px`;
+                }
+            });
+        };
+
+        // 核心函数：收起UI
+        const hideUi = () => {
+            clearTimeout(leaveTimeout);
+            leaveTimeout = setTimeout(() => {
+                const subMenuWasVisible = hideSubMenus(); // 先调用收起子菜单
+                // 延迟收起主面板，给子菜单动画留出时间 (150ms)
+                setTimeout(() => {
+                    container.classList.add('is-collapsing');
+                    container.classList.remove('is-expanded');
+                }, 150);
+            }, HIDE_DELAY);
+        };
+
+        // 为整个悬浮窗区域和弹出的子菜单绑定鼠标悬停事件
+        [hoverWrapper, promptList, modelList].forEach(elem => {
+            elem.addEventListener('mouseenter', showUi);
+            elem.addEventListener('mouseleave', hideUi);
+        });
+
+        // 核心函数：切换（显示/隐藏）子菜单列表
+        function toggleMenuList(listElement, buttonElement, items, configKey, gmKey, displayField, idField, toastPrefix) {
+            const isVisible = listElement.classList.contains('show');
+            hideSubMenus(true); // 强制立即隐藏所有其他菜单
+
+            if (isVisible) return; // 如果已经可见，再次点击则隐藏（由hideSubMenus完成），直接返回
+
+            // --- 填充列表内容 ---
+            listElement.innerHTML = '';
+            const currentId = CONFIG[configKey];
+            items.forEach(item => {
+                const listItem = document.createElement('div');
+                listItem.className = 'ai-actions-list-item';
+                if (item[idField] === currentId) listItem.classList.add('selected');
+                listItem.textContent = item[displayField];
+                listItem.dataset.id = item[idField];
+                listItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const newId = e.currentTarget.dataset.id;
+                    if (CONFIG[configKey] !== newId) {
+                        CONFIG[configKey] = newId;
+                        GM_setValue(gmKey, newId);
+
+                        // 实时高亮
+                        const parentList = e.currentTarget.parentNode;
+                        const oldSelected = parentList.querySelector('.selected');
+                        if (oldSelected) oldSelected.classList.remove('selected');
+                        e.currentTarget.classList.add('selected');
+
+                        // 根据类型更新其他UI
+                        if (configKey === 'CURRENT_PROMPT_IDENTIFIER') updateAllPromptSelectors(elements);
+                        else populateModalModelSelector(modal);
+
+                        const newName = items.find(i => i[idField] === newId)?.[displayField] || '';
+                        showToastNotification(`${toastPrefix}: ${newName}`);
+                    }
+                    // 根据新需求，选择后不再立即收起UI
+                    // hideUi();
+                });
+                listElement.appendChild(listItem);
+            });
+
+            // --- 智能定位列表 ---
+            listElement.style.display = 'block';
+            listElement.classList.remove('is-collapsing');
+
+            // V6 修复：强制浏览器重绘以获取稳定的 listRect 尺寸
+            // 在 requestAnimationFrame 之前读取 offsetHeight 会强制浏览器完成所有待处理的布局计算。
+            // 这样可以确保 getBoundingClientRect() 返回的是最终的、准确的尺寸，从而避免了因渲染延迟导致的位置和大小不一致问题。
+            const _ = listElement.offsetHeight;
+
+            requestAnimationFrame(() => {
+                const actionsRect = actionsContainer.getBoundingClientRect();
+                const listRect = listElement.getBoundingClientRect();
+                const btnRect = buttonElement.getBoundingClientRect();
+                const margin = 8;
+                const viewport_padding = 10; // 视窗边缘的安全边距
+
+                // 1. 水平定位
+                const isSnappedLeft = container.classList.contains('snap-left');
+                if (isSnappedLeft) {
+                    // 按钮在左边，列表从右边弹出
+                    listElement.style.left = `${actionsRect.width + margin}px`;
+                    listElement.style.right = 'auto';
+                    listElement.style.transformOrigin = 'left center';
+                } else {
+                    // 按钮在右边，列表从左边弹出
+                    listElement.style.right = `${actionsRect.width + margin}px`;
+                    listElement.style.left = 'auto';
+                    listElement.style.transformOrigin = 'right center';
+                }
+
+                // 2. 垂直定位与自适应
+                // 2. 垂直定位与自适应 (V3 - 增加最大高度限制)
+                let top = buttonElement.offsetTop;
+                let finalHeight = listRect.height;
+                const maxHeight = window.innerHeight / 3;
+                listElement.style.maxHeight = ''; // 重置
+
+                // V5 修复：应用最大高度限制
+                if (finalHeight > maxHeight) {
+                    listElement.style.maxHeight = `${maxHeight}px`;
+                    finalHeight = maxHeight; // 更新 finalHeight 以便后续计算使用
+                }
+
+                // 检查是否会超出底部
+                if (actionsRect.top + top + finalHeight > window.innerHeight - viewport_padding) {
+                    // 如果超出，则尝试将列表底部与按钮底部对齐
+                    top = buttonElement.offsetTop + buttonElement.offsetHeight - finalHeight;
+                }
+
+                // 再次检查是否会超出顶部
+                if (actionsRect.top + top < viewport_padding) {
+                    top = viewport_padding - actionsRect.top; // 贴紧顶部安全边距
+                    // 如果应用了顶部贴边后，可用高度比maxHeight还小，则进一步限制maxHeight
+                    const availableHeight = window.innerHeight - (actionsRect.top + top) - viewport_padding;
+                    if (finalHeight > availableHeight) {
+                        listElement.style.maxHeight = `${availableHeight}px`;
+                    }
+                }
+
+                listElement.style.top = `${top}px`;
+                listElement.classList.add('show');
+            });
         }
 
-        populateAllSelectors(elements); // 初始填充，传递 elements
+        promptBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡到父元素
+            toggleMenuList(promptList, promptBtn, PROMPT_TEMPLATES, 'CURRENT_PROMPT_IDENTIFIER', 'CURRENT_PROMPT_IDENTIFIER', 'title', 'identifier', '提示词');
+        });
 
-        // 为所有选择器添加事件监听器以实现同步
-        const selectors = [
-            elements.mainPromptSelector,
-            modal.querySelector('#ai-prompt-select-modal'),
-            settingsPanel.querySelector('#config-select')
-        ];
+        modelBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+            const modelItems = CONFIG.SAVED_MODELS.map(id => ({ id: id, name: id }));
+            toggleMenuList(modelList, modelBtn, modelItems, 'MODEL', 'MODEL', 'name', 'id', '模型');
+        });
 
-        selectors.forEach(selector => {
-            if (selector) {
-                selector.addEventListener('change', (e) => {
-                    const newIdentifier = e.target.value;
-                    if (CONFIG.CURRENT_PROMPT_IDENTIFIER !== newIdentifier) {
-                        CONFIG.CURRENT_PROMPT_IDENTIFIER = newIdentifier;
-                        GM_setValue('CURRENT_PROMPT_IDENTIFIER', newIdentifier);
-                        updateAllPromptSelectors(elements); // 同步所有选择器
-                        showToastNotification(`提示词已切换为: ${newIdentifier}`);
-                    }
-                });
+        // 全局点击事件，用于关闭打开的菜单
+        document.addEventListener('click', (e) => {
+            if (!actionsContainer.contains(e.target)) {
+                hideSubMenus();
             }
         });
 
-        // Event listener for model selection in the modal
-        const modelSelectInModalFromEvents = modal.querySelector('#ai-model-select-modal');
-        if (modelSelectInModalFromEvents) {
-            modelSelectInModalFromEvents.addEventListener('change', (e) => {
+        const modalPromptSelector = modal.querySelector('#ai-prompt-select-modal');
+        if (modalPromptSelector) {
+            modalPromptSelector.addEventListener('change', (e) => {
+                const newIdentifier = e.target.value;
+                 if (CONFIG.CURRENT_PROMPT_IDENTIFIER !== newIdentifier) {
+                    CONFIG.CURRENT_PROMPT_IDENTIFIER = newIdentifier;
+                    GM_setValue('CURRENT_PROMPT_IDENTIFIER', newIdentifier);
+                    updateAllPromptSelectors(elements);
+                    const newTitle = PROMPT_TEMPLATES.find(t => t.identifier === newIdentifier)?.title || '提示词';
+                    showToastNotification(`提示词已切换为: ${newTitle}`);
+                }
+            });
+        }
+
+        const modelSelectInModal = modal.querySelector('#ai-model-select-modal');
+        if (modelSelectInModal) {
+            modelSelectInModal.addEventListener('change', (e) => {
                 const newModel = e.target.value;
                 if (CONFIG.MODEL !== newModel) {
                     CONFIG.MODEL = newModel;
@@ -1983,35 +2297,45 @@
             });
         }
 
-
-
-        // 右键打开设置菜单
-        container.addEventListener('contextmenu', (e) => {
+        // --- Button Clicks ---
+        // Right-click on main AI button for settings
+        button.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            openSettings(elements); // 传递 elements
+            hideSubMenus(true);
+            openSettings(elements);
         });
 
-        // 点击“打开模板”按钮
+        // Settings button in the vertical actions panel
+        if (settingsBtnFloat) {
+            settingsBtnFloat.addEventListener('click', () => {
+                hideSubMenus(true); // 点击设置，强制收起子菜单
+                openSettings(elements);
+            });
+        }
+
+        // "Open Panel" button
         templateBtn.addEventListener('click', () => {
-             populateModalModelSelector(modal); // 在显示模态框前刷新模型列表
-             if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
-                updateAllPromptSelectors(globalElements);
+            hideSubMenus(true); // 点击打开主面板，强制收起子菜单
+            populateModalModelSelector(modal);
+            updateAllPromptSelectors(elements);
+            showModal(modal, overlay);
+            const contentContainer = modal.querySelector('.ai-summary-content');
+            if (originalMarkdownText && originalMarkdownText.trim() !== '') {
+                contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+            } else {
+                contentContainer.innerHTML = '<p style="text-align:center; color:#6c757d;">点击 "AI" 按钮开始总结，或在下方选择不同功能。</p>';
             }
-             showModal(modal, overlay);
-             const contentContainer = modal.querySelector('.ai-summary-content');
-             if (originalMarkdownText && originalMarkdownText.trim() !== '') {
-                 contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-             } else {
-                 contentContainer.innerHTML = '<p>请选择一个模板或进行其他操作。</p>';
-             }
         });
 
-        // 点击按钮显示模态框
+        // Main "AI" button to start summarizing
         button.addEventListener('click', async () => {
-            if (!CONFIG.API_KEY || !CONFIG.BASE_URL || !CONFIG.MODEL) {
-                alert('请先在设置中配置API Key、Base URL和模型。');
-                settingsPanel.style.display = 'block';
-                settingsOverlay.style.display = 'block';
+            if (hasDragged) {
+                hasDragged = false; // Reset after drag-click is consumed
+                return;
+            }
+            if (!CONFIG.API_KEY || !CONFIG.BASE_URL || !CONFIG.MODEL || CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY) {
+                showToastNotification('请先在设置中配置API Key、Base URL和模型。', 3000);
+                openSettings(elements);
                 return;
             }
 
@@ -2022,136 +2346,176 @@
             const downloadBtnModal = modal.querySelector('.ai-download-btn');
             const copyBtnModal = modal.querySelector('.ai-copy-btn');
 
-            const modelSelectInModal = modal.querySelector('#ai-model-select-modal');
-            if (modelSelectInModal && modelSelectInModal.value) {
-                CONFIG.MODEL = modelSelectInModal.value;
-            }
-
             button.disabled = true;
-            button.textContent = '正在请求...';
+            button.textContent = '...';
             if(retryBtnModal) retryBtnModal.disabled = true;
             if(downloadBtnModal) downloadBtnModal.disabled = true;
             if(copyBtnModal) copyBtnModal.disabled = true;
-            originalMarkdownText = ''; // 清空之前的总结
+            originalMarkdownText = '';
 
             try {
                 const { content } = getPageContent();
                 if (!content.trim()) {
                     throw new Error('网页内容为空，无法生成总结。');
                 }
-
-                populateModalModelSelector(modal); // Refresh selector when opening modal
-                updateAllPromptSelectors(elements); // 刷新所有选择器
-                const modelForApi = modelSelectModal.value;
+                populateModalModelSelector(modal);
+                updateAllPromptSelectors(elements);
+                const modelForApi = modelSelectInModal.value;
                 if (!modelForApi) {
                     throw new Error('未配置模型，请在设置中选择一个模型。');
                 }
-                const summary = await summarizeContent(content, shadow, modelForApi);
+                await summarizeContent(content, shadow, modelForApi);
             } catch (error) {
                 console.error('Summary Error:', error);
-                showError(contentContainer, error.message ? error.message : '发生未知错误');
-                originalMarkdownText = ''; // 明确在错误时清空
+                showError(contentContainer, error.message || '发生未知错误');
+                originalMarkdownText = '';
             } finally {
                 button.disabled = false;
-                button.textContent = originalButtonText;
+                button.textContent = "AI";
                 if(retryBtnModal) retryBtnModal.disabled = false;
                 if(downloadBtnModal) downloadBtnModal.disabled = !originalMarkdownText;
                 if(copyBtnModal) copyBtnModal.disabled = !originalMarkdownText;
-                const retryBtn = modal.querySelector('.ai-retry-btn');
-                retryBtn.innerHTML = `
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12a9 9 0 11-2.3-6M21 3v6h-6"></path>
-                    </svg>
-                `;
             }
         });
 
-        // 关闭模态框
-        modal.querySelector('.ai-summary-close').addEventListener('click', () => {
-            hideModal(modal, overlay);
+        // 统一使用事件委托处理模态框内的所有按钮点击，修复事件丢失的Bug
+        modal.addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止事件冒泡
+            const target = e.target;
+            const downloadBtn = target.closest('.ai-download-btn');
+            const copyBtn = target.closest('.ai-copy-btn');
+            const retryBtn = target.closest('.ai-retry-btn');
+            const settingsBtn = target.closest('.ai-settings-btn');
+            const closeBtn = target.closest('.ai-summary-close');
+
+            if (downloadBtn) {
+                e.preventDefault(); // 防止默认行为
+                console.log('AI_WebSummary: Download button clicked', { hasContent: !!originalMarkdownText });
+                
+                if (!originalMarkdownText || originalMarkdownText.trim() === '') {
+                    showToastNotification('总结内容尚未生成或已失效。');
+                    return;
+                }
+                
+                try {
+                    let pageTitle = document.title.trim();
+                    let decodedPageTitle = '';
+                    if (pageTitle) {
+                        try {
+                            decodedPageTitle = decodeURIComponent(pageTitle);
+                        } catch (err) {
+                            console.warn('Failed to decode URI component in page title:', pageTitle, err);
+                            decodedPageTitle = pageTitle;
+                        }
+                    } else {
+                        decodedPageTitle = "Untitled_Page";
+                    }
+                    const domain = window.location.hostname || "";
+                    let baseFileName = `${decodedPageTitle} - ${domain}`;
+                    baseFileName = baseFileName.replace(/[<>:"/\\|?*~#%&{}\\$;'@`=!,+()[\]^]/g, '_').replace(/\s+/g, ' ').replace(/_{2,}/g, '_').replace(/^_|_$/g, '');
+                    const maxLength = 80;
+                    if (baseFileName.length > maxLength) {
+                        baseFileName = baseFileName.substring(0, maxLength).replace(/_$/,'').replace(/^_|_$/g, '');
+                    }
+                    if (!baseFileName) {
+                         const now = new Date();
+                         const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+                         baseFileName = `Summary_${timestamp}`;
+                         showToastNotification('无法从网页标题和域名生成有效文件名，已使用默认文件名。', 3000);
+                    }
+                    const fileName = `${baseFileName}.md`;
+                    const blob = new Blob([originalMarkdownText], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', fileName);
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    showToastNotification('文件下载成功！');
+                    console.log('AI_WebSummary: File download completed', { fileName });
+                } catch (error) {
+                    console.error('AI_WebSummary: Download failed', error);
+                    showToastNotification('下载失败，请稍后重试。');
+                }
+            }
+            else if (copyBtn) {
+                e.preventDefault(); // 防止默认行为
+                console.log('AI_WebSummary: Copy button clicked', { hasContent: !!originalMarkdownText });
+                
+                if (!originalMarkdownText || originalMarkdownText.trim() === '') {
+                    showToastNotification('总结内容尚未生成或已失效。');
+                    return;
+                }
+                
+                // 检查浏览器是否支持clipboard API
+                if (!navigator.clipboard) {
+                    console.warn('AI_WebSummary: Clipboard API not supported, falling back to execCommand');
+                    try {
+                        // 降级方案：使用传统的execCommand
+                        const textArea = document.createElement('textarea');
+                        textArea.value = originalMarkdownText;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        textArea.style.top = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        
+                        const textSpan = copyBtn.querySelector('span');
+                        if (textSpan) {
+                            const originalText = textSpan.textContent;
+                            textSpan.textContent = '已复制！';
+                            copyBtn.style.opacity = '0.7';
+                            setTimeout(() => {
+                                textSpan.textContent = originalText;
+                                copyBtn.style.opacity = '1';
+                            }, 2000);
+                        }
+                        console.log('AI_WebSummary: Copy completed using execCommand');
+                    } catch (error) {
+                        console.error('AI_WebSummary: Copy failed with execCommand', error);
+                        showToastNotification('复制失败，请手动复制内容。');
+                    }
+                    return;
+                }
+                
+                navigator.clipboard.writeText(originalMarkdownText).then(() => {
+                    const textSpan = copyBtn.querySelector('span');
+                    if (textSpan) {
+                        const originalText = textSpan.textContent;
+                        textSpan.textContent = '已复制！';
+                        copyBtn.style.opacity = '0.7';
+                        setTimeout(() => {
+                            textSpan.textContent = originalText;
+                            copyBtn.style.opacity = '1';
+                        }, 2000);
+                    }
+                    console.log('AI_WebSummary: Copy completed using Clipboard API');
+                }).catch((error) => {
+                    console.error('AI_WebSummary: Copy failed with Clipboard API', error);
+                    showToastNotification('复制失败，请手动复制内容。');
+                });
+            }
+            else if (retryBtn) {
+                button.click(); // 触发主按钮的点击事件，相当于重试
+            }
+            else if (settingsBtn) {
+                openSettings(elements);
+            }
+            else if (closeBtn) {
+                hideModal(modal, overlay);
+            }
         });
+
 
         // 点击总结页面外的覆盖层关闭模态框
         overlay.addEventListener('click', () => {
             hideModal(modal, overlay);
-        });
-
-        // 下载按钮功能
-        modal.querySelector('.ai-download-btn').addEventListener('click', () => {
-            if (!originalMarkdownText) {
-                showToastNotification('总结内容尚未生成或已失效。');
-                return;
-            }
-            let pageTitle = document.title.trim();
-            let decodedPageTitle = '';
-            if (pageTitle) {
-                try {
-                    decodedPageTitle = decodeURIComponent(pageTitle);
-                } catch (e) {
-                    console.warn('Failed to decode URI component in page title:', pageTitle, e);
-                    decodedPageTitle = pageTitle; // Fallback to original if decoding fails
-                }
-            } else {
-                decodedPageTitle = "Untitled_Page"; // Fallback if no title
-            }
-
-            const domain = window.location.hostname || "";
-            
-            // Combine decoded title and domain
-            let baseFileName = `${decodedPageTitle} - ${domain}`;
-
-            // Sanitize: remove illegal characters, replace spaces, ensure single underscores
-            baseFileName = baseFileName.replace(/[<>:"/\\|?*~#%&{}\\$;'@`=!,+()[\]^]/g, '_'); // More comprehensive illegal char list for filenames
-            baseFileName = baseFileName.replace(/\s+/g, ' '); // Replace all whitespace (including multiple spaces, tabs, newlines) with a single underscore
-            baseFileName = baseFileName.replace(/_{2,}/g, '_'); // Replace multiple underscores with a single one
-            baseFileName = baseFileName.replace(/^_|_$/g, ''); // Remove leading/trailing underscores
-
-            // Truncate if too long (e.g., max 80 chars for the base part)
-            const maxLength = 80;
-            if (baseFileName.length > maxLength) {
-                baseFileName = baseFileName.substring(0, maxLength);
-                // Ensure it doesn't end with a partial multi-byte char or cut-off underscore
-                baseFileName = baseFileName.replace(/_$/,''); // Remove trailing underscore if truncation created one
-                baseFileName = baseFileName.replace(/^_|_$/g, ''); // Clean again after truncation
-            }
-
-            if (!baseFileName) { // If after all processing, it's empty
-                 const now = new Date();
-                 const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-                 baseFileName = `Summary_${timestamp}`;
-                 showToastNotification('无法从网页标题和域名生成有效文件名，已使用默认文件名。', 3000);
-            }
-
-            const fileName = `${baseFileName}.md`;
-            const blob = new Blob([originalMarkdownText], { type: 'text/markdown;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
-
-        // 复制按钮功能
-        modal.querySelector('.ai-copy-btn').addEventListener('click', () => {
-            if (!originalMarkdownText) {
-                showToastNotification('总结内容尚未生成或已失效。');
-                return;
-            }
-            navigator.clipboard.writeText(originalMarkdownText).then(() => {
-                const copyBtn = modal.querySelector('.ai-copy-btn');
-                const textSpan = copyBtn.querySelector('span');
-                const originalText = textSpan.textContent;
-                textSpan.textContent = '已复制！';
-                textSpan.style.opacity = '0.7';
-                setTimeout(() => {
-                    textSpan.textContent = originalText;
-                    textSpan.style.opacity = '1';
-                }, 2000);
-            }).catch(() => {
-                showToastNotification('复制失败，请手动复制内容。');
-            });
         });
 
         // 添加快捷键支持
@@ -2169,18 +2533,6 @@
                     hideModal(modal, overlay);
                 }
             }
-        });
-
-        // 添加重试按钮事件处理
-        modal.querySelector('.ai-retry-btn').addEventListener('click', () => {
-            button.click();
-        });
-
-        // 设置按钮功能（现在在模态框底部）
-        modal.querySelector('.ai-settings-btn').addEventListener('click', () => openSettings(elements)); // 传递 elements
-
-        // 关闭设置面板时，隐藏其覆盖层
-        settingsPanel.querySelector('.cancel-btn').addEventListener('click', () => {
         });
 
         // 初始化设置面板的事件
@@ -2272,275 +2624,144 @@
         overlay.style.display = 'none';
     }
 
-    // 定义可能的停靠位置
-    const DOCK_POSITIONS = {
-        LEFT: 'left', // 左侧停靠
-        RIGHT: 'right' // 右侧停靠
-    };
-
-    const DEBOUNCE_TIME = 10; // 防抖时间
-    const FOLD_DELAY = 1000; // 折叠延迟时间
-
-
-    // 将悬浮窗 (`container`) 的当前位置信息和状态保存到 `GM_setValue`。
     function savePosition(container) {
-        const containerRect = container.getBoundingClientRect();
-        const dockPosition = container.dataset.dockPosition || DOCK_POSITIONS.RIGHT; // 默认为右停靠
-        let bottomValue;
-
-        if (dockPosition === DOCK_POSITIONS.LEFT || dockPosition === DOCK_POSITIONS.RIGHT) {
-            // 对于停靠状态，bottom 是相对于窗口底部计算的
-            bottomValue = window.innerHeight - containerRect.bottom;
-        } else {
-            if (container.style.bottom && container.style.bottom !== 'auto') {
-                bottomValue = parseFloat(container.style.bottom);
-            } else if (container.style.top && container.style.top !== 'auto') {
-                bottomValue = window.innerHeight - (parseFloat(container.style.top) + containerRect.height);
-            } else {
-                bottomValue = 20;
-            }
-        }
-
         const position = {
-            bottom: `${Math.round(bottomValue)}px`, // 四舍五入并转为字符串
-            dockPosition: dockPosition
+            left: container.style.left,
+            top: container.style.top,
         };
         GM_setValue('containerPosition', position);
     }
 
-    function setDefaultPosition(container) {
-        dockToRight(container); // 默认停靠到右侧
-        container.style.bottom = '20px'; // 默认距离底部20px
-        container.style.top = 'auto';
-        savePosition(container); // 保存这个默认位置
-    }
-
-
     function loadPosition(container) {
         const savedPosition = GM_getValue('containerPosition');
-        container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // 清理旧类
-
-        if (savedPosition &&
-            typeof savedPosition.bottom === 'string' &&
-            (savedPosition.dockPosition === DOCK_POSITIONS.LEFT || savedPosition.dockPosition === DOCK_POSITIONS.RIGHT)) {
-
-            container.style.bottom = savedPosition.bottom;
-            container.style.top = 'auto'; // 确保基于底部定位
-
-            if (savedPosition.dockPosition === DOCK_POSITIONS.LEFT) {
-                dockToLeft(container);
-            } else {
-                dockToRight(container);
-            }
-            // 确保元素在屏幕内 (主要垂直方向，因为水平方向由停靠决定)
-            const containerRect = container.getBoundingClientRect();
-            const containerHeight = containerRect.height > 0 ? containerRect.height : 110; // 估算高度
-            const bottomPx = parseFloat(savedPosition.bottom);
-
-            if (window.innerHeight - bottomPx < 0) { // 如果底部超出视窗顶部
-                container.style.bottom = `${window.innerHeight - containerHeight*6}px`;
-            }
-            if (bottomPx < 0) { // 如果底部低于视窗底部
-                 container.style.bottom = '0px';
-            }
-
-
+        if (savedPosition && savedPosition.left && savedPosition.top) {
+            container.style.left = savedPosition.left;
+            container.style.top = savedPosition.top;
         } else {
-            // 如果没有有效的保存位置，或格式不正确，则设置默认位置
-            setDefaultPosition(container);
+            // Default position if none is saved, use pixels to avoid calc() issues
+            container.style.left = `${window.innerWidth - 60}px`;
+            container.style.top = `${window.innerHeight - 100}px`;
         }
     }
 
+    function initializeDrag(container, dragHandle, button, actionsContainer) {
+        let isDragging = false;
+        let offsetX, offsetY;
+        let animationFrameId = null; // 用于存储 requestAnimationFrame 的 ID
 
-    function initializeDrag(container, dragHandle, shadow) {
-        let isDragging = false; // (行内注释) 布尔值，标记当前是否处于拖动操作状态。
-        let currentX; // (行内注释) 数字，拖动过程中容器左上角的当前X坐标（相对于视口）。
-        let currentY; // (行内注释) 数字，拖动过程中容器左上角的当前Y坐标（相对于视口）。
-        let initialX; // (行内注释) 数字，鼠标按下时，鼠标指针相对于容器左上角的X轴偏移量。
-        let initialY; // (行内注释) 数字，鼠标按下时，鼠标指针相对于容器左上角的Y轴偏移量。
-        let foldTimeout; // (行内注释) 定时器ID，用于实现鼠标移开已停靠的悬浮窗后延迟自动折叠按钮区域。
+        // 开始拖拽时，移除过渡动画，让位置变化更实时
+        const startDragTransition = () => container.style.transition = 'none';
+        // 结束拖拽时，恢复过渡动画，让贴边效果更平滑
+        const endDragTransition = () => container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
 
-        const style = document.createElement('style');
-        style.textContent = `
-            .ai-summary-container { /* (行内注释) 悬浮窗主容器的基础过渡效果，应用于 transform 属性。 */
-                transition: left 0.2s ease-out, top 0.2s ease-out, right 0.2s ease-out, bottom 0.2s ease-out, transform 0.3s ease;
-            }
-            .ai-summary-container.docked { /* (行内注释) 容器处于停靠状态时的通用过渡效果，应用于所有可过渡的CSS属性。 */
-                /* transition: all 0.3s ease; 已被上方更具体的 transition 覆盖，可移除或保留作为回退 */
-            }
-            .ai-drag-handle { /* (行内注释) 确保拖动手柄在任何状态下都能正确响应鼠标事件。 */
-                pointer-events: auto !important;
-            }
-            /* (段落注释) 定义当容器停靠且未被鼠标悬停时，内部按钮和选择器如何隐藏。
-               通过将宽度、内边距、透明度、高度都设置为0，并配合 transition 实现平滑的隐藏动画。*/
-            .ai-summary-container.docked .ai-summary-btn,
-            .ai-summary-container.docked .ai-template-btn,
-            .ai-summary-container.docked .ai-main-prompt-selector {
-                width: 0; /* (行内注释) 宽度为0 */
-                padding: 0; /* (行内注释) 内边距为0 */
-                opacity: 0; /* (行内注释) 透明度为0 */
-                overflow: hidden; /* (行内注释) 隐藏溢出内容 */
-                border: none; /* (行内注释) 移除边框 */
-                height: 0; /* (行内注释) 高度为0 */
-                transition: all 0.3s ease; /* (行内注释) 应用于所有属性的过渡动画 */
-            }
-            /* (段落注释) 定义当容器停靠且具有 'show-btn' 类（通常由鼠标悬停触发添加）或直接被鼠标悬停时，
-               内部按钮和选择器如何恢复其原始尺寸和可见性，并配合过渡动画。*/
-            .ai-summary-container.docked.show-btn .ai-summary-btn,
-            .ai-summary-container.docked.show-btn .ai-template-btn,
-            .ai-summary-container.docked.show-btn .ai-main-prompt-selector,
-            .ai-summary-container.docked:hover .ai-summary-btn,
-            .ai-summary-container.docked:hover .ai-template-btn,
-            .ai-summary-container.docked:hover .ai-main-prompt-selector {
-                width: 100%; /* (行内注释) 恢复完整宽度 */
-                padding: 5px 15px; /* (行内注释) 恢复内边距 */
-                opacity: 1; /* (行内注释) 完全可见 */
-                height: 30px; /* (行内注释) 恢复原始高度 */
-            }
-            /* (行内注释) 特别为提示词选择器在展开时恢复其特有的内边距。 */
-            .ai-summary-container.docked.show-btn .ai-main-prompt-selector,
-            .ai-summary-container.docked:hover .ai-main-prompt-selector {
-                padding: 0 5px;
-            }
-            /* (行内注释) 为总结按钮在展开时恢复其顶边框。 */
-            .ai-summary-container.docked.show-btn .ai-summary-btn,
-            .ai-summary-container.docked:hover .ai-summary-btn {
-                 border-top: 1px solid rgba(107, 114, 128, 0.5);
-            }
-            .ai-summary-container.right-dock { /* (行内注释) 定义悬浮窗停靠在屏幕右侧时的定位规则。 */
-                right: 0 !important; /* (行内注释) 强制右边距为0 */
-                left: auto !important; /* (行内注释) 左边距自动 */
-            }
-            .ai-summary-container.left-dock { /* (行内注释) 定义悬浮窗停靠在屏幕左侧时的定位规则。 */
-                left: 0 !important; /* (行内注释) 强制左边距为0 */
-                right: auto !important; /* (行内注释) 右边距自动 */
-            }
-        `;
-        shadow.appendChild(style);
+        // 核心函数：智能贴边 (V4 - 动画更即时)
+        const snapToEdge = () => {
+            // V4 改进: 立即恢复动画过渡效果，确保贴边动画无延迟
+            endDragTransition();
+            if (isDragging) return; // 正在拖拽时，不执行贴边
 
-        container.addEventListener('mouseenter', () => {
-            clearTimeout(foldTimeout); // (行内注释) 清除可能存在的延迟折叠计时器
-            if (container.classList.contains('docked')) { // (行内注释) 如果容器当前已停靠
-                container.classList.add('show-btn'); // (行内注释) 添加 'show-btn' 类以立即展开按钮区域
-            }
-        });
+            const rect = container.getBoundingClientRect();
+            const buttonRect = button.getBoundingClientRect();
+            const windowWidth = window.innerWidth;
+            const PEEK_MARGIN = 10; // 面板完全展开时，与屏幕边缘的距离
 
-        container.addEventListener('mouseleave', () => {
-            if (container.classList.contains('docked')) { // (行内注释) 如果容器当前已停靠
-                // (行内注释) 设置一个新的计时器，在 FOLD_DELAY 毫秒后移除 'show-btn' 类以折叠按钮区域
-                foldTimeout = setTimeout(() => {
-                    container.classList.remove('show-btn');
-                }, FOLD_DELAY);
-            }
-        });
+            const isSnappedLeft = (rect.left + rect.width / 2) < windowWidth / 2;
 
-        // (行内注释) 防抖函数，用于限制高频事件（如窗口大小调整）的触发次数。
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
+            // 统一更新 snap 类, 这会触发 CSS transition
+            container.classList.toggle('snap-left', isSnappedLeft);
+            container.classList.toggle('snap-right', !isSnappedLeft);
 
-        loadPosition(container); // 初始化时，加载并应用悬浮窗上一次保存的位置和状态。
+            // JS 只负责计算最终的 left/top 位置, 不参与动画过程
+            // 使用 requestAnimationFrame 确保在下一帧更新位置，避免与 transform transition 冲突
+            requestAnimationFrame(() => {
+                if (container.classList.contains('is-expanded')) {
+                    // --- 展开状态的贴边逻辑 ---
+                    let targetLeft = rect.left;
+                    if (rect.left < PEEK_MARGIN) {
+                        targetLeft = PEEK_MARGIN;
+                    } else if (rect.right > windowWidth - PEEK_MARGIN) {
+                        targetLeft = windowWidth - rect.width - PEEK_MARGIN;
+                    }
+                    container.style.left = `${targetLeft}px`;
+                } else {
+                    // --- 收起状态的贴边逻辑 (V3 修正版) ---
+                    // CSS的 transform 负责隐藏一半，JS 只需把 left 定位到边缘
+                    if (isSnappedLeft) {
+                        // 贴左边，left 应该为 0
+                        container.style.left = `0px`;
+                    } else {
+                        // 贴右边
+                        container.style.left = `${windowWidth - buttonRect.width}px`;
+                    }
+                }
+                savePosition(container); // 贴边后保存位置
+            });
+        };
 
         dragHandle.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
             isDragging = true;
+            hasDragged = false;
             const rect = container.getBoundingClientRect();
-            initialX = e.clientX - rect.left;
-            initialY = e.clientY - rect.top;
-
-            // 开始拖动时，暂时移除停靠类，使其可以自由移动，但保持其当前的 dockPosition 数据
-            container.style.left = `${rect.left}px`; // 设置初始 left
-            container.style.top = `${rect.top}px`;   // 设置初始 top
-            container.style.right = 'auto';
-            container.style.bottom = 'auto';
-            container.classList.remove('docked', 'right-dock', 'left-dock', 'show-btn'); // 移除停靠类以便自由移动
-            container.style.transition = 'none'; // 拖动时移除过渡效果，使其更流畅
-
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            startDragTransition();
             document.body.style.userSelect = 'none';
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
             e.preventDefault();
+            hasDragged = true;
 
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
+            // V4 改进: 使用 requestAnimationFrame 优化拖拽性能
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId); // 取消上一个动画帧，防止积压
+            }
 
-            // 限制在视窗内
-            const containerWidth = container.offsetWidth;
-            const containerHeight = container.offsetHeight;
-            const maxX = window.innerWidth - containerWidth;
-            const maxY = window.innerHeight - containerHeight;
+            animationFrameId = requestAnimationFrame(() => {
+                if (!isDragging) return; // 双重检查
+                let newX = e.clientX - offsetX;
+                let newY = e.clientY - offsetY;
+                const containerWidth = container.offsetWidth;
+                const containerHeight = container.offsetHeight;
+                const PADDING = 10;
 
-            currentX = Math.max(0, Math.min(currentX, maxX));
-            currentY = Math.max(0, Math.min(currentY, maxY));
+                newX = Math.max(0, Math.min(newX, window.innerWidth - containerWidth));
+                newY = Math.max(PADDING, Math.min(newY, window.innerHeight - containerHeight - PADDING));
 
-            container.style.left = `${currentX}px`;
-            container.style.top = `${currentY}px`;
-            container.style.right = 'auto'; // 明确在拖动时基于 left/top
-            container.style.bottom = 'auto';
+                container.style.left = `${newX}px`;
+                container.style.top = `${newY}px`;
+            });
         });
 
         document.addEventListener('mouseup', () => {
             if (isDragging) {
                 isDragging = false;
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId); // 清理最后的动画帧请求
+                    animationFrameId = null;
+                }
                 document.body.style.userSelect = 'auto';
-                container.style.transition = ''; // 恢复过渡效果，让吸附有动画
-
-                const finalRect = container.getBoundingClientRect();
-
-                // 决定停靠到哪一边
-                if ((finalRect.left + finalRect.width / 2) < window.innerWidth / 2) {
-                    dockToLeft(container);
-                } else {
-                    dockToRight(container);
-                }
-
-                // 设置最终的垂直位置 (通过bottom)
-                container.style.top = 'auto'; // 清除 top 定位，改为 bottom 定位
-                container.style.bottom = `${window.innerHeight - (currentY + finalRect.height)}px`;
-
-                // 确保停靠后按钮是隐藏的，除非鼠标悬浮
-                if (container.classList.contains('docked')) {
-                     // 延迟一下移除 show-btn，确保动画效果，除非鼠标还在上面
-                    setTimeout(() => {
-                        if (!container.matches(':hover')) { // 检查鼠标是否还在容器上
-                            container.classList.remove('show-btn');
-                        }
-                    }, 50); // 短暂延迟
-                }
-                savePosition(container);
+                // V4 改进: 直接调用 snapToEdge，它内部会处理动画和位置保存
+                snapToEdge();
             }
         });
 
-        // 创建一个经过防抖处理的 loadPosition 函数版本，用于窗口大小调整事件。
-        const debouncedLoadPosition = debounce(() => {
-            loadPosition(container);
-        }, DEBOUNCE_TIME);
+        loadPosition(container);
+        setTimeout(() => {
+            endDragTransition();
+            snapToEdge();
+        }, 100);
 
-        // (行内注释) 监听窗口的 `resize` 事件，当窗口大小改变时，调用防抖处理后的 `loadPosition` 函数，
-        window.addEventListener('resize', debouncedLoadPosition);
-    }
+        window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
 
-    function dockToLeft(container) {
-        container.classList.add('docked', 'left-dock'); // (行内注释) 添加停靠和左侧停靠的CSS类
-        container.dataset.dockPosition = DOCK_POSITIONS.LEFT; // (行内注释) 在dataset中记录停靠位置为左侧
-        container.style.left = '0'; // (行内注释) 将容器的左边距设置为0，使其紧贴屏幕左边缘
-        container.style.right = 'auto'; // (行内注释) 清除右边距定位，确保由左边距控制位置
-    }
-
-    function dockToRight(container) {
-        container.classList.add('docked', 'right-dock'); // (行内注释) 添加停靠和右侧停靠的CSS类
-        container.dataset.dockPosition = DOCK_POSITIONS.RIGHT; // (行内注释) 在dataset中记录停靠位置为右侧
-        container.style.right = '0'; // (行内注释) 将容器的右边距设置为0，使其紧贴屏幕右边缘
-        container.style.left = 'auto'; // (行内注释) 清除左边距定位，确保由右边距控制位置
+        // 监听展开/收起动画结束事件，重新计算贴边
+        container.addEventListener('transitionend', (e) => {
+            if (e.propertyName === 'transform' && !isDragging) {
+                snapToEdge();
+            }
+        });
     }
 
     let globalElements = {}; // 全局变量，用于存储脚本创建的主要UI元素的引用
