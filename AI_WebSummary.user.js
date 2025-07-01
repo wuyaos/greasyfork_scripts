@@ -1242,6 +1242,10 @@
                 to { opacity: 0; transform: scale(0.95); }
             }
 
+            .ai-summary-hidden-initially {
+                visibility: hidden;
+            }
+
             .ai-summary-container {
                 position: fixed;
                 z-index: 99990;
@@ -1651,7 +1655,7 @@
         `;
 
         const container = document.createElement('div');
-        container.className = 'ai-summary-container';
+        container.className = 'ai-summary-container ai-summary-hidden-initially';
         container.innerHTML = `
             <div class="ai-hover-wrapper">
                 <div class="ai-actions-container">
@@ -2648,6 +2652,13 @@
                     }
                 }
                 savePosition(container);
+            });
+
+            // 在第一次贴边动画完成后移除初始隐藏类
+            requestAnimationFrame(() => {
+                if (container.classList.contains('ai-summary-hidden-initially')) {
+                    container.classList.remove('ai-summary-hidden-initially');
+                }
             });
         };
 
