@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AI网页内容总结(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.0.3
+// @version      2.0.4
 // @description  使用AI总结网页内容的油猴脚本
 // @author       Jinfeng (modifed by ffwu)
 // @match        *://*/*
@@ -189,19 +189,6 @@
         return defaultTemplate ? defaultTemplate.content : "请用markdown格式全面总结以下网页内容，包含主要观点、关键信息和重要细节。总结需要完整、准确、有条理。"; // 最后的硬编码后备
     }
 
-    // 保存配置
-    function saveConfig(newConfig) {
-        Object.keys(newConfig).forEach(key => {
-            if (key !== 'PROMPT' && key !== 'CURRENT_PROMPT_IDENTIFIER') {
-                GM_setValue(key, newConfig[key]);
-            }
-        });
-
-        CONFIG = {
-            ...CONFIG,
-            ...newConfig
-        };
-    }
 
     function populateModalModelSelector(modalElement) {
         if (!modalElement) {
@@ -2591,16 +2578,6 @@
         return false;
     }
 
-    // 根据当前操作系统，获取快捷键的显示字符串
-    function getSystemShortcutDisplay(shortcut) {
-        const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-        if (!isMac) return shortcut;
-
-        // 为 Mac 系统转换快捷键显示
-        return shortcut.replace(/Alt\+/g, 'Option+')
-                    .replace(/Ctrl\+/g, '⌘+')
-                    .replace(/Meta\+/g, '⌘+');
-    }
 
     function showModal(modal, overlay) {
         modal.style.display = 'block';
