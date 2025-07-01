@@ -753,7 +753,7 @@
                 max-height: 80vh; /* 最大高度限制，超出则显示滚动条 */
                 overflow-y: auto; /* 内容溢出时垂直滚动 */
                 box-sizing: border-box;
-                font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
+                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
                 font-size: 15px;
                 z-index: 100001; /* 确保在其他页面元素之上 */
             }
@@ -813,7 +813,7 @@
             .form-group textarea { /* 文本域特定样式 */
                 height: 100px; /* 默认高度 */
                 resize: vertical; /* 允许垂直方向调整大小 */
-                font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
+                font-family: inherit; /* 继承父容器字体 */
             }
             .form-group.config-select-group { /* 提示词选择器所在表单组的特殊布局 */
                 display: flex;
@@ -893,15 +893,19 @@
                 color: #333333;
             }
             #model-list-container .model-item { /* 模型选择列表中的每个条目样式 */
-                padding: 8px;
-                border: 1px solid #eee;
-                border-radius: 4px;
+                padding: 8px 12px;
+                border: 1px solid transparent; /* 默认无边框 */
+                border-bottom: 1px solid #3d4756; /* 分隔线 */
+                border-radius: 0; /* 无圆角，更像列表 */
                 display: flex;
                 align-items: center;
                 transition: background-color 0.2s;
                 cursor: pointer;
             }
-            #model-list-container .model-item:hover { background-color: #f0f8ff; } /* 悬停时背景色变化 */
+            #model-list-container .model-item:last-child {
+                border-bottom: none; /* 最后一项无分隔线 */
+            }
+            #model-list-container .model-item:hover { background-color: #4a5568; } /* 悬停时背景色变化 */
             #model-list-container .model-item label { /* 模型条目内标签的样式 */
                 margin-left: 8px;
                 cursor: pointer;
@@ -1112,6 +1116,7 @@
                 gap: 8px;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                 min-width: 100px; /* 确保按钮有一定最小宽度 */
+                font-family: inherit; /* 继承父容器字体 */
             }
             .ai-btn:active {
                 transform: translateY(1px);
@@ -1324,22 +1329,27 @@
                 display: block;
             }
             .ai-actions-list-item {
-                padding: 8px 12px;
+                padding: 10px 15px; /* 增加内边距 */
                 color: #e2e8f0;
                 cursor: pointer;
-                border-radius: 4px;
+                border-radius: 0; /* 移除圆角，与设置面板统一 */
                 font-size: 14px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 transition: background-color 0.15s ease-in-out;
+                border-bottom: 1px solid #3d4756; /* 分隔线 */
+            }
+            .ai-actions-list-item:last-child {
+                border-bottom: none; /* 最后一项无分隔线 */
             }
             .ai-actions-list-item:hover {
-                background-color: #4a5568;
+                background-color: #4a5568; /* 统一悬停效果 */
             }
             .ai-actions-list-item.selected {
                 background-color: #3b82f6;
                 font-weight: bold;
+                color: #fff; /* 确保选中项文字清晰 */
             }
             /* 为所有圆形图标按钮应用统一的样式 */
             .ai-template-btn, .ai-settings-btn-float, .ai-prompt-btn, .ai-model-btn {
@@ -1374,7 +1384,7 @@
                 border-radius: 8px;
                 z-index: 99995;
                 overflow: hidden;
-                font-family: Microsoft Yahei,PingFang SC,HanHei SC,Arial;
+                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
             }
             .ai-summary-overlay {
                 display: none;
@@ -1539,7 +1549,7 @@
                 text-align: center;
                 padding: 20px;
                 color: #6c757d;
-                font-family: inherit;
+                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
             }
             .ai-loading-dots:after {
                 content: '.';
@@ -1877,7 +1887,7 @@
             z-index: 100005; /* 比其他模态框更高 */
             opacity: 0;
             transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out; /* 动画更平滑 */
-            font-family: Microsoft Yahei, PingFang SC, HanHei SC, Arial;
+            font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
             font-size: 14px;
             box-shadow: 0 3px 12px rgba(0,0,0,0.25); /* 增加阴影效果 */
             text-align: center;
@@ -2220,30 +2230,29 @@
                 }
 
                 // 2. 垂直定位与自适应
-                // 2. 垂直定位与自适应 (V3 - 增加最大高度限制)
-                let top = buttonElement.offsetTop;
-                let finalHeight = listRect.height;
+                // 2. 垂直定位与自适应
                 const maxHeight = window.innerHeight / 3;
-                listElement.style.maxHeight = ''; // 重置
+                let top = buttonElement.offsetTop;
 
-                // V5 修复：应用最大高度限制
-                if (finalHeight > maxHeight) {
-                    listElement.style.maxHeight = `${maxHeight}px`;
-                    finalHeight = maxHeight; // 更新 finalHeight 以便后续计算使用
-                }
+                // 优先应用最大高度限制
+                listElement.style.maxHeight = `${maxHeight}px`;
+
+                // 强制浏览器重绘以获取应用maxHeight后的新尺寸
+                const _ = listElement.offsetHeight;
+                const currentListHeight = listElement.getBoundingClientRect().height;
 
                 // 检查是否会超出底部
-                if (actionsRect.top + top + finalHeight > window.innerHeight - viewport_padding) {
-                    // 如果超出，则尝试将列表底部与按钮底部对齐
-                    top = buttonElement.offsetTop + buttonElement.offsetHeight - finalHeight;
+                if (actionsRect.top + top + currentListHeight > window.innerHeight - viewport_padding) {
+                    // 如果超出，将列表底部与按钮底部对齐
+                    top = buttonElement.offsetTop + buttonElement.offsetHeight - currentListHeight;
                 }
 
                 // 再次检查是否会超出顶部
                 if (actionsRect.top + top < viewport_padding) {
                     top = viewport_padding - actionsRect.top; // 贴紧顶部安全边距
-                    // 如果应用了顶部贴边后，可用高度比maxHeight还小，则进一步限制maxHeight
+                    // 如果贴顶后，底部空间仍然不足以完整显示列表，则重新计算并设置最大高度
                     const availableHeight = window.innerHeight - (actionsRect.top + top) - viewport_padding;
-                    if (finalHeight > availableHeight) {
+                    if (currentListHeight > availableHeight) {
                         listElement.style.maxHeight = `${availableHeight}px`;
                     }
                 }
@@ -2691,7 +2700,7 @@
                         container.style.left = `0px`;
                     } else {
                         // 贴右边
-                        container.style.left = `${windowWidth - buttonRect.width}px`;
+                        container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
                     }
                 }
                 savePosition(container); // 贴边后保存位置
