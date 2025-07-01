@@ -154,9 +154,8 @@
         MAX_TOKENS: 4000,
         SHORTCUT: 'Alt+S',
         MODEL: 'gpt-4o-mini',
-        CURRENT_PROMPT_IDENTIFIER: PROMPT_TEMPLATES[0].identifier, // 默认使用第一个预设模板的标识符
-        SAVED_MODELS: ['gpt-4o-mini'], // 保存用户选择的模型列表
-
+        CURRENT_PROMPT_IDENTIFIER: PROMPT_TEMPLATES[0].identifier,
+        SAVED_MODELS: ['gpt-4o-mini'],
     };
 
     // 获取配置
@@ -170,7 +169,7 @@
             MODEL: GM_getValue('MODEL', DEFAULT_CONFIG.MODEL),
             CURRENT_PROMPT_IDENTIFIER: GM_getValue('CURRENT_PROMPT_IDENTIFIER', DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER),
             SAVED_MODELS: GM_getValue('SAVED_MODELS', DEFAULT_CONFIG.SAVED_MODELS),
-            containerPosition: GM_getValue('containerPosition') // 不再提供默认值，loadPosition会处理
+            containerPosition: GM_getValue('containerPosition')
         };
         const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === CONFIG.CURRENT_PROMPT_IDENTIFIER);
         if (!selectedTemplate) {
@@ -185,22 +184,19 @@
         if (selectedTemplate) {
             return selectedTemplate.content;
         }
-        // 回退到默认值
+
         const defaultTemplate = PROMPT_TEMPLATES.find(t => t.identifier === DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER);
         return defaultTemplate ? defaultTemplate.content : "请用markdown格式全面总结以下网页内容，包含主要观点、关键信息和重要细节。总结需要完整、准确、有条理。"; // 最后的硬编码后备
     }
 
+    // 保存配置
     function saveConfig(newConfig) {
-        // 保存配置到 GM storage
         Object.keys(newConfig).forEach(key => {
-            // PROMPT 和 CURRENT_PROMPT_IDENTIFIER 由专门的逻辑处理，这里不直接覆盖
-            // 其他如 BASE_URL, API_KEY, MAX_TOKENS, SHORTCUT, MODEL 可以直接保存
             if (key !== 'PROMPT' && key !== 'CURRENT_PROMPT_IDENTIFIER') {
-                 GM_setValue(key, newConfig[key]);
+                GM_setValue(key, newConfig[key]);
             }
         });
 
-        // 更新内存中的配置
         CONFIG = {
             ...CONFIG,
             ...newConfig
@@ -222,7 +218,7 @@
         }
     }
 
-    function updateAllPromptSelectors(elements) { // 接收 elements 作为参数
+    function updateAllPromptSelectors(elements) {
         if (!elements || !elements.shadow) {
             console.error('Elements or shadow root not initialized for updateAllPromptSelectors');
             return;
@@ -232,21 +228,17 @@
             `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title}</option>`
         ).join('');
 
-        // 更新主界面选择器
         const mainSelector = elements.shadow.querySelector('.ai-main-prompt-selector');
         if (mainSelector) mainSelector.innerHTML = optionsHTML;
 
-        // 更新模态框选择器
         const modalSelector = elements.shadow.querySelector('#ai-prompt-select-modal');
         if (modalSelector) modalSelector.innerHTML = optionsHTML;
 
-        // 更新设置面板选择器
         const settingsSelector = elements.settingsPanel.querySelector('#config-select');
         if (settingsSelector) settingsSelector.innerHTML = PROMPT_TEMPLATES.map(template =>
             `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title} (预设)</option>`
-        ).join(''); // 设置面板的选项格式稍有不同
+        ).join('');
 
-         // 更新设置面板中的文本区域
         const promptTextarea = elements.settingsPanel.querySelector('#prompt');
         const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === currentIdentifier);
         if (promptTextarea && selectedTemplate) {
@@ -268,16 +260,15 @@
         let isSaving = false;
 
         function setDirtyStatus(dirty) {
-            // 如果当前正在执行保存操作 (isSaving is true)，并且尝试将状态标记为 dirty，则阻止此操作。
             if (isSaving && dirty) {
                 return;
             }
             isDirty = dirty;
             saveBtn.textContent = dirty ? '保存*' : '保存';
             if (dirty) {
-                saveBtn.style.cssText = 'background: #e67e22 !important;'; // 橙色表示有未保存更改
+                saveBtn.style.cssText = 'background: #e67e22 !important;';
             } else {
-                saveBtn.style.cssText = 'background: #617043cc !important;'; // 绿色表示已保存或无更改
+                saveBtn.style.cssText = 'background: #617043cc !important;';
             }
         }
 
@@ -288,14 +279,13 @@
                 apiKey: panel.querySelector('#api-key').value,
                 maxTokens: panel.querySelector('#max-tokens').value,
                 shortcut: panel.querySelector('#shortcut').value,
-                promptIdentifier: panel.querySelector('#config-select').value, // 当前选中的提示词模板标识符
-                model: CONFIG.MODEL, // 当前选中的模型
-                savedModels: [...CONFIG.SAVED_MODELS] // 已保存的模型列表（深拷贝以防意外修改）
+                promptIdentifier: panel.querySelector('#config-select').value,
+                model: CONFIG.MODEL,
+                savedModels: [...CONFIG.SAVED_MODELS]
             };
         }
 
         function restoreSettingsFromSnapshot() {
-            // 将快照中的值恢复到各个输入框
             panel.querySelector('#base-url').value = settingsSnapshot.baseURL;
             panel.querySelector('#api-key').value = settingsSnapshot.apiKey;
             panel.querySelector('#max-tokens').value = settingsSnapshot.maxTokens;
@@ -305,24 +295,21 @@
             const promptChangeEvent = new Event('change');
             panel.querySelector('#config-select').dispatchEvent(promptChangeEvent);
 
-            // 恢复内存中 CONFIG 对象的模型相关设置
             CONFIG.MODEL = settingsSnapshot.model;
-            CONFIG.SAVED_MODELS = [...settingsSnapshot.savedModels]; // 使用展开运算符创建副本
-            renderModelTags(); // 重新渲染模型标签以反映恢复后的状态（例如，选中的模型、可用的模型列表）
+            CONFIG.SAVED_MODELS = [...settingsSnapshot.savedModels];
+            renderModelTags();
         }
 
         panel.takeSettingsSnapshot = takeSettingsSnapshot;
 
         function closeSettingsPanel() {
-            if (isDirty) { // 检查是否有未保存的更改
-                // 弹出确认对话框
+            if (isDirty) {
                 if (confirm('您有未保存的更改。确定要放弃吗？')) {
-                    restoreSettingsFromSnapshot(); // 用户确认放弃，则从快照恢复设置
-                    setDirtyStatus(false);       // 将状态标记为"干净"
-                    panel.style.display = 'none';      // 隐藏设置面板
-                    settingsOverlay.style.display = 'none'; // 隐藏遮罩层
+                    restoreSettingsFromSnapshot();
+                    setDirtyStatus(false);
+                    panel.style.display = 'none';
+                    settingsOverlay.style.display = 'none';
                 }
-                // 如果用户选择"取消"放弃，则不做任何操作，面板保持打开状态。
             } else {
                 panel.style.display = 'none';
                 settingsOverlay.style.display = 'none';
@@ -339,33 +326,27 @@
         // 根据用户操作系统判断是否为Mac，以显示不同的快捷键占位符提示
         const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
         shortcutInput.placeholder = isMac ?
-            '例如: Option+S, ⌘+Shift+Y' :  // Mac 示例
-            '例如: Alt+S, Ctrl+Shift+Y';   // Windows/Linux 示例
+            '例如: Option+S, ⌘+Shift+Y' :
+            '例如: Alt+S, Ctrl+Shift+Y';
 
-        // 初始化保存按钮的文本
         saveBtn.textContent = '保存';
 
-        // 为基础配置输入框添加 'input' 事件监听器，当内容改变时，调用 setDirtyStatus(true) 标记为有未保存更改。
         panel.querySelector('#base-url').addEventListener('input', () => setDirtyStatus(true));
         panel.querySelector('#api-key').addEventListener('input', () => setDirtyStatus(true));
         panel.querySelector('#max-tokens').addEventListener('input', () => setDirtyStatus(true));
         shortcutInput.addEventListener('input', () => setDirtyStatus(true));
 
-        // 提示词选择器 (`promptSelect`) 的 'change' 事件监听器
         promptSelect.addEventListener('change', (e) => {
-            // 仅当不处于保存操作过程中 (!isSaving) 才将状态标记为 dirty。
             if (!isSaving) {
                 setDirtyStatus(true);
             }
-            const selectedIdentifier = e.target.value; // 获取选中的提示词模板的标识符
-            const promptTextarea = panel.querySelector('#prompt'); // 获取提示词内容文本域
-            // 根据标识符在 PROMPT_TEMPLATES 数组中查找对应的模板对象
+            const selectedIdentifier = e.target.value;
+            const promptTextarea = panel.querySelector('#prompt');
             const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === selectedIdentifier);
             if (selectedTemplate) {
-                promptTextarea.value = selectedTemplate.content; // 更新文本域内容
-                CONFIG.CURRENT_PROMPT_IDENTIFIER = selectedTemplate.identifier; // 更新全局配置中的当前提示词标识符
+                promptTextarea.value = selectedTemplate.content;
+                CONFIG.CURRENT_PROMPT_IDENTIFIER = selectedTemplate.identifier;
             } else {
-                // 如果找不到选中的模板（异常情况），则回退到默认配置中的第一个模板
                 const defaultTemplate = PROMPT_TEMPLATES.find(t => t.identifier === DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER);
                 promptTextarea.value = defaultTemplate.content;
                 CONFIG.CURRENT_PROMPT_IDENTIFIER = DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER;
@@ -373,280 +354,305 @@
         });
 
         function renderModelTags() {
-            modelTagsContainer.innerHTML = ''; // 清空现有标签
+            modelTagsContainer.innerHTML = '';
             CONFIG.SAVED_MODELS.forEach(modelId => {
                 const tag = document.createElement('div');
-                tag.className = 'model-tag'; // CSS 类名
-                tag.textContent = modelId;   // 显示模型ID
-                tag.dataset.modelId = modelId; // 将模型ID存储在data属性中，方便事件处理
+                tag.className = 'model-tag';
+                tag.textContent = modelId;
+                tag.dataset.modelId = modelId;
                 if (modelId === CONFIG.MODEL) {
-                    tag.classList.add('selected'); // 如果是当前选中的模型，添加 'selected' 类以高亮显示
+                    tag.classList.add('selected');
                 }
 
-                // 为模型标签添加点击事件：选择此模型作为当前活动模型
                 tag.addEventListener('click', () => {
-                    if (CONFIG.MODEL !== modelId) { // 仅当点击了非当前选中的模型时才执行
-                        CONFIG.MODEL = modelId;      // 更新全局配置中的当前模型
-                        renderModelTags();           // 重新渲染所有标签以更新选中状态
-                        setDirtyStatus(true);        // 标记设置为有未保存更改
+                    if (CONFIG.MODEL !== modelId) {
+                        CONFIG.MODEL = modelId;
+                        renderModelTags();
+                        setDirtyStatus(true);
                     }
                 });
 
                 // 为每个模型标签创建并添加一个删除按钮 (×)
                 const deleteBtn = document.createElement('span');
-                deleteBtn.className = 'delete-btn'; // CSS 类名
-                deleteBtn.innerHTML = '&times;';    // "×" 符号
-                deleteBtn.title = '删除此模型';    // 鼠标悬停提示
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.title = '删除此模型';
                 deleteBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // 阻止事件冒泡到父元素 (tag)，防止触发tag的点击选择事件
-                    if (confirm(`确定要删除模型 "${modelId}" 吗？`)) { // 弹出确认对话框
-                        // 从 SAVED_MODELS 数组中过滤掉要删除的模型
+                    e.stopPropagation();
+                    if (confirm(`确定要删除模型 "${modelId}" 吗？`)) {
                         CONFIG.SAVED_MODELS = CONFIG.SAVED_MODELS.filter(m => m !== modelId);
-                        // 如果删除的是当前选中的模型，则需要重置 CONFIG.MODEL
                         if (CONFIG.MODEL === modelId) {
-                            // 如果还有其他已保存的模型，则选择第一个作为新的当前模型；否则清空当前模型。
                             CONFIG.MODEL = CONFIG.SAVED_MODELS.length > 0 ? CONFIG.SAVED_MODELS[0] : '';
                         }
-                        renderModelTags();      // 重新渲染模型标签
-                        setDirtyStatus(true);   // 标记设置为有未保存更改
+                        renderModelTags();
+                        setDirtyStatus(true);
                     }
                 });
 
-                tag.appendChild(deleteBtn); // 将删除按钮添加到标签内
-                modelTagsContainer.appendChild(tag); // 将标签添加到容器内
+                tag.appendChild(deleteBtn);
+                modelTagsContainer.appendChild(tag);
             });
         }
 
-        // 初始化时调用一次，渲染初始的模型标签
         renderModelTags();
         modelTagsContainer.renderModelTags = renderModelTags;
 
-        // 为模型标签容器本身添加点击事件，用于触发批量删除模态框。
         modelTagsContainer.addEventListener('click', (e) => {
-            if (e.target === modelTagsContainer) { // 确保点击的是容器空白处
-                showMultiDeleteModal(); // 显示批量删除模态框
+            if (e.target === modelTagsContainer) { 
+                showMultiDeleteModal();
             }
         });
 
         function showMultiDeleteModal() {
-            // 创建模态框和遮罩层的DOM元素
             const multiDeleteModal = document.createElement('div');
-            multiDeleteModal.className = 'ai-modal'; // 通用模态框样式
-            multiDeleteModal.style.cssText = 'display: block; z-index: 100003;'; // 立即显示，并设置较高层级
+            multiDeleteModal.className = 'ai-modal';
+            multiDeleteModal.style.display = 'flex';
+            multiDeleteModal.style.zIndex = '100003';
 
             const overlay = document.createElement('div');
-            overlay.className = 'ai-settings-overlay'; // 通用遮罩层样式
-            overlay.style.cssText = 'display: block; z-index: 100002;'; // 立即显示，层级低于模态框
+            overlay.className = 'ai-settings-overlay';
+            overlay.style.cssText = 'display: block; z-index: 100002;';
+            overlay.addEventListener('click', e => e.stopPropagation());
 
-            // 为每个已保存的模型生成一个带复选框的列表项HTML
-            const modelsHTML = CONFIG.SAVED_MODELS.map(modelId => `
-                <div class="model-item" style="cursor: pointer; padding: 10px; border-radius: 4px; display: flex; align-items: center;">
-                    <input type="checkbox" value="${modelId}" id="multi-delete-chk-${modelId}" style="margin-right: 10px; cursor: pointer;">
-                    <label for="multi-delete-chk-${modelId}" style="cursor: pointer; flex-grow: 1; color: #333333;">${modelId}</label>
-                </div>
-            `).join('');
-
-            // 设置模态框的内部HTML结构
             multiDeleteModal.innerHTML = `
                 <div class="modal-header">
                     <h3>批量删除模型</h3>
                     <button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                 </div>
-                <div class="modal-content" style="max-height: 50vh; overflow-y: auto;">
-                    ${modelsHTML}
+                <div class="modal-content">
+                    <input type="text" class="multi-delete-search-input" placeholder="搜索要删除的模型..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    <div class="multi-delete-model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 40vh; overflow-y: auto; margin-top: 10px;">
+                        <!-- Models will be rendered here -->
+                    </div>
                 </div>
                 <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button class="modal-action-btn cancel-btn ai-btn ai-btn-secondary">取消</button>
-                    <button class="modal-action-btn delete-selected-btn ai-btn ai-btn-danger">删除</button>
+                    <button class="modal-action-btn delete-selected-btn ai-btn ai-btn-danger">删除已选</button>
                 </div>
             `;
 
-            // 将模态框和遮罩层附加到Shadow DOM
             shadow.appendChild(overlay);
             shadow.appendChild(multiDeleteModal);
 
-            // 定义关闭模态框的辅助函数
+            const modelListContainer = multiDeleteModal.querySelector('.multi-delete-model-list-container');
+            const searchInput = multiDeleteModal.querySelector('.multi-delete-search-input');
+
+            function renderDeleteList(filter = '') {
+                const lowerCaseFilter = filter.toLowerCase();
+                const filteredModels = CONFIG.SAVED_MODELS.filter(m => m.toLowerCase().includes(lowerCaseFilter));
+                modelListContainer.innerHTML = filteredModels.map(modelId => `
+                    <div class="model-item" data-model-id="${modelId}">
+                        <input type="checkbox" value="${modelId}" id="multi-delete-chk-${modelId}" style="pointer-events: none;">
+                        <label for="multi-delete-chk-${modelId}">${modelId}</label>
+                    </div>
+                `).join('');
+            }
+
+            renderDeleteList();
+            searchInput.addEventListener('input', () => renderDeleteList(searchInput.value));
+
+            modelListContainer.addEventListener('click', e => {
+                const item = e.target.closest('.model-item');
+                if (item) {
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    if (checkbox) checkbox.checked = !checkbox.checked;
+                }
+            });
+
             const closeModal = () => {
                 shadow.removeChild(multiDeleteModal);
                 shadow.removeChild(overlay);
             };
 
-            // 为模态框的关闭按钮、取消按钮和遮罩层添加点击事件监听器，用于关闭模态框
             multiDeleteModal.querySelector('.close-modal').addEventListener('click', closeModal);
             multiDeleteModal.querySelector('.cancel-btn').addEventListener('click', closeModal);
-            overlay.addEventListener('click', closeModal);
 
-            // 为"删除已选"按钮添加点击事件监听器
             multiDeleteModal.querySelector('.delete-selected-btn').addEventListener('click', () => {
-                const selectedForDeletion = []; // 存储用户选中的要删除的模型ID
-                // 遍历模态框中所有选中的复选框
-                multiDeleteModal.querySelectorAll('input[type="checkbox"]:checked').forEach(chk => {
-                    selectedForDeletion.push(chk.value); // 将选中的模型ID添加到数组
-                });
+                const selectedForDeletion = Array.from(modelListContainer.querySelectorAll('input[type="checkbox"]:checked')).map(chk => chk.value);
 
-                if (selectedForDeletion.length === 0) { // 如果没有选择任何模型
+                if (selectedForDeletion.length === 0) {
                     showToastNotification('请至少选择一个要删除的模型。');
                     return;
                 }
 
-                // 弹出确认对话框
-                if (confirm(`确定要删除的 ${selectedForDeletion.length} 个模型吗？`)) {
-                    // 从 CONFIG.SAVED_MODELS 中过滤掉选中的模型
+                if (confirm(`确定要删除这 ${selectedForDeletion.length} 个模型吗？`)) {
                     CONFIG.SAVED_MODELS = CONFIG.SAVED_MODELS.filter(m => !selectedForDeletion.includes(m));
-                    // 如果当前选中的模型 (CONFIG.MODEL) 在被删除的列表中，则重置 CONFIG.MODEL
                     if (selectedForDeletion.includes(CONFIG.MODEL)) {
                         CONFIG.MODEL = CONFIG.SAVED_MODELS.length > 0 ? CONFIG.SAVED_MODELS[0] : '';
                     }
-                    renderModelTags();      // 重新渲染模型标签
-                    setDirtyStatus(true);   // 标记设置为有未保存更改
-                    closeModal();           // 关闭批量删除模态框
+                    renderModelTags();
+                    setDirtyStatus(true);
+                    closeModal();
+                    showToastNotification('所选模型已删除。');
                 }
             });
         }
 
-        // "使用自定义模型"按钮的点击事件监听器
-        customModelBtn.addEventListener('click', () => {
-            // 提示用户输入自定义模型的名称，支持多个，用逗号分隔
-            const newModelsInput = prompt('请输入要添加的自定义模型名称（多个模型请用英文逗号,隔开）：');
-            if (newModelsInput && newModelsInput.trim()) { // 确保用户输入了内容
-                // 分割、去空格、过滤空字符串，得到有效的模型ID数组
-                const newModels = newModelsInput.trim().split(',').map(m => m.trim()).filter(m => m);
-                let added = false; // 标记是否成功添加了至少一个新模型
-                let lastAddedModel = ''; // 记录最后一个成功添加的模型ID
-                newModels.forEach(modelId => {
-                    if (!CONFIG.SAVED_MODELS.includes(modelId)) { // 如果模型ID尚不存在于已保存列表中
-                        CONFIG.SAVED_MODELS.push(modelId); // 添加到列表
-                        lastAddedModel = modelId;
-                        added = true;
+        function showCustomModelModal() {
+            const overlay = document.createElement('div');
+            overlay.className = 'ai-settings-overlay';
+            overlay.style.cssText = 'display: block; z-index: 100002;';
+            overlay.addEventListener('click', e => e.stopPropagation());
+            shadow.appendChild(overlay);
+
+            const customModal = document.createElement('div');
+            customModal.className = 'ai-modal ai-custom-model-modal';
+            customModal.style.display = 'flex';
+            customModal.style.zIndex = '100003';
+            customModal.innerHTML = `
+                <div class="modal-header">
+                    <h3>添加自定义模型</h3>
+                    <button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <div class="modal-content">
+                    <p style="font-size: 13px; color: #6c757d; margin-bottom: 10px;">请输入模型名称，多个模型请用英文逗号 (,) 或换行分隔。</p>
+                    <textarea id="custom-models-textarea" placeholder="e.g. gpt-4o-mini, gpt-4-turbo" style="height: 100px;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn ai-btn ai-btn-secondary">取消</button>
+                    <button class="save-custom-models-btn ai-btn ai-btn-success">保存</button>
+                </div>
+            `;
+            shadow.appendChild(customModal);
+
+            const closeModal = () => {
+                shadow.removeChild(customModal);
+                shadow.removeChild(overlay);
+            };
+
+            customModal.querySelector('.close-modal').addEventListener('click', closeModal);
+            customModal.querySelector('.cancel-btn').addEventListener('click', closeModal);
+
+            customModal.querySelector('.save-custom-models-btn').addEventListener('click', () => {
+                const textarea = customModal.querySelector('#custom-models-textarea');
+                const newModelsInput = textarea.value;
+
+                if (newModelsInput && newModelsInput.trim()) {
+                    const newModels = newModelsInput.trim().split(/[\n,]+/).map(m => m.trim()).filter(m => m);
+                    let added = false;
+                    let lastAddedModel = '';
+                    newModels.forEach(modelId => {
+                        if (!CONFIG.SAVED_MODELS.includes(modelId)) {
+                            CONFIG.SAVED_MODELS.push(modelId);
+                            lastAddedModel = modelId;
+                            added = true;
+                        }
+                    });
+
+                    if (added) {
+                        CONFIG.MODEL = lastAddedModel;
+                        renderModelTags();
+                        setDirtyStatus(true);
+                        showToastNotification('自定义模型已添加！');
+                    } else {
+                        showToastNotification('所有输入的模型均已存在！');
                     }
-                });
-
-                if (added) { // 如果成功添加了新模型
-                    CONFIG.MODEL = lastAddedModel; // 将最后一个添加的模型设为当前选中模型
-                    renderModelTags();           // 重新渲染模型标签
-                    setDirtyStatus(true);        // 标记设置为有未保存更改
-                } else { // 如果所有输入的模型都已存在
-                    showToastNotification('所有输入的模型均已存在！');
+                    closeModal();
+                } else {
+                    showToastNotification('请输入模型名称。');
                 }
-            }
-        });
+            });
+        }
 
-        // --- "获取模型"按钮相关逻辑 ---
-        // fetchedModelsCache: 用于缓存从API获取的模型列表，避免重复请求。
+        customModelBtn.addEventListener('click', showCustomModelModal);
+
         let fetchedModelsCache = [];
         const searchInput = modelSelectionModal.querySelector('#model-search-input'); // 模型选择模态框内的搜索框
         const modelListContainer = modelSelectionModal.querySelector('#model-list-container'); // 模型选择模态框内显示模型列表的容器
-        const descriptionArea = modelSelectionModal.querySelector('#model-description-area'); // 模型选择模态框内显示模型描述的区域
 
         function renderModelList(filter = '') {
-            modelListContainer.innerHTML = ''; // 清空现有列表
-            const lowerCaseFilter = filter.toLowerCase(); // 转换为小写以便不区分大小写搜索
-            // 过滤缓存中的模型，只保留ID包含过滤字符串的模型
+            modelListContainer.innerHTML = '';
+            const lowerCaseFilter = filter.toLowerCase();
             const filteredModels = fetchedModelsCache.filter(m => m.id.toLowerCase().includes(lowerCaseFilter));
 
-            if (filteredModels.length === 0) { // 如果没有匹配的模型
+            if (filteredModels.length === 0) {
                 modelListContainer.innerHTML = `<p style="padding: 10px;">没有找到匹配的模型。</p>`;
                 return;
             }
 
-            // 遍历过滤后的模型，为每个模型创建DOM元素并添加到列表容器
             filteredModels.forEach(model => {
                 const div = document.createElement('div');
-                div.className = 'model-item'; // CSS类名
-                // 复选框的选中状态根据该模型ID是否存在于 CONFIG.SAVED_MODELS 中来决定
-                div.innerHTML = `<input type="checkbox" value="${model.id}" id="model-checkbox-${model.id}" ${CONFIG.SAVED_MODELS.includes(model.id) ? 'checked' : ''}><label for="model-checkbox-${model.id}">${model.id}</label>`;
+                div.className = 'model-item';
+                div.innerHTML = `<input type="checkbox" value="${model.id}" id="model-checkbox-${model.id}" ${CONFIG.SAVED_MODELS.includes(model.id) ? 'checked' : ''} style="pointer-events: none;"><label for="model-checkbox-${model.id}">${model.id}</label>`;
                 modelListContainer.appendChild(div);
 
-                // 为每个模型项添加鼠标悬停事件，在描述区域显示模型ID
-                div.addEventListener('mouseenter', () => {
-                    const createdDate = model.created ? new Date(model.created * 1000).toLocaleString() : 'N/A';
-                    const ownedBy = model.owned_by || 'N/A';
-                    descriptionArea.innerHTML = `
-                        <p style="margin:0; font-weight: bold;">${model.id}</p>
-                    `;
-                });
             });
         }
 
-        // 为模型选择模态框中的搜索输入框添加 'input' 事件监听，实现实时过滤模型列表
         searchInput.addEventListener('input', () => renderModelList(searchInput.value));
+        modelListContainer.addEventListener('click', e => {
+            const item = e.target.closest('.model-item');
+            if (item) {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+            }
+        });
 
-        // "获取模型"按钮的点击事件监听器
         fetchModelsBtn.addEventListener('click', async () => {
-            // 初始化模态框状态：显示加载提示，清空描述区和搜索框
+            // 
             modelListContainer.innerHTML = '<div class="ai-loading">正在获取模型列表...</div>';
-            descriptionArea.innerHTML = `<p><i>将鼠标悬停在模型上以查看描述。</i></p>`;
             searchInput.value = '';
-            modelSelectionModal.style.display = 'block'; // 显示模型选择模态框
+            modelSelectionModal.style.display = 'flex';
 
             try {
-                const rawModels = await fetchModels(); // 调用API获取模型数据
-                // 将获取到的原始模型数据（可能仅为字符串ID数组）转换为包含id的对象数组，并存入缓存
+                const rawModels = await fetchModels();
                 fetchedModelsCache = rawModels.map(m => (typeof m === 'string' ? { id: m, created: 0, owned_by: 'unknown' } : m));
-                renderModelList(); // 使用获取到的数据渲染模型列表
-            } catch (error) { // 如果获取模型失败
+                renderModelList();
+            } catch (error) {
                 modelListContainer.innerHTML = `<p style="color: red; padding: 10px;">获取模型失败: ${error.message}</p>`; // 显示错误信息
             }
         });
 
 
-        // "保存"按钮的点击事件监听器
         saveBtn.addEventListener('click', () => {
-            isSaving = true; // 设置保存状态标志，防止在保存过程中触发不必要的 dirty 状态更新
+            isSaving = true;
 
-            // 1. 获取并验证快捷键输入
             let newShortcut = panel.querySelector('#shortcut').value.trim();
-            newShortcut = newShortcut.replace(/Option\+/g, 'Alt+'); // 将Mac的Option+替换为通用的Alt+
-            if (!validateShortcut(newShortcut) && newShortcut !== "") { // 如果格式不正确且非空
-                isSaving = false; // 重置保存标志
+            newShortcut = newShortcut.replace(/Option\+/g, 'Alt+');
+            if (!validateShortcut(newShortcut) && newShortcut !== "") {
+                isSaving = false;
                 showToastNotification(isMac ? '快捷键格式不正确。有效示例: Option+S, ⌘+Shift+Y' : '快捷键格式不正确。有效示例: Alt+S, Ctrl+Shift+Y');
-                return; // 中断保存
+                return;
             }
 
-            // 2. 获取并验证Base URL输入
             const baseURLValue = panel.querySelector('#base-url').value.trim();
-            if (!baseURLValue) { // 不能为空
+            if (!baseURLValue) {
                 showToastNotification('Base URL 不能为空。');
                 isSaving = false; return;
             }
-            if (!baseURLValue.match(/^https?:\/\/.+/)) { // 必须以 http:// 或 https:// 开头
+            if (!baseURLValue.match(/^https?:\/\/.+/)) {
                 showToastNotification('Base URL 格式不正确，应以 http:// 或 https:// 开头。');
                 isSaving = false; return;
             }
 
-            // 3. 获取并验证API Key输入
             const apiKeyVaule = panel.querySelector('#api-key').value.trim();
-            if (!apiKeyVaule) { // 不能为空
+            if (!apiKeyVaule) {
                 alert('API Key 不能为空。');
                 isSaving = false; return;
             }
 
-            // 4. 获取并验证Max Tokens输入
             const maxTokensValue = panel.querySelector('#max-tokens').value.trim();
             const maxTokensParsed = parseInt(maxTokensValue);
             if (maxTokensValue === "" || isNaN(maxTokensParsed) || maxTokensParsed <= 0) { // 必须是大于0的有效数字
                 alert('最大Token数必须是一个大于0的有效数字。');
                 isSaving = false; return;
             }
-            if (maxTokensParsed > 100000) { // 对过大的值给出警告（非强制）
+            if (maxTokensParsed > 100000) {
                 alert('最大Token数设置过大，可能导致请求失败或费用过高。请设置一个合理的值。');
             }
 
-            // 5. 验证是否已选择模型
-            // CONFIG.MODEL 的值由模型标签的点击事件实时更新
             if (!CONFIG.MODEL) {
                 alert('请至少选择或添加一个模型。');
                 isSaving = false; return;
             }
 
-            // 6. 所有验证通过，更新内存中的 CONFIG 对象
             CONFIG.BASE_URL = baseURLValue;
             CONFIG.API_KEY = apiKeyVaule;
             CONFIG.MAX_TOKENS = maxTokensParsed;
-            CONFIG.SHORTCUT = newShortcut || DEFAULT_CONFIG.SHORTCUT; // 如果为空，则使用默认快捷键
-            // CONFIG.CURRENT_PROMPT_IDENTIFIER 和 CONFIG.SAVED_MODELS 已由各自的交互实时更新，此处无需再次赋值
+            CONFIG.SHORTCUT = newShortcut || DEFAULT_CONFIG.SHORTCUT;
 
-            // 7. 将更新后的 CONFIG各项持久化存储到 GM_setValue
             GM_setValue('BASE_URL', CONFIG.BASE_URL);
             GM_setValue('API_KEY', CONFIG.API_KEY);
             GM_setValue('MAX_TOKENS', CONFIG.MAX_TOKENS);
@@ -655,86 +661,74 @@
             GM_setValue('CURRENT_PROMPT_IDENTIFIER', CONFIG.CURRENT_PROMPT_IDENTIFIER);
             GM_setValue('SAVED_MODELS', CONFIG.SAVED_MODELS);
 
-            // 8. 刷新主总结模态框中的模型选择器，以同步最新的模型列表和当前选中的模型
             populateModalModelSelector(modal);
 
-            // 9. 更新设置快照以反映已保存的更改。
-            //    这确保了如果用户在保存后立即关闭面板，不会误报"未保存更改"。
             if (typeof panel.takeSettingsSnapshot === 'function') {
                 panel.takeSettingsSnapshot();
             }
-            // 10. 将设置状态标记为"干净"。这必须在更新快照之后执行。
             setDirtyStatus(false);
-            
-            // 11. 重置保存状态标志。这必须在 setDirtyStatus(false) 之后执行，
-            //     以确保 dirty 状态和UI完全更新为"干净"后，才允许其他事件（如输入框修改）再次更改 dirty 状态。
             isSaving = false;
 
-            // 12. 隐藏设置面板和遮罩层，并显示成功提示
-            panel.style.display = 'none';
-            settingsOverlay.style.display = 'none';
             showToastNotification('设置已应用！');
         });
 
-        // 为"取消"按钮和设置面板的遮罩层添加点击事件监听器，调用 closeSettingsPanel 函数来关闭面板。
         cancelBtn.addEventListener('click', closeSettingsPanel);
-        settingsOverlay.addEventListener('click', closeSettingsPanel);
     }
 
     function createSettingsPanel(shadow) {
-        const panel = document.createElement('div'); // 设置面板的根元素
+        const panel = document.createElement('div');
         panel.className = 'ai-settings-panel';
-        // 使用模板字符串构建设置面板的内部HTML结构
         panel.innerHTML = `
             <div class="panel-header">
                 <h3>设置</h3>
                 <button class="cancel-btn ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
-            <div class="form-group">
-                <label for="base-url">Base URL (例如: https://api.openai.com)</label> <!-- API基础地址输入 -->
-                <input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}">
-            </div>
-            <div class="form-group">
-                <label for="api-key">API Key</label> <!-- API密钥输入 -->
-                <input type="text" id="api-key" value="${CONFIG.API_KEY}">
-            </div>
-            <!-- 模型管理区域: 显示已选模型标签，并提供自定义和获取模型的按钮 -->
-            <div class="form-group">
-                <label for="model-tags-container">模型</label>
-                <div class="model-tags-container" id="model-tags-container">
-                    {/* 动态生成的模型标签将出现在这里 (由initializeSettingsEvents中的renderModelTags函数填充) */}
+            <div class="settings-content">
+                <div class="form-group">
+                    <label for="base-url">Base URL (例如: https://api.openai.com)</label> <!-- API基础地址输入 -->
+                    <input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}">
                 </div>
-                <div class="model-actions">
-                    <button id="custom-model-btn" class="ai-btn ai-btn-special">自定义模型</button> <!-- 手动添加模型名称 -->
-                    <button id="fetch-model-btn" class="ai-btn ai-btn-special">获取模型</button> <!-- 从API获取可用模型列表 -->
+                <div class="form-group">
+                    <label for="api-key">API Key</label> <!-- API密钥输入 -->
+                    <input type="text" id="api-key" value="${CONFIG.API_KEY}">
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="max-tokens">最大Token数</label> <!-- 最大Token数输入 -->
-                <input type="number" id="max-tokens" value="${CONFIG.MAX_TOKENS}">
-            </div>
-            <div class="form-group">
-                <label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label> <!-- 快捷键输入 -->
-                <input type="text" id="shortcut" value="${CONFIG.SHORTCUT}">
-            </div>
-            <!-- 提示词选择区域: 包含一个下拉选择器和用于显示当前选中模板内容的只读文本域 -->
-            <div class="form-group config-select-group">
-                <label for="config-select">提示词选择</label>
-                <select class="ai-config-select" id="config-select" title="选择一个预设提示词模板">
-                    {/* 选项将由 updateAllPromptSelectors 函数动态填充 */}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="prompt">总结提示词内容</label>
-                <textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea> <!-- 显示当前选中提示词模板的内容 -->
+                <!-- 模型管理区域: 显示已选模型标签，并提供自定义和获取模型的按钮 -->
+                <div class="form-group">
+                    <label for="model-tags-container">模型</label>
+                    <div class="model-tags-container" id="model-tags-container">
+                        {/* 动态生成的模型标签将出现在这里 (由initializeSettingsEvents中的renderModelTags函数填充) */}
+                    </div>
+                    <div class="model-actions">
+                        <button id="custom-model-btn" class="ai-btn ai-btn-special">自定义模型</button> <!-- 手动添加模型名称 -->
+                        <button id="fetch-model-btn" class="ai-btn ai-btn-special">获取模型</button> <!-- 从API获取可用模型列表 -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="max-tokens">最大Token数</label> <!-- 最大Token数输入 -->
+                    <input type="number" id="max-tokens" value="${CONFIG.MAX_TOKENS}">
+                </div>
+                <div class="form-group">
+                    <label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label> <!-- 快捷键输入 -->
+                    <input type="text" id="shortcut" value="${CONFIG.SHORTCUT}">
+                </div>
+                <!-- 提示词选择区域: 包含一个下拉选择器和用于显示当前选中模板内容的只读文本域 -->
+                <div class="form-group config-select-group">
+                    <label for="config-select">提示词选择</label>
+                    <select class="ai-config-select" id="config-select" title="选择一个预设提示词模板">
+                        {/* 选项将由 updateAllPromptSelectors 函数动态填充 */}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="prompt">总结提示词内容</label>
+                    <textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea> <!-- 显示当前选中提示词模板的内容 -->
+                </div>
             </div>
             <div class="buttons" style="display: flex; justify-content: flex-end; gap: 10px;"> <!-- 面板底部的操作按钮区域 -->
                 <button class="clear-cache-btn ai-btn ai-btn-danger">重置</button> <!-- 重置所有设置到默认值并清除缓存 -->
                 <button class="save-btn ai-btn ai-btn-success">保存</button> <!-- 保存当前设置 -->
             </div>
-        `; // panel.innerHTML 结束
+        `;
 
-        // 创建 <style> 元素，用于定义设置面板及其内部组件的CSS样式
         const style = document.createElement('style');
         style.textContent = `
             /* 设置面板主容器样式：定位居中、尺寸、背景、边框、阴影、字体等 */
@@ -745,17 +739,17 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
                 background: #fff;
-                padding: 20px;
                 border-radius: 8px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 width: 90%;
                 max-width: 600px; /* 最大宽度限制 */
-                max-height: 80vh; /* 最大高度限制，超出则显示滚动条 */
-                overflow-y: auto; /* 内容溢出时垂直滚动 */
+                max-height: 80vh; /* 最大高度限制 */
                 box-sizing: border-box;
                 font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
                 font-size: 15px;
                 z-index: 100001; /* 确保在其他页面元素之上 */
+                flex-direction: column; /* 新增: 使用flex布局，使子元素垂直排列 */
+                overflow: hidden; /* 防止内容溢出圆角 */
             }
             .ai-settings-panel h3 { /* 面板标题样式 */
                 margin: 0 0 20px 0;
@@ -769,8 +763,9 @@
                 justify-content: space-between;
                 align-items: center;
                 border-bottom: 1px solid #dee2e6;
-                padding-bottom: 10px;
-                margin-bottom: 15px;
+                padding: 10px 20px; /* 调整内边距 */
+                margin-bottom: 0; /* 移除外边距 */
+                flex-shrink: 0; /* 防止头部在flex布局中被压缩 */
             }
             .panel-header h3 { /* 模态框标题样式 */
                 margin: 0;
@@ -779,6 +774,12 @@
                 color: #495057;
             }
 
+            .settings-content {
+                overflow-y: auto;
+                flex-grow: 1;
+                padding: 0 20px;
+                min-height: 0;
+            }
             .form-group { /* 表单组通用样式 */
                 margin-bottom: 15px;
             }
@@ -807,8 +808,8 @@
             .form-group textarea:focus,
             .form-group select:focus {
                 outline: none;
-                border-color: #60a5fa; /* 焦点时边框颜色变化 */
-                box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2); /* 焦点时外发光效果 */
+                border-color: #3b82f6; /* 统一焦点颜色 */
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); /* 统一焦点光晕 */
             }
             .form-group textarea { /* 文本域特定样式 */
                 height: 100px; /* 默认高度 */
@@ -831,9 +832,11 @@
             }
             .buttons { /* 面板底部按钮容器的样式 */
                 display: flex;
-                justify-content: space-around; /* 按钮平均分布 */
+                justify-content: flex-end; /* 按钮靠右 */
                 gap: 10px;
-                margin-top: 20px;
+                padding: 15px 20px;
+                border-top: 1px solid #dee2e6;
+                flex-shrink: 0;
             }
 
             .modal-action-btn { /* 通用模态框操作按钮（如"获取模型"模态框中的按钮）的基本样式 */
@@ -864,16 +867,22 @@
                 width: 90%;
                 max-width: 500px;
                 max-height: 70vh;
-                z-index: 100002; /* 层级高于设置面板的遮罩层，但低于设置面板本身（如果同时显示）*/
+                z-index: 100003; /* 确保在设置面板的遮罩层之上 */
+                display: none; /* 默认隐藏 */
                 flex-direction: column; /* 内部元素垂直排列 */
+                overflow: hidden; /* 确保子元素不会破坏圆角 */
+                background: #fff;
+                padding: 0; /* 移除内边距，由子元素控制 */
             }
             .modal-header { /* 模态框头部样式 */
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 border-bottom: 1px solid #dee2e6;
-                padding-bottom: 10px;
-                margin-bottom: 15px;
+                padding: 15px 20px;
+                margin-bottom: 0;
+                border-bottom: 1px solid #dee2e6;
+                flex-shrink: 0; /* 防止头部被压缩 */
             }
             .modal-header h3 { /* 模态框标题样式 */
                 margin: 0;
@@ -885,38 +894,54 @@
             .modal-content { /* 模态框内容区域样式 */
                 overflow-y: auto; /* 内容溢出时垂直滚动 */
                 flex-grow: 1; /* 占据可用垂直空间 */
-                margin-bottom: 15px;
+                padding: 20px;
+                margin-bottom: 0;
+                min-height: 0; /* 修复flexbox在某些浏览器中的溢出问题 */
             }
             #model-list-container label { /* 模型选择列表中的标签样式 */
                 font-weight: normal;
                 font-size: 14px;
-                color: #333333;
+                color: #e2e8f0;
             }
+            .ai-modal .model-item, /* 批量删除 */
             #model-list-container .model-item { /* 模型选择列表中的每个条目样式 */
                 padding: 8px 12px;
-                border: 1px solid transparent; /* 默认无边框 */
-                border-bottom: 1px solid #3d4756; /* 分隔线 */
-                border-radius: 0; /* 无圆角，更像列表 */
+                border: 1px solid #dee2e6; /* 灰色框线 */
+                margin-bottom: 5px; /* 增加一点间距 */
+                border-radius: 4px; /* 加上一点圆角与整体风格统一 */
                 display: flex;
                 align-items: center;
-                transition: background-color 0.2s;
+                transition: background-color 0.2s, color 0.2s;
                 cursor: pointer;
             }
-            #model-list-container .model-item:last-child {
-                border-bottom: none; /* 最后一项无分隔线 */
-            }
-            #model-list-container .model-item:hover { background-color: #4a5568; } /* 悬停时背景色变化 */
-            #model-list-container .model-item label { /* 模型条目内标签的样式 */
+            .ai-modal .model-item label,
+            #model-list-container .model-item label {
+                color: #333333;
                 margin-left: 8px;
                 cursor: pointer;
+                flex-grow: 1; /* 确保标签填满剩余空间 */
+            }
+            .ai-modal .model-item:hover,
+            #model-list-container .model-item:hover {
+                background-color: #eef5ff; /* 统一悬停背景色 (浅蓝) */
+            }
+            .ai-modal .model-item:hover label,
+            #model-list-container .model-item:hover label {
+                color: #2563eb; /* 统一悬停文字颜色 (深蓝) */
             }
             .modal-footer { /* 模态框底部样式 */
                 border-top: 1px solid #dee2e6;
-                padding-top: 15px;
+                padding: 15px 20px;
                 text-align: right; /* 按钮靠右对齐 */
+                flex-shrink: 0; /* 防止底部被压缩 */
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                background-color: #f8f9fa;
+                border-top: 1px solid #dee2e6;
             }
             #save-selected-models { /* "获取模型"模态框中的"保存"按钮样式，将使用 .ai-btn-success */
-                 /* padding: 8px 16px;
+                /* padding: 8px 16px;
                 border: none;
                 border-radius: 4px;
                 cursor: pointer;
@@ -958,7 +983,7 @@
                transition: background-color 0.2s;
            }
            .model-tag.selected { /* 当前选中的模型标签的特殊样式 */
-               background-color: #60a5fa; /* 高亮背景色 */
+               background-color: #3b82f6; /* 统一选中颜色 */
                color: white;
                font-weight: bold;
            }
@@ -972,20 +997,44 @@
                padding: 0;
                line-height: 1;
            }
-            .model-tag.selected .delete-btn { color: white; } /* 选中标签的删除按钮颜色 */
+           .model-tag.selected .delete-btn { color: white; } /* 选中标签的删除按钮颜色 */
            .model-tag .delete-btn:hover { color: #f00; } /* 删除按钮悬停时颜色变为红色 */
            /* "自定义模型"和"获取模型"按钮的容器样式 */
            .model-actions {
-               display: flex;
-               gap: 10px;
-               margin-top: 10px;
-               color:#ffffff;
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+                color:#ffffff;
            }
-       `; // style.textContent 结束
+       `;
+       style.textContent += `
+           /* Custom Modal for adding models */
+           .ai-custom-model-modal {
+               width: 350px; /* Specific width for this modal */
+               max-width: 90%;
+           }
+           .ai-custom-model-modal .modal-content textarea {
+               width: 100%;
+               padding: 8px 12px;
+               border: 1px solid #ced4da;
+               border-radius: 4px;
+               font-size: 14px;
+               box-sizing: border-box;
+               background: #fff;
+               color: #495057;
+               resize: vertical;
+               font-family: inherit;
+           }
+           .ai-custom-model-modal .modal-content textarea:focus {
+               outline: none;
+               border-color: #3b82f6; /* 统一焦点颜色 */
+               box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); /* 统一焦点光晕 */
+           }
+       `;
 
         const settingsOverlay = document.createElement('div');
         settingsOverlay.className = 'ai-settings-overlay';
-        settingsOverlay.style.display = 'none'; // 默认隐藏
+        settingsOverlay.style.display = 'none';
 
         const overlayStyle = document.createElement('style');
         overlayStyle.textContent = `
@@ -1000,43 +1049,36 @@
                 z-index: 100000; /* 层级确保在设置面板下方，但在页面其他内容之上 */
             }
         `;
-        shadow.appendChild(overlayStyle); // 将遮罩层样式附加到Shadow DOM
-        shadow.appendChild(settingsOverlay); // 将遮罩层元素附加到Shadow DOM
-        shadow.appendChild(panel); // 将设置面板元素附加到Shadow DOM
+        shadow.appendChild(overlayStyle);
+        shadow.appendChild(settingsOverlay);
+        shadow.appendChild(panel);
 
         panel.querySelector('.clear-cache-btn').addEventListener('click', () => {
-            // 弹出确认对话框，防止用户误操作
             if (!confirm('确定要重置所有设置并清除缓存吗？这将恢复到默认配置。')) {
-                return; // 用户取消，则不执行任何操作
+                return;
             }
 
-            // 定义需要从GM存储中清除的键名列表
             const keysToClear = ['BASE_URL', 'API_KEY', 'MAX_TOKENS', 'SHORTCUT', 'MODEL', 'CURRENT_PROMPT_IDENTIFIER', 'SAVED_MODELS', 'saved_prompts', 'containerPosition'];
             keysToClear.forEach(key => GM_setValue(key, undefined));
 
-            // 重新加载配置以应用默认值（除了containerPosition）
-            loadConfig(); // 这会重新加载除 containerPosition 之外的默认值
+            loadConfig();
 
-            // 更新设置面板UI上的各个输入字段，以反映重置后的默认值
             panel.querySelector('#base-url').value = CONFIG.BASE_URL;
             panel.querySelector('#api-key').value = CONFIG.API_KEY;
             panel.querySelector('#max-tokens').value = CONFIG.MAX_TOKENS;
             panel.querySelector('#shortcut').value = CONFIG.SHORTCUT;
             
-            // 更新提示词相关的UI：选择器选项和提示词内容文本域
             if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
-                const configSelect = panel.querySelector('#config-select'); // 获取提示词模板选择器
+                const configSelect = panel.querySelector('#config-select');
                 if (configSelect) {
-                    configSelect.value = CONFIG.CURRENT_PROMPT_IDENTIFIER; // 将选择器的值设置为默认模板的标识符
-                    configSelect.dispatchEvent(new Event('change')); // 手动触发 'change' 事件，以更新提示词内容文本域
+                    configSelect.value = CONFIG.CURRENT_PROMPT_IDENTIFIER;
+                    configSelect.dispatchEvent(new Event('change'));
                 }
-                updateAllPromptSelectors(globalElements); // 调用全局函数，确保所有界面的提示词选择器都同步更新
+                updateAllPromptSelectors(globalElements);
             }
 
-            // 更新模型标签UI，以反映重置后的模型列表 (通常是默认模型) 和当前选中的模型
             const modelTagsContainer = panel.querySelector('#model-tags-container');
             if (modelTagsContainer && typeof modelTagsContainer.renderModelTags === 'function') {
-                // renderModelTags 函数会从 CONFIG.SAVED_MODELS 和 CONFIG.MODEL 读取数据并重新渲染标签
                 modelTagsContainer.renderModelTags();
             } else {
                 console.warn("renderModelTags function not found on modelTagsContainer during cache clear.");
@@ -1050,14 +1092,14 @@
                 loadPosition(globalElements.container);
             }
 
-            showToastNotification('设置已重置并清除缓存！'); // 显示操作成功的提示消息
+            showToastNotification('设置已重置并清除缓存！');
         });
 
-        shadow.appendChild(style); // 将包含所有设置面板样式的 <style> 元素附加到 Shadow DOM
+        shadow.appendChild(style);
 
         const modelSelectionModal = document.createElement('div');
-        modelSelectionModal.id = 'model-selection-modal'; // 设置ID，方便后续查找
-        modelSelectionModal.className = 'ai-modal'; // 应用通用模态框样式
+        modelSelectionModal.id = 'model-selection-modal';
+        modelSelectionModal.className = 'ai-modal';
         modelSelectionModal.innerHTML = `
             <div class="modal-header"> <!-- 模态框头部：标题和关闭按钮 -->
                 <h3>选择模型</h3>
@@ -1068,16 +1110,12 @@
                 <input type="text" id="model-search-input" placeholder="搜索模型..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
                 <!-- 模型列表容器 (由JS动态填充) -->
                 <div id="model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 40vh; overflow-y: auto;"></div>
-                <!-- 模型描述区域 (鼠标悬停在模型上时显示信息) -->
-                <div id="model-description-area" style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; min-height: 50px; border: 1px solid #e9ecef; color: #333333;">
-                    <p><i>将鼠标悬停在模型上以查看描述。</i></p>
-                </div>
             </div>
             <div class="modal-footer" style="text-align: right;"> <!-- 模态框底部：保存按钮 -->
                 <button id="save-selected-models" class="ai-btn ai-btn-success">保存</button>
             </div>
         `;
-        shadow.appendChild(modelSelectionModal); // 将模型选择模态框附加到 Shadow DOM
+        shadow.appendChild(modelSelectionModal);
         return { panel, overlay: settingsOverlay, modelSelectionModal };
     }
 
@@ -1088,14 +1126,11 @@
     }
 
     function createElements() {
-        // 创建根容器
         const rootContainer = document.createElement('div');
         rootContainer.id = 'ai-summary-root';
 
-        // 附加 Shadow DOM
         const shadow = rootContainer.attachShadow({ mode: 'open' });
 
-        // 创建样式和结构
         const style = document.createElement('style');
         style.textContent = `
             /* 统一按钮基础样式 */
@@ -1290,7 +1325,7 @@
                 pointer-events: auto;
                 animation: panel-popup-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) backwards;
             }
-             .ai-summary-container:not(.is-expanded) .ai-actions-container {
+            .ai-summary-container:not(.is-expanded) .ai-actions-container {
                 opacity: 0;
                 pointer-events: none;
                 animation: panel-popup-out 0.2s cubic-bezier(0.5, 0, 0.75, 0) forwards;
@@ -1344,7 +1379,7 @@
                 border-bottom: none; /* 最后一项无分隔线 */
             }
             .ai-actions-list-item:hover {
-                background-color: #4a5568; /* 统一悬停效果 */
+                background-color: #4a5568; /* 保持深色主题的悬停效果 */
             }
             .ai-actions-list-item.selected {
                 background-color: #3b82f6;
@@ -1609,9 +1644,25 @@
                 user-select: none;
             }
             /* --- 原有样式结束 --- */
+
+            /* --- 全局滚动条样式 --- */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent; /* 改为透明以避免破坏圆角 */
+                border-radius: 10px;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 10px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #555;
+            }
         `;
 
-        // 创建按钮和拖动把手
         const container = document.createElement('div');
         container.className = 'ai-summary-container';
         container.innerHTML = `
@@ -1624,8 +1675,8 @@
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     </button>
                     <div class="ai-model-btn-container">
-                         <button class="ai-model-btn" title="选择模型">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/><path d="M6 8L2 12L6 16"/></svg>
+                        <button class="ai-model-btn" title="选择模型">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                         </button>
                         <div class="ai-model-list ai-actions-list"></div>
                     </div>
@@ -1640,7 +1691,6 @@
             </div>
         `;
 
-        // 创建模态框
         const modal = document.createElement('div');
         modal.className = 'ai-summary-modal';
         modal.innerHTML = `
@@ -1693,21 +1743,17 @@
             </div>
         `;
 
-        // 创建遮罩层
         const overlay = document.createElement('div');
         overlay.className = 'ai-summary-overlay';
 
-        // 创建设置面板
         const { panel: settingsPanel, overlay: settingsOverlay, modelSelectionModal } = createSettingsPanel(shadow);
 
-        // 将所有元素添加到Shadow DOM
         shadow.appendChild(style);
         shadow.appendChild(container);
         shadow.appendChild(modal);
         shadow.appendChild(overlay);
         shadow.appendChild(settingsPanel);
 
-        // 将根容器添加到body
         document.body.appendChild(rootContainer);
 
         return {
@@ -1732,8 +1778,7 @@
         };
     }
 
-    // 打开设置面板，并使用当前配置填充面板中的各个输入字段。
-    function openSettings(elements) { // 接收 elements 作为参数
+    function openSettings(elements) {
         const { settingsPanel, settingsOverlay } = elements;
 
         settingsPanel.querySelector('#base-url').value = CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL;
@@ -1742,50 +1787,47 @@
         settingsPanel.querySelector('#shortcut').value = CONFIG.SHORTCUT;
         settingsPanel.querySelector('#prompt').value = getCurrentPromptContent();
 
-        // 更新所有选择器
-        updateAllPromptSelectors(elements); // 传递 elements
+        updateAllPromptSelectors(elements);
 
-        // Take a snapshot of the current settings AFTER all fields are populated
         const takeSnapshotFunc = settingsPanel.takeSettingsSnapshot;
         if (typeof takeSnapshotFunc === 'function') {
             takeSnapshotFunc();
         } else {
             console.error("takeSettingsSnapshot function is not attached to the panel.");
         }
-        // Ensure the panel starts in a clean state
-        const setDirtyStatusFunc = settingsPanel.setDirtyStatus; // Assuming setDirtyStatus is also attached or accessible
+
+        const setDirtyStatusFunc = settingsPanel.setDirtyStatus;
         if (typeof setDirtyStatusFunc === 'function') {
-             setDirtyStatusFunc(false);
+            setDirtyStatusFunc(false);
         } else {
             if (panel && typeof panel.setDirtyStatus === 'function') {
-                 panel.setDirtyStatus(false);
+                panel.setDirtyStatus(false);
             } else if (elements && elements.settingsPanel && typeof elements.settingsPanel.setDirtyStatus === 'function') {
-                elements.settingsPanel.setDirtyStatus(false); // Try accessing via elements if panel is not directly the settingsPanel
+                elements.settingsPanel.setDirtyStatus(false);
             }
             else {
-                 console.warn("setDirtyStatus function could not be called directly on panel open. Dirty state might be initially incorrect.");
+                console.warn("setDirtyStatus function could not be called directly on panel open. Dirty state might be initially incorrect.");
             }
         }
 
 
-        settingsPanel.style.display = 'block';
+        settingsPanel.style.display = 'flex';
         settingsOverlay.style.display = 'block';
     }
 
     function getFullEndpoint(baseUrl) {
-      if (!baseUrl || typeof baseUrl !== 'string' || baseUrl.trim() === '') {
-        console.error("Base URL is not configured or invalid.");
-        // 返回 null，让调用者处理，例如 summarizeContent 函数中已有处理
-        return null;
-      }
-      const trimmedBaseUrl = baseUrl.trim();
-      if (trimmedBaseUrl.includes('#')) {
-        return trimmedBaseUrl.replace('#', ''); // 强制使用原始地址
-      } else if (trimmedBaseUrl.endsWith('/')) {
-        return trimmedBaseUrl + 'v1/chat/completions';
-      } else {
-        return trimmedBaseUrl + '/v1/chat/completions';
-      }
+        if (!baseUrl || typeof baseUrl !== 'string' || baseUrl.trim() === '') {
+            console.error("Base URL is not configured or invalid.");
+            return null;
+        }
+        const trimmedBaseUrl = baseUrl.trim();
+        if (trimmedBaseUrl.includes('#')) {
+            return trimmedBaseUrl.replace('#', '');
+        } else if (trimmedBaseUrl.endsWith('/')) {
+            return trimmedBaseUrl + 'v1/chat/completions';
+        } else {
+            return trimmedBaseUrl + '/v1/chat/completions';
+        }
     }
 
     function getPageContent() {
@@ -1795,22 +1837,21 @@
     }
 
     async function fetchModels() {
-      if (!CONFIG.BASE_URL) {
-        console.error("BASE_URL is not configured. Cannot fetch models.");
-        throw new Error('BASE_URL 未配置，无法获取模型列表');
-      }
-      if (!CONFIG.API_KEY) {
-        console.error('API Key is not configured. Cannot fetch models.');
-        throw new Error('API Key未配置，无法获取模型列表');
-      }
+        if (!CONFIG.BASE_URL) {
+            console.error("BASE_URL is not configured. Cannot fetch models.");
+            throw new Error('BASE_URL 未配置，无法获取模型列表');
+        }
+        if (!CONFIG.API_KEY) {
+            console.error('API Key is not configured. Cannot fetch models.');
+            throw new Error('API Key未配置，无法获取模型列表');
+        }
 
-      // 使用 getFullEndpoint 获取基础的 completions 端点，然后替换为 models 端点
-      let chatCompletionsUrl = getFullEndpoint(CONFIG.BASE_URL);
-      if (!chatCompletionsUrl) {
-          throw new Error('无法构造有效的API端点路径 (Base URL可能配置错误)');
-      }
+    let chatCompletionsUrl = getFullEndpoint(CONFIG.BASE_URL);
+    if (!chatCompletionsUrl) {
+        throw new Error('无法构造有效的API端点路径 (Base URL可能配置错误)');
+    }
 
-      const endpoint = chatCompletionsUrl.replace('/v1/chat/completions', '/v1/models');
+    const endpoint = chatCompletionsUrl.replace('/v1/chat/completions', '/v1/models');
 
     try {
         const response = await GM.xmlHttpRequest({
@@ -1824,30 +1865,30 @@
         });
 
         if (response.status === 200) {
-          const responseData = JSON.parse(response.responseText);
-          if (responseData.data && Array.isArray(responseData.data)) {
-           return responseData.data.filter(m => m.id && typeof m.id === 'string');
-         } else if (Array.isArray(responseData) && responseData.every(item => item && typeof item.id === 'string')) {
-            return responseData.filter(m => m.id && typeof m.id === 'string');
-         }
-          else {
-            console.error('模型加载失败: 响应数据格式不符合预期', responseData);
-            throw new Error('API返回的模型列表数据格式不正确');
-          }
-        } else {
-          let errorDetail = `HTTP状态码 ${response.status}: ${response.statusText}`;
-          try {
-            const errorResponse = JSON.parse(response.responseText);
-            if (errorResponse.error && errorResponse.error.message) {
-              errorDetail = `API错误 (${response.status}): ${errorResponse.error.message}`;
-            } else if (typeof errorResponse === 'string') {
-              errorDetail = `API错误 (${response.status}): ${errorResponse}`;
+            const responseData = JSON.parse(response.responseText);
+            if (responseData.data && Array.isArray(responseData.data)) {
+            return responseData.data.filter(m => m.id && typeof m.id === 'string');
+            } else if (Array.isArray(responseData) && responseData.every(item => item && typeof item.id === 'string')) {
+                return responseData.filter(m => m.id && typeof m.id === 'string');
             }
-          } catch (parseError) {
-            console.error('解析获取模型列表的错误响应失败:', parseError);
-          }
-          console.error('模型加载失败:', errorDetail);
-          throw new Error(errorDetail);
+            else {
+                console.error('模型加载失败: 响应数据格式不符合预期', responseData);
+                throw new Error('API返回的模型列表数据格式不正确');
+            }
+            } else {
+            let errorDetail = `HTTP状态码 ${response.status}: ${response.statusText}`;
+            try {
+                const errorResponse = JSON.parse(response.responseText);
+                if (errorResponse.error && errorResponse.error.message) {
+                errorDetail = `API错误 (${response.status}): ${errorResponse.error.message}`;
+                } else if (typeof errorResponse === 'string') {
+                errorDetail = `API错误 (${response.status}): ${errorResponse}`;
+                }
+            } catch (parseError) {
+                console.error('解析获取模型列表的错误响应失败:', parseError);
+            }
+            console.error('模型加载失败:', errorDetail);
+            throw new Error(errorDetail);
         }
     } catch (error) {
         console.error('Detailed fetch error:', {
@@ -1871,7 +1912,6 @@
         `;
     }
 
-    // 显示一个自动消失的toast提示消息。
     function showToastNotification(message, duration = 3000) {
         const toast = document.createElement('div');
         toast.textContent = message;
@@ -1894,12 +1934,10 @@
             max-width: 80%; /* 防止提示过宽 */
         `;
 
-        // 尝试将toast添加到shadow DOM的根节点
         let shadowRootForToast = null;
         if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
             shadowRootForToast = globalElements.shadow;
         } else {
-            // 备用方案：尝试通过ID获取根元素的shadowRoot
             const rootEl = document.getElementById('ai-summary-root');
             if (rootEl && rootEl.shadowRoot) {
                 shadowRootForToast = rootEl.shadowRoot;
@@ -1910,16 +1948,15 @@
             shadowRootForToast.appendChild(toast);
         } else {
             console.warn('AI_WebSummary: Shadow DOM for toast not found, appending to body. Style conflicts may occur.');
-            document.body.appendChild(toast); // 最后手段
+            document.body.appendChild(toast);
         }
 
         // 淡入效果
         setTimeout(() => {
             toast.style.opacity = '1';
-            toast.style.bottom = '40px'; // 动画效果更明显
-        }, 50); // 缩短延迟以更快显示
+            toast.style.bottom = '40px';
+        }, 50);
 
-        // 持续时间后淡出并移除
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.bottom = '20px';
@@ -1927,18 +1964,17 @@
                 if (toast.parentNode) {
                     toast.parentNode.removeChild(toast);
                 }
-            }, 500); // 等待淡出动画完成
+            }, 500);
         }, duration);
     }
 
-    // 全局变量，用于存储原始的 Markdown 文本
-    let originalMarkdownText = ''; // 全局变量，用于存储AI生成的原始Markdown文本
+    let originalMarkdownText = '';
 
     // 调用AI API对给定的内容进行总结。使用流式响应逐步更新总结模态框的内容
     async function summarizeContent(content, shadow, selectedModel) {
         const contentContainer = shadow.querySelector('.ai-summary-content');
         contentContainer.innerHTML = '<div class="ai-loading">正在总结中...</div>';
-        originalMarkdownText = ''; // 开始时清空
+        originalMarkdownText = '';
 
         try {
             const apiUrlToUse = getFullEndpoint(CONFIG.BASE_URL);
@@ -1954,9 +1990,8 @@
                 ],
                 max_tokens: CONFIG.MAX_TOKENS,
                 temperature: 0.7,
-                stream: true // 开启流式响应
+                stream: true
             };
-            // 使用 GM.xmlHttpRequest 替代 fetch
             return new Promise((resolve, reject) => {
                 const xhr = GM.xmlHttpRequest({
                     method: 'POST',
@@ -1966,64 +2001,55 @@
                         'Authorization': `Bearer ${CONFIG.API_KEY}`
                     },
                     data: JSON.stringify(payload),
-                    responseType: 'stream', // 请求流式响应
+                    responseType: 'stream',
                     onloadstart: (stream) => {
                         const reader = stream.response.getReader();
                         const decoder = new TextDecoder('utf-8');
-                        let buffer = ''; // 用于缓存可能被截断的数据流片段
+                        let buffer = '';
 
                         function processText() {
                             reader.read().then(({ done, value }) => {
-                                // 流读取结束的标志
                                 if (done) {
                                     if (buffer.startsWith('data: ')) {
-                                        const dataStr = buffer.substring(6); // 移除 "data: " 前缀
-                                        if (dataStr.trim() !== '[DONE]') { // 确保不是一个明确的结束标记
+                                        const dataStr = buffer.substring(6);
+                                        if (dataStr.trim() !== '[DONE]') {
                                             try {
                                                 const chunk = JSON.parse(dataStr);
                                                 if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                                                    originalMarkdownText += chunk.choices[0].delta.content; // 累加最后的内容
+                                                    originalMarkdownText += chunk.choices[0].delta.content;
                                                 }
                                             } catch(e) { /* 忽略解析错误，因为这可能是流意外中断的最后一部分 */ }
                                         }
                                     }
-                                    // 最终渲染完整内容，移除打字光标
                                     contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                                    contentContainer.scrollTop = contentContainer.scrollHeight; // 确保滚动到底部
-                                    resolve(originalMarkdownText); // Promise 完成，返回完整总结
+                                    contentContainer.scrollTop = contentContainer.scrollHeight;
+                                    resolve(originalMarkdownText);
                                     return;
                                 }
 
-                                // 将接收到的 Uint8Array 数据块解码为字符串，并追加到缓冲区
                                 buffer += decoder.decode(value, { stream: true });
                                 let lines = buffer.split('\n');
                                 buffer = lines.pop();
 
-                                // 遍历每一行接收到的数据
                                 for (const line of lines) {
                                     if (line.startsWith('data: ')) {
-                                        const dataStr = line.substring(6); // 提取JSON数据字符串
-                                        // 检查是否是API发送的结束信号 "[DONE]"
+                                        const dataStr = line.substring(6);
                                         if (dataStr.trim() === '[DONE]') {
-                                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText)); // 最终渲染
-                                            contentContainer.scrollTop = contentContainer.scrollHeight; // 滚动到底部
-                                            resolve(originalMarkdownText); // Promise 完成
-                                            reader.cancel(); // 主动关闭读取流，防止后续操作
-                                            return; // 结束处理
+                                            contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
+                                            contentContainer.scrollTop = contentContainer.scrollHeight;
+                                            resolve(originalMarkdownText);
+                                            reader.cancel();
+                                            return;
                                         }
                                         try {
                                             // 解析JSON数据块
                                             const chunk = JSON.parse(dataStr);
-                                            // 检查数据结构是否符合预期，并提取内容
                                             if (chunk.choices && chunk.choices[0].delta && chunk.choices[0].delta.content) {
-                                                const textChunk = chunk.choices[0].delta.content; // 获取AI生成的文本片段
-                                                originalMarkdownText += textChunk; // 累加到完整文本
-                                                // 将累积的Markdown文本转换为HTML，并进行净化处理
+                                                const textChunk = chunk.choices[0].delta.content;
+                                                originalMarkdownText += textChunk;
                                                 let htmlContent = DOMPurify.sanitize(marked.parse(originalMarkdownText));
-                                                // 添加一个闪烁的光标效果，模拟打字过程，提升用户体验
                                                 htmlContent += '<span class="thinking-cursor">▋</span>';
-                                                contentContainer.innerHTML = htmlContent; // 更新UI显示
-                                                // 实时滚动内容区域到底部，以便用户能看到新生成的内容
+                                                contentContainer.innerHTML = htmlContent;
                                                 contentContainer.scrollTop = contentContainer.scrollHeight;
                                             }
                                         } catch (e) {
@@ -2031,20 +2057,17 @@
                                         }
                                     }
                                 }
-                                processText(); // 递归调用，继续读取下一块数据
+                                processText();
                             }).catch(err => {
-                                // 捕获读取流时发生的错误
                                 if (err.name === 'AbortError') {
                                     console.log('GM.xmlHttpRequest: reader.read() 中捕获到 AbortError (通常由用户操作触发)');
                                 }
-                                // 对于其他类型的错误，将其传递给Promise的reject处理
                                 reject(err);
                             });
                         }
                         processText(); // 首次调用，启动流式数据处理
                     },
                     onerror: (response) => {
-                        // 处理 GM.xmlHttpRequest 请求本身的错误 (例如网络问题、CORS等)
                         let errorDetail = `GM.xmlHttpRequest 请求失败 (${response.status})。`;
                         try {
                             if (response.response) {
@@ -2067,12 +2090,15 @@
         } catch (error) {
             console.error('总结生成错误:', error);
             showError(contentContainer, error.message);
-            throw error; // 重新抛出，以便调用方可以更新UI状态
+            throw error;
         }
     }
 
     function initializeEvents(elements) {
         const { container, hoverWrapper, button, templateBtn, settingsBtnFloat, promptBtn, modelBtn, modal, overlay, dragHandle, settingsPanel, settingsOverlay, shadow, modelSelectionModal, promptList, modelList, actionsContainer } = elements;
+
+        overlay.addEventListener('click', e => e.stopPropagation());
+        settingsOverlay.addEventListener('click', e => e.stopPropagation());
 
         if (!elements.shadow) {
             console.error('Shadow root not initialized for initializeEvents');
@@ -2082,20 +2108,17 @@
         initializeDrag(container, dragHandle, button, actionsContainer); // Pass more elements
 
         let leaveTimeout;
-        const HIDE_DELAY = 500; // 鼠标移开后收起UI的延迟时间
+        const HIDE_DELAY = 500;
 
-        // 辅助函数：收起所有子菜单（模型列表、提示词列表）
         const hideSubMenus = (force = false) => {
             let wasVisible = false;
             [promptList, modelList].forEach(list => {
                 if (list.classList.contains('show')) {
                     wasVisible = true;
                     if (force) {
-                        // 强制立即隐藏，无动画
                         list.classList.remove('show', 'is-collapsing');
                         list.style.display = 'none';
                     } else {
-                        // 带动画隐藏
                         list.classList.add('is-collapsing');
                         list.addEventListener('animationend', () => {
                             list.classList.remove('show', 'is-collapsing');
@@ -2104,7 +2127,7 @@
                     }
                 }
             });
-            return wasVisible; // 返回是否有菜单被收起
+            return wasVisible;
         };
 
         // 核心函数：显示完整交互UI
@@ -2116,7 +2139,7 @@
             // --- 智能定位主面板 (actionsContainer) ---
             requestAnimationFrame(() => {
                 const mainButtonRect = button.getBoundingClientRect();
-                const GAP = 12; // 悬浮按钮和面板之间的间距
+                const GAP = 12;
 
                 // 预计算面板尺寸
                 actionsContainer.style.visibility = 'hidden';
@@ -2151,7 +2174,6 @@
             }, HIDE_DELAY);
         };
 
-        // 为整个悬浮窗区域和弹出的子菜单绑定鼠标悬停事件
         [hoverWrapper, promptList, modelList].forEach(elem => {
             elem.addEventListener('mouseenter', showUi);
             elem.addEventListener('mouseleave', hideUi);
@@ -2160,11 +2182,10 @@
         // 核心函数：切换（显示/隐藏）子菜单列表
         function toggleMenuList(listElement, buttonElement, items, configKey, gmKey, displayField, idField, toastPrefix) {
             const isVisible = listElement.classList.contains('show');
-            hideSubMenus(true); // 强制立即隐藏所有其他菜单
+            hideSubMenus(true);
 
-            if (isVisible) return; // 如果已经可见，再次点击则隐藏（由hideSubMenus完成），直接返回
+            if (isVisible) return;
 
-            // --- 填充列表内容 ---
             listElement.innerHTML = '';
             const currentId = CONFIG[configKey];
             items.forEach(item => {
@@ -2186,15 +2207,13 @@
                         if (oldSelected) oldSelected.classList.remove('selected');
                         e.currentTarget.classList.add('selected');
 
-                        // 根据类型更新其他UI
                         if (configKey === 'CURRENT_PROMPT_IDENTIFIER') updateAllPromptSelectors(elements);
                         else populateModalModelSelector(modal);
 
                         const newName = items.find(i => i[idField] === newId)?.[displayField] || '';
                         showToastNotification(`${toastPrefix}: ${newName}`);
                     }
-                    // 根据新需求，选择后不再立即收起UI
-                    // hideUi();
+
                 });
                 listElement.appendChild(listItem);
             });
@@ -2203,77 +2222,60 @@
             listElement.style.display = 'block';
             listElement.classList.remove('is-collapsing');
 
-            // V6 修复：强制浏览器重绘以获取稳定的 listRect 尺寸
-            // 在 requestAnimationFrame 之前读取 offsetHeight 会强制浏览器完成所有待处理的布局计算。
-            // 这样可以确保 getBoundingClientRect() 返回的是最终的、准确的尺寸，从而避免了因渲染延迟导致的位置和大小不一致问题。
+            // 强制浏览器重绘以获取稳定的 listRect 尺寸
             const _ = listElement.offsetHeight;
 
             requestAnimationFrame(() => {
                 const actionsRect = actionsContainer.getBoundingClientRect();
-                const listRect = listElement.getBoundingClientRect();
                 const btnRect = buttonElement.getBoundingClientRect();
-                const margin = 8;
-                const viewport_padding = 10; // 视窗边缘的安全边距
+                const viewportPadding = 10;
 
-                // 1. 水平定位
                 const isSnappedLeft = container.classList.contains('snap-left');
                 if (isSnappedLeft) {
-                    // 按钮在左边，列表从右边弹出
-                    listElement.style.left = `${actionsRect.width + margin}px`;
+                    listElement.style.left = `${actionsRect.width}px`;
                     listElement.style.right = 'auto';
                     listElement.style.transformOrigin = 'left center';
                 } else {
-                    // 按钮在右边，列表从左边弹出
-                    listElement.style.right = `${actionsRect.width + margin}px`;
+                    listElement.style.right = `${actionsRect.width}px`;
                     listElement.style.left = 'auto';
                     listElement.style.transformOrigin = 'right center';
                 }
 
-                // 2. 垂直定位与自适应
-                // 2. 垂直定位与自适应
+                const listHeight = listElement.scrollHeight;
+                const spaceAbove = btnRect.top - viewportPadding;
+                const spaceBelow = window.innerHeight - btnRect.bottom - viewportPadding;
                 const maxHeight = window.innerHeight / 3;
-                let top = buttonElement.offsetTop;
 
-                // 优先应用最大高度限制
-                listElement.style.maxHeight = `${maxHeight}px`;
+                let finalMaxHeight = Math.min(listHeight, maxHeight);
+                let top;
 
-                // 强制浏览器重绘以获取应用maxHeight后的新尺寸
-                const _ = listElement.offsetHeight;
-                const currentListHeight = listElement.getBoundingClientRect().height;
-
-                // 检查是否会超出底部
-                if (actionsRect.top + top + currentListHeight > window.innerHeight - viewport_padding) {
-                    // 如果超出，将列表底部与按钮底部对齐
-                    top = buttonElement.offsetTop + buttonElement.offsetHeight - currentListHeight;
-                }
-
-                // 再次检查是否会超出顶部
-                if (actionsRect.top + top < viewport_padding) {
-                    top = viewport_padding - actionsRect.top; // 贴紧顶部安全边距
-                    // 如果贴顶后，底部空间仍然不足以完整显示列表，则重新计算并设置最大高度
-                    const availableHeight = window.innerHeight - (actionsRect.top + top) - viewport_padding;
-                    if (currentListHeight > availableHeight) {
-                        listElement.style.maxHeight = `${availableHeight}px`;
-                    }
+                if (finalMaxHeight > spaceBelow && spaceAbove > spaceBelow) {
+                    finalMaxHeight = Math.min(finalMaxHeight, spaceAbove);
+                    top = buttonElement.offsetTop + buttonElement.offsetHeight - finalMaxHeight;
+                } else {
+                    finalMaxHeight = Math.min(finalMaxHeight, spaceBelow);
+                    top = buttonElement.offsetTop;
                 }
 
                 listElement.style.top = `${top}px`;
+                listElement.style.maxHeight = `${finalMaxHeight}px`;
+                listElement.style.bottom = 'auto';
+
                 listElement.classList.add('show');
             });
         }
 
         promptBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件冒泡到父元素
+            e.stopPropagation();
             toggleMenuList(promptList, promptBtn, PROMPT_TEMPLATES, 'CURRENT_PROMPT_IDENTIFIER', 'CURRENT_PROMPT_IDENTIFIER', 'title', 'identifier', '提示词');
         });
 
         modelBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件冒泡
+            e.stopPropagation();
             const modelItems = CONFIG.SAVED_MODELS.map(id => ({ id: id, name: id }));
             toggleMenuList(modelList, modelBtn, modelItems, 'MODEL', 'MODEL', 'name', 'id', '模型');
         });
 
-        // 全局点击事件，用于关闭打开的菜单
         document.addEventListener('click', (e) => {
             if (!actionsContainer.contains(e.target)) {
                 hideSubMenus();
@@ -2306,25 +2308,21 @@
             });
         }
 
-        // --- Button Clicks ---
-        // Right-click on main AI button for settings
         button.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             hideSubMenus(true);
             openSettings(elements);
         });
 
-        // Settings button in the vertical actions panel
         if (settingsBtnFloat) {
             settingsBtnFloat.addEventListener('click', () => {
-                hideSubMenus(true); // 点击设置，强制收起子菜单
+                hideSubMenus(true);
                 openSettings(elements);
             });
         }
 
-        // "Open Panel" button
         templateBtn.addEventListener('click', () => {
-            hideSubMenus(true); // 点击打开主面板，强制收起子菜单
+            hideSubMenus(true);
             populateModalModelSelector(modal);
             updateAllPromptSelectors(elements);
             showModal(modal, overlay);
@@ -2336,10 +2334,9 @@
             }
         });
 
-        // Main "AI" button to start summarizing
         button.addEventListener('click', async () => {
             if (hasDragged) {
-                hasDragged = false; // Reset after drag-click is consumed
+                hasDragged = false;
                 return;
             }
             if (!CONFIG.API_KEY || !CONFIG.BASE_URL || !CONFIG.MODEL || CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY) {
@@ -2387,9 +2384,8 @@
             }
         });
 
-        // 统一使用事件委托处理模态框内的所有按钮点击，修复事件丢失的Bug
         modal.addEventListener('click', (e) => {
-            e.stopPropagation(); // 防止事件冒泡
+            e.stopPropagation();
             const target = e.target;
             const downloadBtn = target.closest('.ai-download-btn');
             const copyBtn = target.closest('.ai-copy-btn');
@@ -2398,7 +2394,7 @@
             const closeBtn = target.closest('.ai-summary-close');
 
             if (downloadBtn) {
-                e.preventDefault(); // 防止默认行为
+                e.preventDefault();
                 console.log('AI_WebSummary: Download button clicked', { hasContent: !!originalMarkdownText });
                 
                 if (!originalMarkdownText || originalMarkdownText.trim() === '') {
@@ -2427,10 +2423,10 @@
                         baseFileName = baseFileName.substring(0, maxLength).replace(/_$/,'').replace(/^_|_$/g, '');
                     }
                     if (!baseFileName) {
-                         const now = new Date();
-                         const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-                         baseFileName = `Summary_${timestamp}`;
-                         showToastNotification('无法从网页标题和域名生成有效文件名，已使用默认文件名。', 3000);
+                        const now = new Date();
+                        const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+                        baseFileName = `Summary_${timestamp}`;
+                        showToastNotification('无法从网页标题和域名生成有效文件名，已使用默认文件名。', 3000);
                     }
                     const fileName = `${baseFileName}.md`;
                     const blob = new Blob([originalMarkdownText], { type: 'text/markdown;charset=utf-8' });
@@ -2451,19 +2447,16 @@
                 }
             }
             else if (copyBtn) {
-                e.preventDefault(); // 防止默认行为
+                e.preventDefault();
                 console.log('AI_WebSummary: Copy button clicked', { hasContent: !!originalMarkdownText });
-                
                 if (!originalMarkdownText || originalMarkdownText.trim() === '') {
                     showToastNotification('总结内容尚未生成或已失效。');
                     return;
                 }
-                
                 // 检查浏览器是否支持clipboard API
                 if (!navigator.clipboard) {
                     console.warn('AI_WebSummary: Clipboard API not supported, falling back to execCommand');
                     try {
-                        // 降级方案：使用传统的execCommand
                         const textArea = document.createElement('textarea');
                         textArea.value = originalMarkdownText;
                         textArea.style.position = 'fixed';
@@ -2474,7 +2467,7 @@
                         textArea.select();
                         document.execCommand('copy');
                         document.body.removeChild(textArea);
-                        
+
                         const textSpan = copyBtn.querySelector('span');
                         if (textSpan) {
                             const originalText = textSpan.textContent;
@@ -2492,7 +2485,7 @@
                     }
                     return;
                 }
-                
+
                 navigator.clipboard.writeText(originalMarkdownText).then(() => {
                     const textSpan = copyBtn.querySelector('span');
                     if (textSpan) {
@@ -2511,7 +2504,7 @@
                 });
             }
             else if (retryBtn) {
-                button.click(); // 触发主按钮的点击事件，相当于重试
+                button.click();
             }
             else if (settingsBtn) {
                 openSettings(elements);
@@ -2521,13 +2514,6 @@
             }
         });
 
-
-        // 点击总结页面外的覆盖层关闭模态框
-        overlay.addEventListener('click', () => {
-            hideModal(modal, overlay);
-        });
-
-        // 添加快捷键支持
         document.addEventListener('keydown', (e) => {
             if (isShortcutPressed(e, CONFIG.SHORTCUT)) {
                 e.preventDefault();
@@ -2544,13 +2530,8 @@
             }
         });
 
-        // 初始化设置面板的事件
         initializeSettingsEvents(settingsPanel, modal, settingsOverlay, modelSelectionModal, shadow, elements); // 传递 elements
-
-        // 初始化时更新一次所有提示词选择器
-        updateAllPromptSelectors(elements); // 传递 elements
-
-        // Model Selection Modal Events
+        updateAllPromptSelectors(elements);
         modelSelectionModal.querySelector('.close-modal').addEventListener('click', () => {
             modelSelectionModal.style.display = 'none';
         });
@@ -2570,12 +2551,10 @@
                 GM_setValue('MODEL', CONFIG.MODEL);
             }
 
-            // 刷新设置面板中的模型显示
-             const renderTagsFunc = settingsPanel.querySelector('#model-tags-container').renderModelTags;
-             if (typeof renderTagsFunc === 'function') {
-                 renderTagsFunc();
-             }
-            // 新增: 确保更改模型列表后设置 dirty 状态
+            const renderTagsFunc = settingsPanel.querySelector('#model-tags-container').renderModelTags;
+            if (typeof renderTagsFunc === 'function') {
+            renderTagsFunc();
+            }
             if (settingsPanel && typeof settingsPanel.setDirtyStatus === 'function') {
                 settingsPanel.setDirtyStatus(true);
             } else {
@@ -2656,35 +2635,27 @@
     function initializeDrag(container, dragHandle, button, actionsContainer) {
         let isDragging = false;
         let offsetX, offsetY;
-        let animationFrameId = null; // 用于存储 requestAnimationFrame 的 ID
+        let animationFrameId = null;
 
-        // 开始拖拽时，移除过渡动画，让位置变化更实时
         const startDragTransition = () => container.style.transition = 'none';
-        // 结束拖拽时，恢复过渡动画，让贴边效果更平滑
         const endDragTransition = () => container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
 
-        // 核心函数：智能贴边 (V4 - 动画更即时)
+        // 核心函数：智能贴边
         const snapToEdge = () => {
-            // V4 改进: 立即恢复动画过渡效果，确保贴边动画无延迟
             endDragTransition();
-            if (isDragging) return; // 正在拖拽时，不执行贴边
+            if (isDragging) return;
 
             const rect = container.getBoundingClientRect();
             const buttonRect = button.getBoundingClientRect();
             const windowWidth = window.innerWidth;
-            const PEEK_MARGIN = 10; // 面板完全展开时，与屏幕边缘的距离
-
+            const PEEK_MARGIN = 10;
             const isSnappedLeft = (rect.left + rect.width / 2) < windowWidth / 2;
 
-            // 统一更新 snap 类, 这会触发 CSS transition
             container.classList.toggle('snap-left', isSnappedLeft);
             container.classList.toggle('snap-right', !isSnappedLeft);
 
-            // JS 只负责计算最终的 left/top 位置, 不参与动画过程
-            // 使用 requestAnimationFrame 确保在下一帧更新位置，避免与 transform transition 冲突
             requestAnimationFrame(() => {
                 if (container.classList.contains('is-expanded')) {
-                    // --- 展开状态的贴边逻辑 ---
                     let targetLeft = rect.left;
                     if (rect.left < PEEK_MARGIN) {
                         targetLeft = PEEK_MARGIN;
@@ -2693,17 +2664,13 @@
                     }
                     container.style.left = `${targetLeft}px`;
                 } else {
-                    // --- 收起状态的贴边逻辑 (V3 修正版) ---
-                    // CSS的 transform 负责隐藏一半，JS 只需把 left 定位到边缘
                     if (isSnappedLeft) {
-                        // 贴左边，left 应该为 0
                         container.style.left = `0px`;
                     } else {
-                        // 贴右边
                         container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
                     }
                 }
-                savePosition(container); // 贴边后保存位置
+                savePosition(container);
             });
         };
 
@@ -2723,13 +2690,12 @@
             e.preventDefault();
             hasDragged = true;
 
-            // V4 改进: 使用 requestAnimationFrame 优化拖拽性能
             if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId); // 取消上一个动画帧，防止积压
+                cancelAnimationFrame(animationFrameId);
             }
 
             animationFrameId = requestAnimationFrame(() => {
-                if (!isDragging) return; // 双重检查
+                if (!isDragging) return;
                 let newX = e.clientX - offsetX;
                 let newY = e.clientY - offsetY;
                 const containerWidth = container.offsetWidth;
@@ -2748,11 +2714,10 @@
             if (isDragging) {
                 isDragging = false;
                 if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId); // 清理最后的动画帧请求
+                    cancelAnimationFrame(animationFrameId);
                     animationFrameId = null;
                 }
                 document.body.style.userSelect = 'auto';
-                // V4 改进: 直接调用 snapToEdge，它内部会处理动画和位置保存
                 snapToEdge();
             }
         });
@@ -2765,7 +2730,6 @@
 
         window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
 
-        // 监听展开/收起动画结束事件，重新计算贴边
         container.addEventListener('transitionend', (e) => {
             if (e.propertyName === 'transform' && !isDragging) {
                 snapToEdge();
@@ -2778,33 +2742,25 @@
     function main() {
         if (window.self !== window.top) { return; }
         try {
-            // 1. 加载配置
             loadConfig();
-
-            // 2. 创建元素
-            globalElements = createElements(); // 将 createElements() 的结果赋值给全局变量
+            globalElements = createElements();
             if (!globalElements || !globalElements.container) {
                 console.error('AI_WebSummary: createElements() failed to return valid elements. Aborting initialization.');
                 showToastNotification('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
                 return;
             }
 
-            // 3. 初始化事件
-            initializeEvents(globalElements); // 传递 globalElements
-
-            // 4. 检查配置是否完整，并处理首次打开
+            initializeEvents(globalElements);
             const isDefaultApiKey = CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY;
 
             if (isDefaultApiKey) {
-                openSettings(globalElements); // 使用 openSettings 函数来正确打开和初始化设置面板
+                openSettings(globalElements);
                 if (isDefaultApiKey) {
-                    // 只有当 API Key 是初始默认值时，才显示首次配置的欢迎信息
                     showToastNotification(`欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。`);
                 }
             }
         } catch (error) {
             console.error('AI_WebSummary: Critical error during script initialization:', error);
-            // Fallback display mechanism
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = 'position:fixed; bottom:10px; left:10px; background:red; color:white; padding:10px; z-index:100000; border-radius:5px; font-family: sans-serif;';
             errorDiv.textContent = 'AI Web Summary 脚本初始化失败，请检查控制台获取详细错误。';
