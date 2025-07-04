@@ -427,7 +427,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    //Todo: hdsky, pttime, sjtu, hdcity, (haidan, monikadesign 待定)
+    //Todo: pttime, sjtu, hdcity, (haidan, monikadesign 待定)
     const SITE_ADAPTERS = [
         {
             id: 'totheglory',
@@ -452,8 +452,31 @@
             }
         },
         {
+            id: 'hdsky',
+            matches: () => window.location.href.includes('hdsky.me/details.php'),
+            getInfo: () => {
+                // rowhead + heading
+                const rows = document.querySelectorAll('.rowhead');
+                const nameRow = rows[0], downloadLinkRow = rows[1], descRow = rows[2], sizeRow = rows[3];
+                const nameLink = nameRow.parentElement.querySelector('.rowfollow input[type="submit"]').value.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '';
+                const downloadLink = downloadLinkRow.parentElement.querySelector('.rowfollow a').href  || '';
+                const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
+                const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim() || 0;
+                console.log(sizeString)
+                return {
+                    name: nameLink,
+                    downloadLink: downloadLink,
+                    description: description,
+                    size: UTILS.parseSize(sizeString || 0),
+                    insertPoint: rows[1].parentElement.parentElement,
+                    insertIndex: 2,
+                    rowType: 'common'
+                };
+            }
+        },
+        {
             id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im'),
+            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
                 if (rows.length < 3) return null;
