@@ -462,7 +462,6 @@
             id: 'hdsky',
             matches: () => window.location.href.includes('hdsky.me/details.php'),
             getInfo: () => {
-                // rowhead + heading
                 const rows = document.querySelectorAll('.rowhead');
                 const nameRow = rows[0], downloadLinkRow = rows[1], descRow = rows[2], sizeRow = rows[3];
                 const nameLink = nameRow.parentElement.querySelector('.rowfollow input[type="submit"]').value.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '';
@@ -484,7 +483,6 @@
             id: 'sjtu',
             matches: () => window.location.href.includes('pt.sjtu.edu.cn/details.php'),
             getInfo: () => {
-                // rowhead + heading
                 const rows = document.querySelectorAll('.rowhead, .heading');
                 const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3];
                 const nameLink = nameRow.nextElementSibling.querySelector('a').textContent.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '';
