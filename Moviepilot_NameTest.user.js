@@ -461,7 +461,7 @@
                 const nameLink = nameRow.parentElement.querySelector('.rowfollow input[type="submit"]').value.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '';
                 const downloadLink = downloadLinkRow.parentElement.querySelector('.rowfollow a').href  || '';
                 const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
-                const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim() || 0;
+                const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim();
                 console.log(sizeString)
                 return {
                     name: nameLink,
@@ -475,8 +475,30 @@
             }
         },
         {
+            id: 'sjtu',
+            matches: () => window.location.href.includes('pt.sjtu.edu.cn/details.php'),
+            getInfo: () => {
+                // rowhead + heading
+                const rows = document.querySelectorAll('.rowhead, .heading');
+                const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3];
+                const nameLink = nameRow.nextElementSibling.querySelector('a').textContent.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '';
+                const downloadLink = nameRow.nextElementSibling.querySelector('a')?.href || '';
+                const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
+                const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim();
+                return {
+                    name: nameLink,
+                    downloadLink: downloadLink,
+                    description: description,
+                    size: UTILS.parseSize(sizeString || 0),
+                    insertPoint: rows[1].parentElement.parentElement,
+                    insertIndex: 2,
+                    rowType: 'common'
+                };
+            }
+        },
+        {
             id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me'),
+            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdsky.me'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
                 if (rows.length < 3) return null;
