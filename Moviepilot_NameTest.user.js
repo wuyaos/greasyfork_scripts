@@ -13,6 +13,7 @@
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
+// @match        https://monikadesign.uk/torrents/*
 // @grant        GM_log
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -517,6 +518,30 @@
                     size: UTILS.parseSize(sizeblock || 0),
                     insertPoint: document.querySelector('div.block'),
                     rowType: 'div',
+                    insertAction: (point, element) => {
+                        point.after(element);
+                    }
+                };
+            }
+        },
+        {
+            id: 'monikadesign',
+            matches: () => window.location.href.includes('monikadesign.uk/torrents/'),
+            getInfo: () => {
+                const nameElement = document.querySelector('h1.text-center');
+                const descriptionElement = document.querySelector('h2.text-center');
+                const downloadLinkElement = document.querySelector('a.down[href*="/download/"]');
+                const size = document.querySelector('.torrent-size td:nth-child(2)').textContent.trim();
+                const insertPoint = document.querySelector('.meta-general tr.torrent-subhead');
+                if (!nameElement || !insertPoint) return null;
+
+                return {
+                    name: nameElement.textContent.trim(),
+                    description: descriptionElement ? descriptionElement.textContent.trim() : '',
+                    downloadLink: downloadLinkElement ? downloadLinkElement.href : '',
+                    size: UTILS.parseSize(size.replace(/iB/gi, 'B') || 0),
+                    insertPoint: insertPoint,
+                    rowType: 'common',
                     insertAction: (point, element) => {
                         point.after(element);
                     }
