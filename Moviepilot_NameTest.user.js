@@ -12,6 +12,7 @@
 // @match        https://*.dmhy.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
+// @match        https://hdcity.city/t-*
 // @grant        GM_log
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -220,6 +221,12 @@
             if (type === "common" && window.location.href.includes("m-team")) {
                 return `<th class="ant-descriptions-item-label" colspan="1" style="width: 135px; text-align: right;"><span>MoviePilot</span></th><td class="ant-descriptions-item-content" colspan="1">${html}</td>`;
             }
+            if (type === 'div') {
+                if (window.location.href.includes('hdcity.city')) {
+                    return `<div class="block"><div class="blocktitle">MoviePilot</div><div class="blockcontent">${html}</div></div>`;
+                }
+                return html;
+            }
             if (type === "common") {
                 return `<td class="rowhead nowrap" valign="top" align="right">MoviePilot</td><td class="rowfollow" valign="top" align="left">${html}</td>`;
             }
@@ -427,7 +434,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    //Todo: pttime, sjtu, hdcity, (haidan, monikadesign 待定)
+    //Todo: haidan, monikadesign 待定
     const SITE_ADAPTERS = [
         {
             id: 'totheglory',
@@ -446,8 +453,8 @@
                     description: description,
                     size: UTILS.parseSize(sizeString || 0),
                     insertPoint: rows[1].parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
+                    rowType: 'common',
+                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
                 };
             }
         },
@@ -462,15 +469,14 @@
                 const downloadLink = downloadLinkRow.parentElement.querySelector('.rowfollow a').href  || '';
                 const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
                 const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim();
-                console.log(sizeString)
                 return {
                     name: nameLink,
                     downloadLink: downloadLink,
                     description: description,
                     size: UTILS.parseSize(sizeString || 0),
                     insertPoint: rows[1].parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
+                    rowType: 'common',
+                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
                 };
             }
         },
@@ -491,14 +497,37 @@
                     description: description,
                     size: UTILS.parseSize(sizeString || 0),
                     insertPoint: rows[1].parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
+                    rowType: 'common',
+                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                };
+            }
+        },
+        {
+            id: 'hdcity',
+            matches: () => window.location.href.includes('hdcity.city/t-'),
+            getInfo: () => {
+                const rows = document.querySelectorAll('.blocktitle');
+                const nameLink = rows[0].textContent;
+                const sizeblock = rows[1].nextElementSibling.textContent;
+                const description = rows[0].parentElement.querySelector('.blockcontent').textContent.trim() || "";
+                const downloadLink =  rows[3].nextElementSibling.querySelector('input[type="text"][title="DirectLink"]').value || "";
+
+                return {
+                    name: nameLink,
+                    downloadLink: downloadLink,
+                    description: description,
+                    size: UTILS.parseSize(sizeblock || 0),
+                    insertPoint: document.querySelector('div.block'),
+                    rowType: 'div',
+                    insertAction: (point, element) => {
+                        point.after(element);
+                    }
                 };
             }
         },
         {
             id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdsky.me'),
+            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdcity.city'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
                 if (rows.length < 3) return null;
@@ -516,8 +545,8 @@
                     description: description,
                     size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
                     insertPoint: nameRow.parentElement.parentElement,
-                    insertIndex: 2,
-                    rowType: 'common'
+                    rowType: 'common',
+                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
                 };
             }
         },
@@ -550,15 +579,14 @@
                     const nameRow = rows[0], dlRow = rows[1], sizeRow = rows[2];
                     if (!nameRow.nextElementSibling || !dlRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
                     const nameLink = nameRow.nextElementSibling.querySelector('a');
-                    
                     return {
                         name: nameLink?.textContent.replace(/\.torrent$/, '') || '',
-                        downloadLink: '', // 将 downloadLink 设为空字符串
+                        downloadLink: '',
                         description: dlRow.nextElementSibling.innerText || '',
                         size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
                         insertPoint: nameRow.parentElement.parentElement,
-                        insertIndex: 2,
-                        rowType: 'common'
+                        rowType: 'common',
+                        insertAction: (point, element) => point.insertBefore(element, point.children[2])
                     };
                 }
             }
