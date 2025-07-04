@@ -435,7 +435,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    //Todo: haidan, monikadesign 待定
+    //Todo: haidan待定
     const SITE_ADAPTERS = [
         {
             id: 'totheglory',
