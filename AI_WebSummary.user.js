@@ -2653,7 +2653,6 @@
                         container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
                     }
                 }
-                savePosition(container);
             });
 
             // 在第一次贴边动画完成后移除初始隐藏类
@@ -2708,30 +2707,25 @@
                     animationFrameId = null;
                 }
                 document.body.style.userSelect = 'auto';
+                savePosition(container); // Save the final dragged position
                 snapToEdge();
             }
         });
 
-        // On window load, restore the button to its last saved position.
+        // On window load, restore the button's position and snap it to the edge.
         window.addEventListener('load', () => {
-            // Load the last saved position for the container.
             loadPosition(container);
-
-            // After loading the position, determine if it's on the left or right side of the
-            // screen and apply the corresponding class. This ensures the hover-in/out
-            // animations work correctly from the restored position without overriding it.
-            const rect = container.getBoundingClientRect();
-            const isSnappedLeft = (rect.left + rect.width / 2) < window.innerWidth / 2;
-            container.classList.toggle('snap-left', isSnappedLeft);
-            container.classList.toggle('snap-right', !isSnappedLeft);
-
-            // Apply transition effects and make the button visible.
-            endDragTransition();
-            requestAnimationFrame(() => {
-                if (container.classList.contains('ai-summary-hidden-initially')) {
-                    container.classList.remove('ai-summary-hidden-initially');
-                }
-            });
+            // Use a timeout to ensure the DOM has rendered the loaded position before snapping.
+            setTimeout(() => {
+                snapToEdge();
+                endDragTransition();
+                // Make the button visible after it has been positioned.
+                requestAnimationFrame(() => {
+                    if (container.classList.contains('ai-summary-hidden-initially')) {
+                        container.classList.remove('ai-summary-hidden-initially');
+                    }
+                });
+            }, 100);
         });
 
         window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
