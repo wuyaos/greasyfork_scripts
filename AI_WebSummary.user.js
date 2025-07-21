@@ -2624,7 +2624,7 @@
         const endDragTransition = () => container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
 
         // 核心函数：智能贴边
-        const snapToEdge = () => {
+        const snapToEdge = (moveContainer = true) => {
             endDragTransition();
             if (isDragging) return;
 
@@ -2637,23 +2637,25 @@
             container.classList.toggle('snap-left', isSnappedLeft);
             container.classList.toggle('snap-right', !isSnappedLeft);
 
-            requestAnimationFrame(() => {
-                if (container.classList.contains('is-expanded')) {
-                    let targetLeft = rect.left;
-                    if (rect.left < PEEK_MARGIN) {
-                        targetLeft = PEEK_MARGIN;
-                    } else if (rect.right > windowWidth - PEEK_MARGIN) {
-                        targetLeft = windowWidth - rect.width - PEEK_MARGIN;
-                    }
-                    container.style.left = `${targetLeft}px`;
-                } else {
-                    if (isSnappedLeft) {
-                        container.style.left = `0px`;
+            if (moveContainer) {
+                requestAnimationFrame(() => {
+                    if (container.classList.contains('is-expanded')) {
+                        let targetLeft = rect.left;
+                        if (rect.left < PEEK_MARGIN) {
+                            targetLeft = PEEK_MARGIN;
+                        } else if (rect.right > windowWidth - PEEK_MARGIN) {
+                            targetLeft = windowWidth - rect.width - PEEK_MARGIN;
+                        }
+                        container.style.left = `${targetLeft}px`;
                     } else {
-                        container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
+                        if (isSnappedLeft) {
+                            container.style.left = `0px`;
+                        } else {
+                            container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
+                        }
                     }
-                }
-            });
+                });
+            }
 
             // 在第一次贴边动画完成后移除初始隐藏类
             requestAnimationFrame(() => {
@@ -2714,18 +2716,27 @@
 
         // On window load, restore the button's position and snap it to the edge.
         window.addEventListener('load', () => {
+            // Prevent transitions and hide the element visually but keep it in the layout
+            container.style.transition = 'none';
+            container.style.opacity = '0';
+            container.classList.remove('ai-summary-hidden-initially'); // remove visibility: hidden
+
+            // Apply the saved position
             loadPosition(container);
-            // Use a timeout to ensure the DOM has rendered the loaded position before snapping.
-            setTimeout(() => {
-                snapToEdge();
-                endDragTransition();
-                // Make the button visible after it has been positioned.
+
+            // Use a double requestAnimationFrame to ensure the layout is calculated before snapping.
+            requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    if (container.classList.contains('ai-summary-hidden-initially')) {
-                        container.classList.remove('ai-summary-hidden-initially');
-                    }
+                    // Now the layout is guaranteed to be up-to-date.
+                    snapToEdge(false); // Apply transform classes based on the accurate position.
+
+                    // Define all transitions at once for a smooth appearance.
+                    container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+
+                    // Trigger the fade-in.
+                    container.style.opacity = '1';
                 });
-            }, 100);
+            });
         });
 
         window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
