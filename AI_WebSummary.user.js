@@ -18,6 +18,8 @@
 // ==/UserScript==
 
 /* ==更新日志==
+ * v2.0.4 (2025-07-21)
+ * - 更新悬浮窗样式
  * v2.0.3 (2025-06-30)
  * - 修改悬浮菜单交互逻辑和样式，支持菜单吸附
  * v2.0.2 (2025-06-14)
@@ -2711,10 +2713,15 @@
         });
 
         loadPosition(container);
-        setTimeout(() => {
-            endDragTransition();
-            snapToEdge();
-        }, 100);
+        // The original setTimeout could cause a race condition where snapToEdge executes
+        // before the container's position is fully rendered, leading to an incorrect
+        // initial snap. Using window.onload ensures all content is loaded and rendered.
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                endDragTransition();
+                snapToEdge();
+            }, 100);
+        });
 
         window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
 
