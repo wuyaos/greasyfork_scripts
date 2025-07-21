@@ -2712,24 +2712,30 @@
             }
         });
 
-        loadPosition(container);
-        // The original setTimeout could cause a race condition where snapToEdge executes
-        // before the container's position is fully rendered, leading to an incorrect
-        // initial snap. Using window.onload ensures all content is loaded and rendered.
+        // On window load, restore the button to its last saved position.
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                endDragTransition();
-                snapToEdge();
-            }, 100);
+            // Load the last saved position for the container.
+            loadPosition(container);
+
+            // After loading the position, determine if it's on the left or right side of the
+            // screen and apply the corresponding class. This ensures the hover-in/out
+            // animations work correctly from the restored position without overriding it.
+            const rect = container.getBoundingClientRect();
+            const isSnappedLeft = (rect.left + rect.width / 2) < window.innerWidth / 2;
+            container.classList.toggle('snap-left', isSnappedLeft);
+            container.classList.toggle('snap-right', !isSnappedLeft);
+
+            // Apply transition effects and make the button visible.
+            endDragTransition();
+            requestAnimationFrame(() => {
+                if (container.classList.contains('ai-summary-hidden-initially')) {
+                    container.classList.remove('ai-summary-hidden-initially');
+                }
+            });
         });
 
         window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
 
-        container.addEventListener('transitionend', (e) => {
-            if (e.propertyName === 'transform' && !isDragging) {
-                snapToEdge();
-            }
-        });
     }
 
     let globalElements = {}; // 全局变量，用于存储脚本创建的主要UI元素的引用
