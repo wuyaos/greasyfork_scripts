@@ -206,9 +206,7 @@
         }
         const modelSelectInModal = modalElement.querySelector('#ai-model-select-modal');
         if (modelSelectInModal) {
-            modelSelectInModal.innerHTML = CONFIG.SAVED_MODELS.map(modelId =>
-                `<option value="${modelId}" ${modelId === CONFIG.MODEL ? 'selected' : ''}>${modelId}</option>`
-            ).join('');
+            modelSelectInModal.innerHTML = CONFIG.SAVED_MODELS.map(modelId => `<option value="${modelId}" ${modelId === CONFIG.MODEL ? 'selected' : ''}>${modelId}</option>`).join('');
         } else {
             console.error("populateModalModelSelector: #ai-model-select-modal not found in modalElement");
         }
@@ -231,9 +229,7 @@
         if (modalSelector) modalSelector.innerHTML = optionsHTML;
 
         const settingsSelector = elements.settingsPanel.querySelector('#config-select');
-        if (settingsSelector) settingsSelector.innerHTML = PROMPT_TEMPLATES.map(template =>
-            `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title} (预设)</option>`
-        ).join('');
+        if (settingsSelector) settingsSelector.innerHTML = PROMPT_TEMPLATES.map(template => `<option value="${template.identifier}" ${template.identifier === currentIdentifier ? 'selected' : ''}>${template.title} (预设)</option>`).join('');
 
         const promptTextarea = elements.settingsPanel.querySelector('#prompt');
         const selectedTemplate = PROMPT_TEMPLATES.find(t => t.identifier === currentIdentifier);
@@ -407,22 +403,7 @@
             overlay.style.cssText = 'display: block; z-index: 100002;';
             overlay.addEventListener('click', e => e.stopPropagation());
 
-            multiDeleteModal.innerHTML = `
-                <div class="modal-header">
-                    <h3>批量删除模型</h3>
-                    <button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                </div>
-                <div class="modal-content">
-                    <input type="text" class="multi-delete-search-input" placeholder="搜索要删除的模型..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-                    <div class="multi-delete-model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 40vh; overflow-y: auto; margin-top: 10px;">
-                        <!-- Models will be rendered here -->
-                    </div>
-                </div>
-                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button class="modal-action-btn cancel-btn ai-btn ai-btn-secondary">取消</button>
-                    <button class="modal-action-btn delete-selected-btn ai-btn ai-btn-danger">删除已选</button>
-                </div>
-            `;
+            multiDeleteModal.innerHTML = `<div class="modal-header"><h3>批量删除模型</h3><button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="modal-content"><input type="text" class="multi-delete-search-input" placeholder="搜索要删除的模型..." style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 12px;"><div class="multi-delete-model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; max-height: 35vh; overflow-y: auto; margin-top: 8px;"></div></div><div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;"><button class="modal-action-btn cancel-btn ai-btn ai-btn-secondary">取消</button><button class="modal-action-btn delete-selected-btn ai-btn ai-btn-danger">删除已选</button></div>`;
 
             shadow.appendChild(overlay);
             shadow.appendChild(multiDeleteModal);
@@ -433,12 +414,7 @@
             function renderDeleteList(filter = '') {
                 const lowerCaseFilter = filter.toLowerCase();
                 const filteredModels = CONFIG.SAVED_MODELS.filter(m => m.toLowerCase().includes(lowerCaseFilter));
-                modelListContainer.innerHTML = filteredModels.map(modelId => `
-                    <div class="model-item" data-model-id="${modelId}">
-                        <input type="checkbox" value="${modelId}" id="multi-delete-chk-${modelId}" style="pointer-events: none;">
-                        <label for="multi-delete-chk-${modelId}">${modelId}</label>
-                    </div>
-                `).join('');
+                modelListContainer.innerHTML = filteredModels.map(modelId => `<div class="model-item" data-model-id="${modelId}"><input type="checkbox" value="${modelId}" id="multi-delete-chk-${modelId}" style="pointer-events: none;"><label for="multi-delete-chk-${modelId}">${modelId}</label></div>`).join('');
             }
 
             renderDeleteList();
@@ -492,20 +468,7 @@
             customModal.className = 'ai-modal ai-custom-model-modal';
             customModal.style.display = 'flex';
             customModal.style.zIndex = '100003';
-            customModal.innerHTML = `
-                <div class="modal-header">
-                    <h3>添加自定义模型</h3>
-                    <button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                </div>
-                <div class="modal-content">
-                    <p style="font-size: 13px; color: #6c757d; margin-bottom: 10px;">请输入模型名称，多个模型请用英文逗号 (,) 或换行分隔。</p>
-                    <textarea id="custom-models-textarea" placeholder="e.g. gpt-4o-mini, gpt-4-turbo" style="height: 100px;"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button class="cancel-btn ai-btn ai-btn-secondary">取消</button>
-                    <button class="save-custom-models-btn ai-btn ai-btn-success">保存</button>
-                </div>
-            `;
+            customModal.innerHTML = `<div class="modal-header"><h3>添加自定义模型</h3><button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="modal-content"><p style="font-size: 12px; color: #6c757d; margin-bottom: 8px;">请输入模型名称，多个模型请用英文逗号 (,) 或换行分隔。</p><textarea id="custom-models-textarea" placeholder="e.g. gpt-4o-mini, gpt-4-turbo" style="height: 80px;"></textarea></div><div class="modal-footer"><button class="cancel-btn ai-btn ai-btn-secondary">取消</button><button class="save-custom-models-btn ai-btn ai-btn-success">保存</button></div>`;
             shadow.appendChild(customModal);
 
             const closeModal = () => {
@@ -559,7 +522,7 @@
             const filteredModels = fetchedModelsCache.filter(m => m.id.toLowerCase().includes(lowerCaseFilter));
 
             if (filteredModels.length === 0) {
-                modelListContainer.innerHTML = `<p style="padding: 10px;">没有找到匹配的模型。</p>`;
+                modelListContainer.innerHTML = `<p style="padding: 8px;">没有找到匹配的模型。</p>`;
                 return;
             }
 
@@ -593,7 +556,7 @@
                 fetchedModelsCache = rawModels.map(m => (typeof m === 'string' ? { id: m, created: 0, owned_by: 'unknown' } : m));
                 renderModelList();
             } catch (error) {
-                modelListContainer.innerHTML = `<p style="color: red; padding: 10px;">获取模型失败: ${error.message}</p>`; // 显示错误信息
+                modelListContainer.innerHTML = `<p style="color: red; padding: 8px;">获取模型失败: ${error.message}</p>`;
             }
         });
 
@@ -670,56 +633,7 @@
     function createSettingsPanel(shadow) {
         const panel = document.createElement('div');
         panel.className = 'ai-settings-panel';
-        panel.innerHTML = `
-            <div class="panel-header">
-                <h3>设置</h3>
-                <button class="cancel-btn ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-            </div>
-            <div class="settings-content">
-                <div class="form-group">
-                    <label for="base-url">Base URL (例如: https://api.openai.com)</label> <!-- API基础地址输入 -->
-                    <input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}">
-                </div>
-                <div class="form-group">
-                    <label for="api-key">API Key</label> <!-- API密钥输入 -->
-                    <input type="text" id="api-key" value="${CONFIG.API_KEY}">
-                </div>
-                <!-- 模型管理区域: 显示已选模型标签，并提供自定义和获取模型的按钮 -->
-                <div class="form-group">
-                    <label for="model-tags-container">模型</label>
-                    <div class="model-tags-container" id="model-tags-container">
-                        {/* 动态生成的模型标签将出现在这里 (由initializeSettingsEvents中的renderModelTags函数填充) */}
-                    </div>
-                    <div class="model-actions">
-                        <button id="custom-model-btn" class="ai-btn ai-btn-special">自定义模型</button> <!-- 手动添加模型名称 -->
-                        <button id="fetch-model-btn" class="ai-btn ai-btn-special">获取模型</button> <!-- 从API获取可用模型列表 -->
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="max-tokens">最大Token数</label> <!-- 最大Token数输入 -->
-                    <input type="number" id="max-tokens" value="${CONFIG.MAX_TOKENS}">
-                </div>
-                <div class="form-group">
-                    <label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label> <!-- 快捷键输入 -->
-                    <input type="text" id="shortcut" value="${CONFIG.SHORTCUT}">
-                </div>
-                <!-- 提示词选择区域: 包含一个下拉选择器和用于显示当前选中模板内容的只读文本域 -->
-                <div class="form-group config-select-group">
-                    <label for="config-select">提示词选择</label>
-                    <select class="ai-config-select" id="config-select" title="选择一个预设提示词模板">
-                        {/* 选项将由 updateAllPromptSelectors 函数动态填充 */}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="prompt">总结提示词内容</label>
-                    <textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea> <!-- 显示当前选中提示词模板的内容 -->
-                </div>
-            </div>
-            <div class="buttons" style="display: flex; justify-content: flex-end; gap: 10px;"> <!-- 面板底部的操作按钮区域 -->
-                <button class="clear-cache-btn ai-btn ai-btn-danger">重置</button> <!-- 重置所有设置到默认值并清除缓存 -->
-                <button class="save-btn ai-btn ai-btn-success">保存</button> <!-- 保存当前设置 -->
-            </div>
-        `;
+        panel.innerHTML = `<div class="panel-header"><h3>设置</h3><button class="cancel-btn ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="settings-content"><div class="form-group"><label for="base-url">Base URL (例如: https://api.openai.com)</label><input type="text" id="base-url" value="${CONFIG.BASE_URL || DEFAULT_CONFIG.BASE_URL}"></div><div class="form-group"><label for="api-key">API Key</label><input type="text" id="api-key" value="${CONFIG.API_KEY}"></div><div class="form-group"><label for="model-tags-container">模型</label><div class="model-tags-container" id="model-tags-container"></div><div class="model-actions"><button id="custom-model-btn" class="ai-btn ai-btn-special">自定义模型</button><button id="fetch-model-btn" class="ai-btn ai-btn-special">获取模型</button></div></div><div class="form-group"><label for="max-tokens">最大Token数</label><input type="number" id="max-tokens" value="${CONFIG.MAX_TOKENS}"></div><div class="form-group"><label for="shortcut">快捷键 (例如: Alt+S, Ctrl+Shift+Y)</label><input type="text" id="shortcut" value="${CONFIG.SHORTCUT}"></div><div class="form-group config-select-group"><label for="config-select">提示词选择</label><select class="ai-config-select" id="config-select" title="选择一个预设提示词模板"></select></div><div class="form-group"><label for="prompt">总结提示词内容</label><textarea id="prompt" readonly>${getCurrentPromptContent()}</textarea></div></div><div class="buttons" style="display: flex; justify-content: flex-end; gap: 10px;"><button class="clear-cache-btn ai-btn ai-btn-danger">重置</button><button class="save-btn ai-btn ai-btn-success">保存</button></div>`;
 
         const style = document.createElement('style');
         style.textContent = `
@@ -733,22 +647,22 @@
                 background: #fff;
                 border-radius: 8px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                width: 90%;
-                max-width: 600px; /* 最大宽度限制 */
-                max-height: 80vh; /* 最大高度限制 */
+                width: clamp(320px, 85vw, 480px); /* 自适应宽度：最小320px，最大480px */
+                max-height: 80vh; /* 最大高度为视口的80% */
+                min-height: 300px; /* 最小高度 */
                 box-sizing: border-box;
-                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
-                font-size: 15px;
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 13px;
                 z-index: 100001; /* 确保在其他页面元素之上 */
                 flex-direction: column; /* 新增: 使用flex布局，使子元素垂直排列 */
                 overflow: hidden; /* 防止内容溢出圆角 */
             }
             .ai-settings-panel h3 { /* 面板标题样式 */
-                margin: 0 0 20px 0;
-                padding-bottom: 10px;
+                margin: 0 0 16px 0;
+                padding-bottom: 8px;
                 color: #495057;
-                font-size: 18px;
-                font-weight: 900;
+                font-size: 16px;
+                font-weight: 600;
             }
             .panel-header { /* 模态框头部样式 */
                 display: flex;
@@ -761,7 +675,7 @@
             }
             .panel-header h3 { /* 模态框标题样式 */
                 margin: 0;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 600;
                 color: #495057;
             }
@@ -786,10 +700,10 @@
             .form-group textarea,
             .form-group select {
                 width: 100%;
-                padding: 8px 12px;
+                padding: 6px 10px;
                 border: 1px solid #ced4da;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 12px;
                 box-sizing: border-box;
                 background: #fff;
                 color: #495057;
@@ -804,7 +718,7 @@
                 box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); /* 统一焦点光晕 */
             }
             .form-group textarea { /* 文本域特定样式 */
-                height: 100px; /* 默认高度 */
+                height: 80px; /* 默认高度 */
                 resize: vertical; /* 允许垂直方向调整大小 */
                 font-family: inherit; /* 继承父容器字体 */
             }
@@ -836,10 +750,10 @@
             }
 
             .ai-config-select { /* 提示词模板下拉选择器样式 */
-                padding: 6px 12px;
+                padding: 5px 10px;
                 border: 1px solid #ced4da;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 12px;
                 background: #fff;
                 color: #495057;
                 flex-grow: 1; /* 占据可用空间 */
@@ -853,18 +767,17 @@
                 left: 50%;
                 transform: translate(-50%, -50%);
                 background: #fff;
-                padding: 20px;
+                padding: 0;
                 border-radius: 8px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                width: 90%;
-                max-width: 500px;
-                max-height: 70vh;
+                width: clamp(280px, 80vw, 420px); /* 自适应宽度：最小280px，最大420px */
+                max-height: 80vh; /* 最大高度为视口的80% */
+                min-height: 200px; /* 最小高度 */
                 z-index: 100003; /* 确保在设置面板的遮罩层之上 */
-                display: none; /* 默认隐藏 */
                 flex-direction: column; /* 内部元素垂直排列 */
                 overflow: hidden; /* 确保子元素不会破坏圆角 */
-                background: #fff;
-                padding: 0; /* 移除内边距，由子元素控制 */
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 13px;
             }
             .modal-header { /* 模态框头部样式 */
                 display: flex;
@@ -878,7 +791,7 @@
             }
             .modal-header h3 { /* 模态框标题样式 */
                 margin: 0;
-                font-size: 18px;
+                font-size: 15px;
                 font-weight: 600;
                 color: #495057;
             }
@@ -892,7 +805,7 @@
             }
             #model-list-container label { /* 模型选择列表中的标签样式 */
                 font-weight: normal;
-                font-size: 14px;
+                font-size: 12px;
                 color: #e2e8f0;
             }
             .ai-modal .model-item, /* 批量删除 */
@@ -967,9 +880,9 @@
                display: flex;
                align-items: center;
                background-color: #e9ecef;
-               padding: 5px 10px;
-               border-radius: 15px; /* 圆角标签 */
-               font-size: 14px;
+               padding: 4px 8px;
+               border-radius: 12px; /* 圆角标签 */
+               font-size: 12px;
                color: #333;
                cursor: pointer; /* 可点击选择 */
                transition: background-color 0.2s;
@@ -983,8 +896,8 @@
                background: none;
                border: none;
                color: #888;
-               font-size: 18px;
-               margin-left: 8px;
+               font-size: 16px;
+               margin-left: 6px;
                cursor: pointer;
                padding: 0;
                line-height: 1;
@@ -1002,15 +915,14 @@
        style.textContent += `
            /* Custom Modal for adding models */
            .ai-custom-model-modal {
-               width: 350px; /* Specific width for this modal */
-               max-width: 90%;
+               width: clamp(280px, 75vw, 350px); /* 自适应宽度：最小280px，最大350px */
            }
            .ai-custom-model-modal .modal-content textarea {
                width: 100%;
-               padding: 8px 12px;
+               padding: 6px 10px;
                border: 1px solid #ced4da;
                border-radius: 4px;
-               font-size: 14px;
+               font-size: 12px;
                box-sizing: border-box;
                background: #fff;
                color: #495057;
@@ -1092,21 +1004,7 @@
         const modelSelectionModal = document.createElement('div');
         modelSelectionModal.id = 'model-selection-modal';
         modelSelectionModal.className = 'ai-modal';
-        modelSelectionModal.innerHTML = `
-            <div class="modal-header"> <!-- 模态框头部：标题和关闭按钮 -->
-                <h3>选择模型</h3>
-                <button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-            </div>
-            <div class="modal-content"> <!-- 模态框内容区域 -->
-                <!-- 模型搜索输入框 -->
-                <input type="text" id="model-search-input" placeholder="搜索模型..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-                <!-- 模型列表容器 (由JS动态填充) -->
-                <div id="model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 40vh; overflow-y: auto;"></div>
-            </div>
-            <div class="modal-footer" style="text-align: right;"> <!-- 模态框底部：保存按钮 -->
-                <button id="save-selected-models" class="ai-btn ai-btn-success">保存</button>
-            </div>
-        `;
+        modelSelectionModal.innerHTML = `<div class="modal-header"><h3>选择模型</h3><button class="close-modal ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="modal-content"><input type="text" id="model-search-input" placeholder="搜索模型..." style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 12px;"><div id="model-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; max-height: 35vh; overflow-y: auto;"></div></div><div class="modal-footer" style="text-align: right;"><button id="save-selected-models" class="ai-btn ai-btn-success">保存</button></div>`;
         shadow.appendChild(modelSelectionModal);
         return { panel, overlay: settingsOverlay, modelSelectionModal };
     }
@@ -1126,12 +1024,12 @@
         style.textContent = `
             /* 统一按钮基础样式 */
             .ai-btn {
-                padding: 8px 16px;
+                padding: 6px 12px;
                 border: none;
-                border-radius: 5px;
+                border-radius: 4px;
                 cursor: pointer;
-                font-size: 14px;
-                font-weight: bold;
+                font-size: 12px;
+                font-weight: 600;
                 line-height: 1.2;
                 text-align: center;
                 transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
@@ -1139,9 +1037,9 @@
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                gap: 8px;
+                gap: 6px;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                min-width: 100px; /* 确保按钮有一定最小宽度 */
+                min-width: 80px; /* 确保按钮有一定最小宽度 */
                 font-family: inherit; /* 继承父容器字体 */
             }
             .ai-btn:active {
@@ -1195,15 +1093,15 @@
             .ai-btn-icon {
                 background: none;
                 border: none;
-                padding: 5px; /* 较小的内边距 */
+                padding: 4px; /* 较小的内边距 */
                 color: #adb5bd; /* 浅灰色图标 */
                 box-shadow: none;
                 min-width: auto; /* 图标按钮不需要最小宽度 */
                 line-height: 1; /* 确保图标垂直居中 */
             }
             .ai-btn-icon svg {
-                width: 20px; /* 保持SVG大小 */
-                height: 20px;
+                width: 16px; /* 保持SVG大小 */
+                height: 16px;
             }
             .ai-btn-icon:hover {
                 color: #e9ecef; /* 更亮的灰色图标 */
@@ -1271,8 +1169,8 @@
 
 
             .ai-summary-btn {
-                width: 40px;
-                height: 40px;
+                width: clamp(32px, 8vw, 36px); /* 自适应宽度：最小32px，最大36px */
+                height: clamp(32px, 8vw, 36px); /* 自适应高度：最小32px，最大36px */
                 background-color: #3b82f6;
                 color: white;
                 border-radius: 50%;
@@ -1281,7 +1179,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 18px;
+                font-size: clamp(14px, 4vw, 16px); /* 自适应字体：最小14px，最大16px */
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 transition: background-color 0.2s, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1298,10 +1196,10 @@
                 transform: translateX(-50%);
                 opacity: 0;
                 pointer-events: none;
-                gap: 8px;
+                gap: 6px;
                 background-color: rgba(55, 65, 81, 0.95);
-                padding: 8px;
-                border-radius: 8px;
+                padding: 6px;
+                border-radius: 6px;
                 z-index: -1;
                 transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 will-change: opacity, transform;
@@ -1322,8 +1220,8 @@
             }
 
             .ai-hover-wrapper {
-                padding: 10px;
-                margin: -10px;
+                padding: 8px;
+                margin: -8px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -1340,7 +1238,7 @@
                 padding: 5px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.4); /* 增加阴影 */
                 z-index: 10;
-                width: 200px;
+                width: clamp(160px, 40vw, 180px); /* 自适应宽度：最小160px，最大180px */
                 /* max-height 由JS动态设置 */
                 overflow-y: auto;
                 transform-origin: top center; /* JS会动态调整 */
@@ -1358,7 +1256,7 @@
                 color: #e2e8f0;
                 cursor: pointer;
                 border-radius: 0; /* 移除圆角，与设置面板统一 */
-                font-size: 14px;
+                font-size: 12px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -1401,15 +1299,21 @@
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 80%;
-                max-width: 800px;
-                max-height: 80vh;
+                width: clamp(320px, 85vw, 640px); /* 自适应宽度：最小320px，最大640px */
+                max-height: 80vh; /* 最大高度为视口的80% */
+                min-height: 200px; /* 最小高度 */
                 background: #f8f9fa;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                 border-radius: 8px;
                 z-index: 99995;
                 overflow: hidden;
-                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 13px;
+                flex-direction: column;
+            }
+
+            .ai-summary-modal.show {
+                display: flex;
             }
             .ai-summary-overlay {
                 display: none;
@@ -1422,40 +1326,40 @@
                 z-index: 99994;
             }
             .ai-summary-header {
-                padding: 15px 20px;
+                padding: 12px 16px;
                 background: #e7ebee;
                 border-bottom: 1px solid #dee2e6;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                position: sticky;
-                top: 0;
+                flex-shrink: 0;
                 z-index: 1;
             }
             .ai-summary-header h3 {
                 color: #495057;
                 margin: 0;
                 padding: 0;
-                font-size: 18px;
-                font-weight: 900;
+                font-size: 16px;
+                font-weight: 600;
                 line-height: 1.4;
                 font-family: inherit;
             }
             /* .ai-summary-close (总结模态框的关闭按钮) 现在使用 .ai-btn.ai-btn-icon, 无需额外样式 */
             .ai-summary-content {
                 user-select: text;
-                padding: 20px;
+                padding: 12px 16px;
                 overflow-y: auto;
-                max-height: calc(80vh - 130px); /* 底部按钮区域高度可能变化，需要调整 */
+                flex: 1 1 auto;
+                min-height: 0;
                 line-height: 1.6;
                 color: #374151;
-                font-size: 15px;
+                font-size: 13px;
                 font-family: inherit;
-                -webkit-overflow-scrolling: touch; /* 改善移动端滚动体验 */
+                -webkit-overflow-scrolling: touch;
             }
             .ai-summary-content h1 {
-                font-size: 1.8em;
-                margin: 1.5em 0 0.8em;
+                font-size: 1.6em;
+                margin: 1.2em 0 0.6em;
                 padding-bottom: 0.3em;
                 border-bottom: 2px solid #e5e7eb;
                 font-weight: 600;
@@ -1463,8 +1367,8 @@
                 color: #1f2937;
             }
             .ai-summary-content h2 {
-                font-size: 1.5em;
-                margin: 1.3em 0 0.7em;
+                font-size: 1.4em;
+                margin: 1.1em 0 0.5em;
                 padding-bottom: 0.2em;
                 border-bottom: 1px solid #e5e7eb;
                 font-weight: 600;
@@ -1472,25 +1376,25 @@
                 color: #1f2937;
             }
             .ai-summary-content h3 {
-                font-size: 1.3em;
-                margin: 1.2em 0 0.6em;
+                font-size: 1.2em;
+                margin: 1em 0 0.4em;
                 font-weight: 600;
                 line-height: 1.3;
                 color: #1f2937;
             }
             .ai-summary-content p {
-                margin: 1em 0;
-                line-height: 1.8;
+                margin: 0.8em 0;
+                line-height: 1.6;
                 color: inherit;
             }
             .ai-summary-content ul,
             .ai-summary-content ol {
-                margin: 1em 0;
-                padding-left: 2em;
-                line-height: 1.6;
+                margin: 0.8em 0;
+                padding-left: 1.8em;
+                line-height: 1.5;
             }
             .ai-summary-content li {
-                margin: 0.5em 0;
+                margin: 0.3em 0;
                 line-height: inherit;
                 color: inherit;
             }
@@ -1548,18 +1452,14 @@
                 font-weight: 600;
             }
             .ai-summary-footer {
-                padding: 15px 20px;
+                padding: 10px 16px;
                 border-top: 1px solid #dee2e6;
                 display: flex;
-                /* flex-direction: column; /* 改为 row 以适应新的按钮样式 */
-                /* justify-content: center; */
-                justify-content: flex-end; /* 按钮靠右 */
-                gap: 10px;
-                align-items: center; /* 垂直居中 */
-                position: sticky;
-                bottom: 0;
+                justify-content: flex-end;
+                gap: 8px;
+                align-items: center;
                 background: #f0f2f4;
-                z-index: 1;
+                flex-shrink: 0;
             }
 
             /* SVG图标的样式保持不变，因为 .ai-btn-icon 会处理图标大小 */
@@ -1572,9 +1472,30 @@
             }
             .ai-loading {
                 text-align: center;
-                padding: 20px;
+                padding: 2em 1em;
                 color: #6c757d;
-                font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 14px;
+            }
+
+            .ai-summary-error {
+                text-align: center;
+                padding: 2em 1em;
+                color: #dc3545;
+                font-size: 14px;
+            }
+
+            .ai-summary-debug {
+                text-align: left;
+                padding: 1em;
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                margin-top: 1em;
+                font-size: 12px;
+                color: #6c757d;
+                white-space: pre-wrap;
+                font-family: monospace;
             }
             .ai-loading-dots:after {
                 content: '.';
@@ -1598,18 +1519,42 @@
 
             /* 优化移动端响应式布局 */
             @media (max-width: 768px) {
-                .ai-settings-panel,
+                .ai-settings-panel {
+                    width: clamp(280px, 95vw, 95vw);
+                    max-height: 85vh;
+                    min-height: 250px;
+                    font-size: 12px;
+                }
                 .ai-summary-modal {
-                    width: 95%;
-                    max-height: 90vh;
+                    width: clamp(280px, 95vw, 95vw);
+                    max-height: 85vh;
+                    min-height: 150px;
+                    font-size: 12px;
+                }
+                .ai-summary-btn {
+                    width: clamp(28px, 10vw, 32px);
+                    height: clamp(28px, 10vw, 32px);
+                    font-size: clamp(12px, 5vw, 14px);
                 }
                 .ai-summary-footer {
-                    flex-wrap: wrap; /* 允许按钮换行 */
-                    gap: 8px;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    padding: 8px 12px;
+                }
+                .ai-summary-header {
+                    padding: 10px 12px;
+                }
+                .ai-summary-content {
+                    padding: 10px 12px;
                 }
                 .ai-summary-container {
-                    bottom: 10px;
-                    right: 10px;
+                    bottom: 8px;
+                    right: 8px;
+                }
+                .ai-btn {
+                    padding: 5px 10px;
+                    font-size: 11px;
+                    min-width: 60px;
                 }
             }
             .ai-summary-modal,
@@ -1655,83 +1600,11 @@
 
         const container = document.createElement('div');
         container.className = 'ai-summary-container ai-summary-hidden-initially snap-right';
-        container.innerHTML = `
-            <div class="ai-hover-wrapper">
-                <div class="ai-actions-container">
-                    <button class="ai-template-btn" title="打开面板">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-                    </button>
-                    <button class="ai-settings-btn-float" title="打开设置">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                    </button>
-                    <div class="ai-model-btn-container">
-                        <button class="ai-model-btn" title="选择模型">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                        </button>
-                        <div class="ai-model-list ai-actions-list"></div>
-                    </div>
-                    <div class="ai-prompt-btn-container">
-                        <button class="ai-prompt-btn" title="选择提示词">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                        </button>
-                        <div class="ai-prompt-list ai-actions-list"></div>
-                    </div>
-                </div>
-                <button class="ai-summary-btn">AI</button>
-            </div>
-        `;
+        container.innerHTML = `<div class="ai-hover-wrapper"><div class="ai-actions-container"><button class="ai-template-btn" title="打开面板"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></button><button class="ai-settings-btn-float" title="打开设置"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button><div class="ai-model-btn-container"><button class="ai-model-btn" title="选择模型"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></button><div class="ai-model-list ai-actions-list"></div></div><div class="ai-prompt-btn-container"><button class="ai-prompt-btn" title="选择提示词"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button><div class="ai-prompt-list ai-actions-list"></div></div></div><button class="ai-summary-btn">AI</button></div>`;
 
         const modal = document.createElement('div');
         modal.className = 'ai-summary-modal';
-        modal.innerHTML = `
-            <div class="ai-summary-header">
-                <div class="modal-title-group" style="display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-start;">
-                    <h3 style="margin-right: auto;">网页内容总结</h3>
-                    <div class="modal-selectors" style="display: flex; align-items: center; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label for="ai-prompt-select-modal" style="font-size: 14px; color: #495057; font-weight: 600;">模型 </label>
-                            <select id="ai-model-select-modal" class="ai-model-select-modal" title="选择当前对话使用的模型" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px; max-width: 150px;"></select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label for="ai-prompt-select-modal" style="font-size: 14px; color: #495057; font-weight: 600;">提示词 </label>
-                            <select id="ai-prompt-select-modal" class="ai-prompt-select-modal" title="选择当前对话使用的提示词" style="flex-grow: 1; padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;"></select>
-                        </div>
-                    </div>
-                </div>
-                <button class="ai-summary-close ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-            </div>
-            <div class="ai-summary-content"></div>
-            <div class="ai-summary-footer">
-                <div class="footer-buttons-container" style="display: flex; justify-content: flex-end; gap: 10px; width: 100%;">
-                    <button class="ai-settings-btn ai-btn ai-btn-icon" title="打开设置">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                    </button>
-                    <button class="ai-retry-btn ai-btn ai-btn-icon" title="重新总结">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 12a9 9 0 11-2.3-6M21 3v6h-6"></path>
-                        </svg>
-                    </button>
-                    <button class="ai-download-btn ai-btn ai-btn-secondary" title="下载总结">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        <span>下载</span>
-                    </button>
-                    <button class="ai-copy-btn ai-btn ai-btn-secondary">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        <span>复制</span>
-                    </button>
-                </div>
-            </div>
-        `;
+        modal.innerHTML = `<div class="ai-summary-header"><div class="modal-title-group" style="display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-start;"><h3 style="margin-right: auto;">网页内容总结</h3><div class="modal-selectors" style="display: flex; align-items: center; gap: 10px;"><div style="display: flex; align-items: center; gap: 10px;"><label for="ai-prompt-select-modal" style="font-size: 12px; color: #495057; font-weight: 600;">模型 </label><select id="ai-model-select-modal" class="ai-model-select-modal" title="选择当前对话使用的模型" style="padding: 3px 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px; max-width: 120px;"></select></div><div style="display: flex; align-items: center; gap: 8px;"><label for="ai-prompt-select-modal" style="font-size: 12px; color: #495057; font-weight: 600;">提示词 </label><select id="ai-prompt-select-modal" class="ai-prompt-select-modal" title="选择当前对话使用的提示词" style="flex-grow: 1; padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 11px;"></select></div></div></div><button class="ai-summary-close ai-btn ai-btn-icon" title="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="ai-summary-content"></div><div class="ai-summary-footer"><div class="footer-buttons-container" style="display: flex; justify-content: flex-end; gap: 10px; width: 100%;"><button class="ai-settings-btn ai-btn ai-btn-icon" title="打开设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button><button class="ai-retry-btn ai-btn ai-btn-icon" title="重新总结"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.3-6M21 3v6h-6"></path></svg></button><button class="ai-download-btn ai-btn ai-btn-secondary" title="下载总结"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>下载</span></button><button class="ai-copy-btn ai-btn ai-btn-secondary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span>复制</span></button></div></div>`;
 
         const overlay = document.createElement('div');
         overlay.className = 'ai-summary-overlay';
@@ -1894,12 +1767,7 @@
     }
 
     function showError(container, error, details = '') {
-        container.innerHTML = `
-            <div class="ai-summary-error" style="color: red;">
-                <strong>错误：</strong> ${error}
-            </div>
-            ${details ? `<div class="ai-summary-debug">${details}</div>` : ''}
-        `;
+        container.innerHTML = `<div class="ai-summary-error"><strong>错误：</strong> ${error}</div>${details ? `<div class="ai-summary-debug">${details}</div>` : ''}`;
     }
 
     function showToastNotification(message, duration = 3000) {
@@ -1917,8 +1785,8 @@
             z-index: 100005; /* 比其他模态框更高 */
             opacity: 0;
             transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out; /* 动画更平滑 */
-            font-family: "Microsoft Yahei", "PingFang SC", "HanHei SC", sans-serif;
-            font-size: 14px;
+            font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+            font-size: 13px;
             box-shadow: 0 3px 12px rgba(0,0,0,0.25); /* 增加阴影效果 */
             text-align: center;
             max-width: 80%; /* 防止提示过宽 */
@@ -2320,7 +2188,7 @@
             if (originalMarkdownText && originalMarkdownText.trim() !== '') {
                 contentContainer.innerHTML = DOMPurify.sanitize(marked.parse(originalMarkdownText));
             } else {
-                contentContainer.innerHTML = '<p style="text-align:center; color:#6c757d;">点击 "AI" 按钮开始总结，或在下方选择不同功能。</p>';
+                contentContainer.innerHTML = '<p style="text-align:center; color:#6c757d; margin: 2em 1em; font-size: 14px;">点击 "AI" 按钮开始总结，或在下方选择不同功能。</p>';
             }
         });
 
@@ -2483,11 +2351,11 @@
                 button.click();
             }
             if (e.key === 'Escape') {
-                if (settingsPanel.style.display === 'block') {
+                if (settingsPanel.style.display === 'flex') {
                     settingsPanel.style.display = 'none';
                     settingsOverlay.style.display = 'none';
                 }
-                if (modal.style.display === 'block') {
+                if (modal.classList.contains('show')) {
                     hideModal(modal, overlay);
                 }
             }
@@ -2555,12 +2423,12 @@
 
 
     function showModal(modal, overlay) {
-        modal.style.display = 'block';
+        modal.classList.add('show');
         overlay.style.display = 'block';
     }
 
     function hideModal(modal, overlay) {
-        modal.style.display = 'none';
+        modal.classList.remove('show');
         overlay.style.display = 'none';
     }
 
@@ -2595,7 +2463,7 @@
             if (isSnapLeft) {
                 container.style.left = '0px';
             } else {
-                const containerWidth = 40;
+                const containerWidth = Math.max(32, Math.min(36, window.innerWidth * 0.08)); // 自适应容器宽度
                 container.style.left = `${window.innerWidth - containerWidth - SCROLLBAR_MARGIN}px`;
             }
 
@@ -2603,7 +2471,7 @@
             const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
             const SCROLLBAR_MARGIN = Math.max(scrollbarWidth, 15);
             const defaultTop = window.innerHeight - 100;
-            const containerWidth = 40;
+            const containerWidth = Math.max(32, Math.min(36, window.innerWidth * 0.08)); // 自适应容器宽度
 
             container.style.left = `${window.innerWidth - containerWidth - SCROLLBAR_MARGIN}px`;
             container.style.top = `${defaultTop}px`;
