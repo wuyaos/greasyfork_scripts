@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         AI网页内容总结(自用)
 // @namespace    http://tampermonkey.net/
-// @version      2.0.4
-// @description  使用AI总结网页内容的油猴脚本
+// @version      2.0.5
+// @description  使用AI总结网页内容
 // @author       Jinfeng (modifed by ffwu)
 // @match        *://*/*
 // @grant        GM_getValue
@@ -18,6 +18,13 @@
 // ==/UserScript==
 
 /* ==更新日志==
+ * v2.0.5 (2025-01-22)
+ * - 清理所有调试代码和无用注释
+ * - 移除未使用的变量和弃用的API
+ * - 使用现代 Clipboard API 替换 document.execCommand
+ * - 优化初始化流程，减少不必要的计算
+ * - 改进动画效果，使用更流畅的缓动函数
+ * - 简化贴边逻辑，提高响应速度
  * v2.0.4 (2025-07-21)
  * - 更新悬浮窗样式
  * v2.0.3 (2025-06-30)
@@ -236,16 +243,13 @@
     }
 
     //  初始化设置面板的事件监听器， 此函数负责处理设置面板内的所有用户交互
-    function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionModal, shadow, elements) { // 接收 elements 作为参数
+    function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionModal, shadow) {
         panel.setDirtyStatus = setDirtyStatus;
         const saveBtn = panel.querySelector('.save-btn');
         const cancelBtn = panel.querySelector('.cancel-btn');
 
-        // isDirty: 标记设置是否有未保存的更改。
         let isDirty = false;
-        // settingsSnapshot: 存储打开设置面板时各项配置的初始值，用于"取消"操作时恢复。
         let settingsSnapshot = {};
-        // isSaving: 标志位，指示当前是否正在执行保存操作。
         let isSaving = false;
 
         function setDirtyStatus(dirty) {
@@ -313,7 +317,7 @@
         const modelTagsContainer = panel.querySelector('#model-tags-container'); // 模型标签容器
 
         // 根据用户操作系统判断是否为Mac，以显示不同的快捷键占位符提示
-        const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+        const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
         shortcutInput.placeholder = isMac ?
             '例如: Option+S, ⌘+Shift+Y' :
             '例如: Alt+S, Ctrl+Shift+Y';
@@ -580,7 +584,6 @@
         });
 
         fetchModelsBtn.addEventListener('click', async () => {
-            // 
             modelListContainer.innerHTML = '<div class="ai-loading">正在获取模型列表...</div>';
             searchInput.value = '';
             modelSelectionModal.style.display = 'flex';
@@ -1109,7 +1112,6 @@
     }
 
     function validateShortcut(shortcut) {
-        // 更新正则表达式以支持 Option 键
         const regex = /^((Ctrl|Alt|Shift|Meta|Option)\+)*[A-Za-z]$/;
         return regex.test(shortcut);
     }
@@ -1252,26 +1254,21 @@
                 position: fixed;
                 z-index: 99990;
                 user-select: none;
-                /* Default state (snapped right) */
-                transform: translateX(50%);
-                /* Smoother transitions for position and transform */
-                /* 只对 transform 应用过渡，以获得最佳性能 */
-                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 更平缓的动画曲线 */
+                transform: translateX(0);
+                transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             }
 
-            /* State modifiers for snapping */
-            .ai-summary-container.snap-left {
-                /* 当贴靠左侧时，其左边缘应为0，然后由 transform 将其移出视野 */
-                transform: translateX(-50%);
+            .ai-summary-container.snap-left:not(.is-expanded) {
+                transform: translateX(-70%);
             }
-            .ai-summary-container.snap-right {
-                transform: translateX(50%);
+            .ai-summary-container.snap-right:not(.is-expanded) {
+                transform: translateX(70%);
             }
             .ai-summary-container.is-expanded {
-                transform: translateX(0);
+                transform: translateX(0) !important;
             }
 
-            /* 折叠时没有特殊的过渡，它由状态改变处理 */
+
 
             .ai-summary-btn {
                 width: 40px;
@@ -1657,7 +1654,7 @@
         `;
 
         const container = document.createElement('div');
-        container.className = 'ai-summary-container ai-summary-hidden-initially';
+        container.className = 'ai-summary-container ai-summary-hidden-initially snap-right';
         container.innerHTML = `
             <div class="ai-hover-wrapper">
                 <div class="ai-actions-container">
@@ -1986,7 +1983,7 @@
                 stream: true
             };
             return new Promise((resolve, reject) => {
-                const xhr = GM.xmlHttpRequest({
+                GM.xmlHttpRequest({
                     method: 'POST',
                     url: apiUrlToUse,
                     headers: {
@@ -2098,7 +2095,7 @@
             return;
         }
 
-        initializeDrag(container, dragHandle, button, actionsContainer); // Pass more elements
+        initializeDrag(container, dragHandle);
 
         let leaveTimeout;
         const HIDE_DELAY = 500;
@@ -2158,7 +2155,7 @@
         const hideUi = () => {
             clearTimeout(leaveTimeout);
             leaveTimeout = setTimeout(() => {
-                const subMenuWasVisible = hideSubMenus(); // 先调用收起子菜单
+                hideSubMenus();
                 // 延迟收起主面板，给子菜单动画留出时间 (150ms)
                 setTimeout(() => {
                     container.classList.add('is-collapsing');
@@ -2216,7 +2213,7 @@
             listElement.classList.remove('is-collapsing');
 
             // 强制浏览器重绘以获取稳定的 listRect 尺寸
-            const _ = listElement.offsetHeight;
+            listElement.offsetHeight;
 
             requestAnimationFrame(() => {
                 const actionsRect = actionsContainer.getBoundingClientRect();
@@ -2340,7 +2337,7 @@
 
             showModal(modal, overlay);
             const contentContainer = modal.querySelector('.ai-summary-content');
-            const originalButtonText = button.textContent;
+
             const retryBtnModal = modal.querySelector('.ai-retry-btn');
             const downloadBtnModal = modal.querySelector('.ai-download-btn');
             const copyBtnModal = modal.querySelector('.ai-copy-btn');
@@ -2446,36 +2443,9 @@
                     showToastNotification('总结内容尚未生成或已失效。');
                     return;
                 }
-                // 检查浏览器是否支持clipboard API
-                if (!navigator.clipboard) {
-                    console.warn('AI_WebSummary: Clipboard API not supported, falling back to execCommand');
-                    try {
-                        const textArea = document.createElement('textarea');
-                        textArea.value = originalMarkdownText;
-                        textArea.style.position = 'fixed';
-                        textArea.style.left = '-999999px';
-                        textArea.style.top = '-999999px';
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textArea);
 
-                        const textSpan = copyBtn.querySelector('span');
-                        if (textSpan) {
-                            const originalText = textSpan.textContent;
-                            textSpan.textContent = '已复制！';
-                            copyBtn.style.opacity = '0.7';
-                            setTimeout(() => {
-                                textSpan.textContent = originalText;
-                                copyBtn.style.opacity = '1';
-                            }, 2000);
-                        }
-                        console.log('AI_WebSummary: Copy completed using execCommand');
-                    } catch (error) {
-                        console.error('AI_WebSummary: Copy failed with execCommand', error);
-                        showToastNotification('复制失败，请手动复制内容。');
-                    }
+                if (!navigator.clipboard) {
+                    showToastNotification('浏览器不支持复制功能，请手动复制内容。');
                     return;
                 }
 
@@ -2523,7 +2493,7 @@
             }
         });
 
-        initializeSettingsEvents(settingsPanel, modal, settingsOverlay, modelSelectionModal, shadow, elements); // 传递 elements
+        initializeSettingsEvents(settingsPanel, modal, settingsOverlay, modelSelectionModal, shadow);
         updateAllPromptSelectors(elements);
         modelSelectionModal.querySelector('.close-modal').addEventListener('click', () => {
             modelSelectionModal.style.display = 'none';
@@ -2567,7 +2537,6 @@
         keys.forEach(k => {
             const lower = k.toLowerCase();
             if (lower === 'ctrl') ctrl = true;
-            // 将 Option 键映射到 Alt 键，因为在 Mac 中 Option 键触发的是 altKey
             if (lower === 'alt' || lower === 'option') alt = true;
             if (lower === 'shift') shift = true;
             if (lower === 'meta') meta = true;
@@ -2597,67 +2566,95 @@
 
     function savePosition(container) {
         const position = {
-            left: container.style.left,
             top: container.style.top,
+            isSnapLeft: container.classList.contains('snap-left')
         };
         GM_setValue('containerPosition', position);
     }
 
     function loadPosition(container) {
-        const savedPosition = GM_getValue('containerPosition');
-        if (savedPosition && savedPosition.left && savedPosition.top) {
-            container.style.left = savedPosition.left;
-            container.style.top = savedPosition.top;
-        } else {
-            // Default position if none is saved, use pixels to avoid calc() issues
-            container.style.left = `${window.innerWidth - 60}px`;
-            container.style.top = `${window.innerHeight - 100}px`;
+        let savedPosition = GM_getValue('containerPosition');
+
+        // 清除旧版本数据格式
+        if (savedPosition && savedPosition.left !== undefined && savedPosition.isSnapLeft === undefined) {
+            GM_setValue('containerPosition', undefined);
+            savedPosition = undefined;
         }
+
+        if (savedPosition && savedPosition.top !== undefined) {
+            container.style.top = savedPosition.top;
+
+            const isSnapLeft = savedPosition.isSnapLeft !== undefined ? savedPosition.isSnapLeft : false;
+
+            container.classList.toggle('snap-left', isSnapLeft);
+            container.classList.toggle('snap-right', !isSnapLeft);
+
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            const SCROLLBAR_MARGIN = Math.max(scrollbarWidth, 15);
+
+            if (isSnapLeft) {
+                container.style.left = '0px';
+            } else {
+                const containerWidth = 40;
+                container.style.left = `${window.innerWidth - containerWidth - SCROLLBAR_MARGIN}px`;
+            }
+
+        } else {
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            const SCROLLBAR_MARGIN = Math.max(scrollbarWidth, 15);
+            const defaultTop = window.innerHeight - 100;
+            const containerWidth = 40;
+
+            container.style.left = `${window.innerWidth - containerWidth - SCROLLBAR_MARGIN}px`;
+            container.style.top = `${defaultTop}px`;
+
+            container.classList.remove('snap-left');
+            container.classList.add('snap-right');
+        }
+
+
     }
 
-    function initializeDrag(container, dragHandle, button, actionsContainer) {
+    function initializeDrag(container, dragHandle) {
         let isDragging = false;
         let offsetX, offsetY;
         let animationFrameId = null;
 
         const startDragTransition = () => container.style.transition = 'none';
-        const endDragTransition = () => container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
+        const endDragTransition = () => container.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
 
-        // 核心函数：智能贴边
-        const snapToEdge = (moveContainer = true) => {
+        const snapToEdge = (moveContainer = true, forceRecalculate = false) => {
             endDragTransition();
             if (isDragging) return;
 
             const rect = container.getBoundingClientRect();
-            const buttonRect = button.getBoundingClientRect();
             const windowWidth = window.innerWidth;
-            const PEEK_MARGIN = 10;
-            const isSnappedLeft = (rect.left + rect.width / 2) < windowWidth / 2;
 
-            container.classList.toggle('snap-left', isSnappedLeft);
-            container.classList.toggle('snap-right', !isSnappedLeft);
+            let isSnappedLeft;
+            if (forceRecalculate || (!container.classList.contains('snap-left') && !container.classList.contains('snap-right'))) {
+                isSnappedLeft = (rect.left + rect.width / 2) < windowWidth / 2;
+                container.classList.toggle('snap-left', isSnappedLeft);
+                container.classList.toggle('snap-right', !isSnappedLeft);
+            } else {
+                isSnappedLeft = container.classList.contains('snap-left');
+            }
 
             if (moveContainer) {
                 requestAnimationFrame(() => {
-                    if (container.classList.contains('is-expanded')) {
-                        let targetLeft = rect.left;
-                        if (rect.left < PEEK_MARGIN) {
-                            targetLeft = PEEK_MARGIN;
-                        } else if (rect.right > windowWidth - PEEK_MARGIN) {
-                            targetLeft = windowWidth - rect.width - PEEK_MARGIN;
-                        }
-                        container.style.left = `${targetLeft}px`;
+                    let targetLeft;
+
+                    if (isSnappedLeft) {
+                        targetLeft = 0;
                     } else {
-                        if (isSnappedLeft) {
-                            container.style.left = `0px`;
-                        } else {
-                            container.style.left = `${windowWidth - buttonRect.width - 15}px`; // 留出15px以避免遮挡滚动条
-                        }
+                        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+                        const SCROLLBAR_MARGIN = Math.max(scrollbarWidth, 15);
+                        targetLeft = windowWidth - rect.width - SCROLLBAR_MARGIN;
                     }
+
+                    container.style.left = `${targetLeft}px`;
                 });
             }
 
-            // 在第一次贴边动画完成后移除初始隐藏类
             requestAnimationFrame(() => {
                 if (container.classList.contains('ai-summary-hidden-initially')) {
                     container.classList.remove('ai-summary-hidden-initially');
@@ -2709,37 +2706,33 @@
                     animationFrameId = null;
                 }
                 document.body.style.userSelect = 'auto';
-                savePosition(container); // Save the final dragged position
-                snapToEdge();
+                snapToEdge(true, true); // 先重新计算贴边方向
+                savePosition(container); // 然后保存贴边后的状态
             }
         });
 
-        // On window load, restore the button's position and snap it to the edge.
         window.addEventListener('load', () => {
-            // Prevent transitions and hide the element visually but keep it in the layout
             container.style.transition = 'none';
             container.style.opacity = '0';
-            container.classList.remove('ai-summary-hidden-initially'); // remove visibility: hidden
+            container.classList.remove('ai-summary-hidden-initially');
 
-            // Apply the saved position
             loadPosition(container);
 
-            // Use a double requestAnimationFrame to ensure the layout is calculated before snapping.
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    // Now the layout is guaranteed to be up-to-date.
-                    snapToEdge(false); // Apply transform classes based on the accurate position.
+                    if (container.classList.contains('ai-summary-hidden-initially')) {
+                        container.classList.remove('ai-summary-hidden-initially');
+                    }
 
-                    // Define all transitions at once for a smooth appearance.
-                    container.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+                    snapToEdge(true);
 
-                    // Trigger the fade-in.
+                    container.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), left 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease';
                     container.style.opacity = '1';
                 });
             });
         });
 
-        window.addEventListener('resize', () => setTimeout(snapToEdge, 100));
+        window.addEventListener('resize', () => setTimeout(() => snapToEdge(true, false), 100));
 
     }
 
