@@ -577,8 +577,8 @@
             id: 'm-team',
             matches: () => /m-team\.(cc|io)\/detail\//.test(window.location.href),
             getInfo: () => {
-                // 检查新版UI,域名是否为next.m-team.cc
-                const isNewUI = window.location.hostname.includes('next.m-team.cc');
+                // 检查新版UI,域名是否为kp.m-team.cc
+                const isNewUI = window.location.hostname.includes('kp.m-team.cc');
                 if (isNewUI) {
                     // --- 新版UI逻辑 ---
                     const titleElement = document.querySelector('h2 > span.align-middle');
