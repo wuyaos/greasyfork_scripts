@@ -441,7 +441,6 @@
             id: 'totheglory',
             matches: () => window.location.href.includes('totheglory.im/t/'),
             getInfo: () => {
-                // rowhead + heading
                 const rows = document.querySelectorAll('.rowhead, .heading');
                 const nameLink = rows[0].nextElementSibling.querySelector('a');
                 const sizeString = Array.from(rows)
@@ -577,7 +576,7 @@
             id: 'm-team',
             matches: () => /m-team\.(cc|io)\/detail\//.test(window.location.href),
             getInfo: () => {
-                // 检查新版UI,域名是否为kp.m-team.cc
+                // 检查旧版UI,域名是否为ob.m-team.cc
                 const isNewUI = !window.location.hostname.includes('ob.m-team.cc');
                 if (isNewUI) {
                     // --- 新版UI逻辑 ---
