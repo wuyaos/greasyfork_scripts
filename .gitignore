@@ -5,3 +5,5 @@ memory-bank/
 ~syncthing~*
 *.sync-conflict*
 .rooignore
+.codex/
+.spec-workflow/

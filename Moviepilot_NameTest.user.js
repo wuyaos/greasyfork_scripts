@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.0.2
+// @version      3.1.0
 // @description  moviepilots名称测试 - 重构优化版
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -647,13 +647,11 @@
             }
 
             const { name, description, downloadLink, size, insertPoint, insertIndex, insertAction, rowType } = torrentInfo;
-            
+
             const row = document.createElement(rowType === 'common' ? 'tr' : 'div');
             if (rowType === 'common' && window.location.href.includes("m-team")) {
                 row.className = "ant-descriptions-row";
             }
-            row.innerHTML = UI.renderRecognizeRow(rowType, "识别中...");
-
             if (insertAction) {
                 insertAction(insertPoint, row);
             } else if (insertPoint && typeof insertIndex !== 'undefined') {
@@ -663,17 +661,51 @@
                 return;
             }
 
+            this.renderManualEntry(row, rowType, { name, description, downloadLink, size });
+        },
+
+        renderManualEntry(row, rowType, torrentInfo, state = 'idle', message = '点击识别') {
+            const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
+            const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; padding: 0.25rem 0.75rem;`;
+            const isRunning = state === 'running';
+            const tagColor = state === 'error' ? CONSTANTS.COLORS.WARNING : (isRunning ? CONSTANTS.COLORS.PRIMARY : CONSTANTS.COLORS.SECONDARY);
+            const manualTag = `<span class="mp-recognize-trigger" data-state="${state}">${UI.renderTag(message, tagColor)}</span>`;
+            const showButton = state === 'success';
+            const downloadButton = showButton ? `<button id="mp-download-button" style="${buttonStyle}">下载种子</button>` : '';
+
+            const html = `<div style="${containerStyle}">${manualTag}${downloadButton}</div>`;
+            row.innerHTML = UI.renderRecognizeRow(rowType, html);
+            this.attachRecognizeTrigger(row, rowType, torrentInfo);
+        },
+
+        attachRecognizeTrigger(row, rowType, torrentInfo) {
+            const trigger = row.querySelector('.mp-recognize-trigger');
+            if (!trigger) return;
+            trigger.addEventListener('click', () => {
+                const state = trigger.getAttribute('data-state');
+                if (state === 'running') return;
+                this.startRecognition(row, rowType, torrentInfo);
+            });
+        },
+
+        async startRecognition(row, rowType, torrentInfo) {
+            const trigger = row.querySelector('.mp-recognize-trigger');
+            if (trigger) {
+                trigger.setAttribute('data-state', 'running');
+                trigger.innerHTML = UI.renderTag('识别中...', CONSTANTS.COLORS.PRIMARY);
+            }
+
             try {
-                const data = await API.recognize(name, description);
+                const data = await API.recognize(torrentInfo.name, torrentInfo.description);
                 if (data && data.media_info) {
-                    this.renderSuccess(row, rowType, data, { name, description, downloadLink, size });
+                    this.renderSuccess(row, rowType, data, torrentInfo);
                 } else {
-                    row.innerHTML = UI.renderRecognizeRow(rowType, '识别失败');
+                    this.renderManualEntry(row, rowType, torrentInfo, 'error', '识别失败，重试');
                 }
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Recognition failed:`, error);
-                const errorMessage = (error.message || '').includes('配置不完整') ? '登录失败，请检查配置' : '识别失败';
-                row.innerHTML = UI.renderRecognizeRow(rowType, errorMessage);
+                const message = (error.message || '').includes('配置不完整') ? '配置异常，重试' : '识别失败，重试';
+                this.renderManualEntry(row, rowType, torrentInfo, 'error', message);
             }
         },
 
@@ -682,7 +714,8 @@
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
             let finalHtml = `<div style="${containerStyle}">`;
 
-            // Download Button
+            // Manual trigger + Download Button
+            finalHtml += `<span class="mp-recognize-trigger" data-state="idle">${UI.renderTag('重新识别', CONSTANTS.COLORS.SECONDARY)}</span>`;
             const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; padding: 0.25rem 0.75rem;`;
             finalHtml += `<button id="mp-download-button" style="${buttonStyle}">下载种子</button>`;
 
@@ -707,6 +740,7 @@
 
             // Add event listeners
             this.addSuccessListeners(row, data, torrentInfo);
+            this.attachRecognizeTrigger(row, rowType, torrentInfo);
         },
 
         addSuccessListeners(row, data, torrentInfo) {
@@ -808,7 +842,7 @@
     function main() {
         // 1. 加载配置
         CONFIG.load();
-    
+
         // 2. 注册菜单命令
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand("配置Moviepilot参数", () => UI.showConfigModal(false), "c");
@@ -825,9 +859,15 @@
         if (!Site.adapter) {
             return; // 如果没有适配器，则不执行页面注入
         }
-    
-        // 5. 执行页面核心逻辑
-        // 特殊处理 M-Team 的动态加载, 拦截API请求来触发
+
+        let hasBooted = false;
+        const bootCore = () => {
+            if (hasBooted) return;
+            hasBooted = true;
+            Core.handlePage();
+        };
+
+        // 5. 处理 M-Team 的动态加载，等待详细信息出现后再渲染入口
         if (Site.adapter.id === 'm-team') {
             const originOpen = XMLHttpRequest.prototype.open;
             let executed = false;
@@ -841,9 +881,9 @@
                                 const res = JSON.parse(this.responseText);
                                 if (res && res.message === 'SUCCESS') {
                                     executed = true;
-                                    GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Running Core.handlePage()`);
-                                    // 延迟一小段时间，确保页面可能依赖的其他脚本已执行完毕
-                                    setTimeout(() => Core.handlePage(), 200);
+                                GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Recognition trigger is ready.`);
+                                    // 延迟以确保页面数据填充完成，再渲染入口
+                                    setTimeout(() => bootCore(), 200);
                                 }
                             } catch (e) {
                                 GM_log(`[${SCRIPT_NAME}] Error parsing M-Team API response.`, e);
@@ -854,7 +894,7 @@
                 originOpen.apply(this, args);
             };
         } else {
-            Core.handlePage();
+            bootCore();
         }
     }
 
