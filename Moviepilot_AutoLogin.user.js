@@ -122,7 +122,7 @@
 
         intervalId = setInterval(() => {
             const usernameInput = document.querySelector('input[name="username"]');
-            const passwordInput = document.querySelector('input[name="current-password"]');
+            const passwordInput = document.querySelector('input[name="password"]');
 
             if (usernameInput && passwordInput) {
                 clearInterval(intervalId);
