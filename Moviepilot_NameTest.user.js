@@ -5,6 +5,7 @@
 // @description  moviepilots名称测试 - 重构优化版
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
+// @match        http://*/details.php?id=*
 // @match        https://*/details_movie.php?id=*
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
