@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.3.0
-// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别结果缓存24h
+// @version      3.4.0
+// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
 // @match        http://*/details.php?id=*
@@ -10,6 +10,12 @@
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
+// @match        https://bangumi.moe/*
+// @match        https://*.acgnx.se/*
+// @match        https://*.dmhy.org/*
+// @match        https://nyaa.si/view/*
+// @match        https://mikanani.me/Home/Episode/*
+// @match        https://*.skyey2.com/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
@@ -575,6 +581,56 @@
     // ——————————————————————————————————————
 
     //Todo: haidan待定
+    const BT_SITE_HELPERS = {
+        text(selector, root = document) {
+            return root.querySelector(selector)?.textContent?.trim() || '';
+        },
+
+        attr(selector, attr, root = document) {
+            return root.querySelector(selector)?.getAttribute(attr) || '';
+        },
+
+        absoluteUrl(rawUrl) {
+            if (!rawUrl) return '';
+            try {
+                return new URL(rawUrl, window.location.origin).href;
+            } catch (e) {
+                return '';
+            }
+        },
+
+        findSize(text) {
+            return UTILS.parseSize(String(text || '').replace(/iB/gi, 'B'));
+        },
+
+        findDownloadLink(selectors) {
+            for (const selector of selectors) {
+                const el = document.querySelector(selector);
+                const href = el?.href || el?.getAttribute?.('href') || '';
+                const url = this.absoluteUrl(href);
+                if (url) return url;
+            }
+            return '';
+        },
+
+        insertAfter(target, row) {
+            target.after(row);
+        },
+
+        simpleDivInfo({ name, description, downloadLink, sizeText, insertPoint }) {
+            if (!name || !insertPoint) return null;
+            return {
+                name,
+                description: description || '',
+                downloadLink: downloadLink || '',
+                size: this.findSize(sizeText),
+                insertPoint,
+                rowType: 'div',
+                insertAction: (point, element) => this.insertAfter(point, element)
+            };
+        }
+    };
+
     const SITE_ADAPTERS = [
         {
             id: 'totheglory',
@@ -684,6 +740,110 @@
                         point.after(element);
                     }
                 };
+            }
+        },
+        {
+            id: 'dmhy',
+            matches: () => /(^|\.)dmhy\.org$/i.test(window.location.hostname) && !window.location.hostname.startsWith('u2.'),
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('h1, .topic-title, .resource-tit, .title')
+                    || BT_SITE_HELPERS.text('a.index')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href*="download.php"]',
+                    'a[href*=".torrent"]',
+                    'a[href^="magnet:"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('.topic-content, .resource-info, .info, .content') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('h1, .topic-title, .resource-tit, .title, a.index')?.closest('div, table, tr') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            }
+        },
+        {
+            id: 'bangumi-moe',
+            matches: () => window.location.hostname === 'bangumi.moe',
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('h1, .torrent-title, .subject-title, .title')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href^="magnet:"]',
+                    'a[href*="/download/"]',
+                    'a[href*=".torrent"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('.torrent-info, .description, .content, .panel-body') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('h1, .torrent-title, .subject-title, .title') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            }
+        },
+        {
+            id: 'nyaa',
+            matches: () => window.location.hostname === 'nyaa.si' && window.location.pathname.startsWith('/view/'),
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('.panel-title, h3.panel-title')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href^="magnet:"]',
+                    'a[href*="/download/"]',
+                    'a[href*=".torrent"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('#torrent-description, .panel-body') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('.panel-title, h3.panel-title')?.closest('.panel, div') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            }
+        },
+        {
+            id: 'mikanani',
+            matches: () => window.location.hostname === 'mikanani.me' && window.location.pathname.includes('/Home/Episode/'),
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('.episode-title, h1, h2, .an-text')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href^="magnet:"]',
+                    'a[href*="Download"]',
+                    'a[href*="download"]',
+                    'a[href*=".torrent"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('.episode-desc, .bangumi-desc, .content, .panel-body') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('.episode-title, h1, h2, .an-text') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            }
+        },
+        {
+            id: 'acgnx',
+            matches: () => /(^|\.)acgnx\.se$/i.test(window.location.hostname),
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('h1, .title, .entry-title, .resource-title')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href^="magnet:"]',
+                    'a[href*="download"]',
+                    'a[href*=".torrent"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('.entry-content, .content, .description, .panel-body') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('h1, .title, .entry-title, .resource-title') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            }
+        },
+        {
+            id: 'skyey2',
+            matches: () => /(^|\.)skyey2\.com$/i.test(window.location.hostname),
+            getInfo: () => {
+                const title = BT_SITE_HELPERS.text('h1, .title, .entry-title, .resource-title')
+                    || document.title.replace(/\s*[-|_].*$/, '').trim();
+                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
+                    'a[href^="magnet:"]',
+                    'a[href*="download"]',
+                    'a[href*=".torrent"]'
+                ]);
+                const description = BT_SITE_HELPERS.text('.entry-content, .content, .description, .panel-body') || title;
+                const sizeText = document.body?.innerText || '';
+                const insertPoint = document.querySelector('h1, .title, .entry-title, .resource-title') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
             }
         },
         {
