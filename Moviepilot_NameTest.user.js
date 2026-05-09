@@ -11,11 +11,9 @@
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
 // @match        https://bangumi.moe/*
-// @match        https://*.acgnx.se/*
-// @match        https://*.dmhy.org/*
-// @match        https://nyaa.si/view/*
 // @match        https://mikanani.me/Home/Episode/*
-// @match        https://*.skyey2.com/*
+// @match        https://*.comicat.org/*
+// @match        https://comicat.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
@@ -743,24 +741,6 @@
             }
         },
         {
-            id: 'dmhy',
-            matches: () => /(^|\.)dmhy\.org$/i.test(window.location.hostname) && !window.location.hostname.startsWith('u2.'),
-            getInfo: () => {
-                const title = BT_SITE_HELPERS.text('h1, .topic-title, .resource-tit, .title')
-                    || BT_SITE_HELPERS.text('a.index')
-                    || document.title.replace(/\s*[-|_].*$/, '').trim();
-                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
-                    'a[href*="download.php"]',
-                    'a[href*=".torrent"]',
-                    'a[href^="magnet:"]'
-                ]);
-                const description = BT_SITE_HELPERS.text('.topic-content, .resource-info, .info, .content') || title;
-                const sizeText = document.body?.innerText || '';
-                const insertPoint = document.querySelector('h1, .topic-title, .resource-tit, .title, a.index')?.closest('div, table, tr') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
-            }
-        },
-        {
             id: 'bangumi-moe',
             matches: () => window.location.hostname === 'bangumi.moe',
             getInfo: () => {
@@ -774,23 +754,6 @@
                 const description = BT_SITE_HELPERS.text('.torrent-info, .description, .content, .panel-body') || title;
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = document.querySelector('h1, .torrent-title, .subject-title, .title') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
-            }
-        },
-        {
-            id: 'nyaa',
-            matches: () => window.location.hostname === 'nyaa.si' && window.location.pathname.startsWith('/view/'),
-            getInfo: () => {
-                const title = BT_SITE_HELPERS.text('.panel-title, h3.panel-title')
-                    || document.title.replace(/\s*[-|_].*$/, '').trim();
-                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
-                    'a[href^="magnet:"]',
-                    'a[href*="/download/"]',
-                    'a[href*=".torrent"]'
-                ]);
-                const description = BT_SITE_HELPERS.text('#torrent-description, .panel-body') || title;
-                const sizeText = document.body?.innerText || '';
-                const insertPoint = document.querySelector('.panel-title, h3.panel-title')?.closest('.panel, div') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
             }
         },
@@ -813,36 +776,19 @@
             }
         },
         {
-            id: 'acgnx',
-            matches: () => /(^|\.)acgnx\.se$/i.test(window.location.hostname),
+            id: 'comicat',
+            matches: () => /(^|\.)comicat\.org$/i.test(window.location.hostname),
             getInfo: () => {
-                const title = BT_SITE_HELPERS.text('h1, .title, .entry-title, .resource-title')
+                const title = BT_SITE_HELPERS.text('h1, .title, .entry-title, .resource-title, .post-title')
                     || document.title.replace(/\s*[-|_].*$/, '').trim();
                 const downloadLink = BT_SITE_HELPERS.findDownloadLink([
                     'a[href^="magnet:"]',
                     'a[href*="download"]',
                     'a[href*=".torrent"]'
                 ]);
-                const description = BT_SITE_HELPERS.text('.entry-content, .content, .description, .panel-body') || title;
+                const description = BT_SITE_HELPERS.text('.entry-content, .content, .description, .panel-body, article') || title;
                 const sizeText = document.body?.innerText || '';
-                const insertPoint = document.querySelector('h1, .title, .entry-title, .resource-title') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
-            }
-        },
-        {
-            id: 'skyey2',
-            matches: () => /(^|\.)skyey2\.com$/i.test(window.location.hostname),
-            getInfo: () => {
-                const title = BT_SITE_HELPERS.text('h1, .title, .entry-title, .resource-title')
-                    || document.title.replace(/\s*[-|_].*$/, '').trim();
-                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
-                    'a[href^="magnet:"]',
-                    'a[href*="download"]',
-                    'a[href*=".torrent"]'
-                ]);
-                const description = BT_SITE_HELPERS.text('.entry-content, .content, .description, .panel-body') || title;
-                const sizeText = document.body?.innerText || '';
-                const insertPoint = document.querySelector('h1, .title, .entry-title, .resource-title') || document.body;
+                const insertPoint = document.querySelector('h1, .title, .entry-title, .resource-title, .post-title') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
             }
         },
