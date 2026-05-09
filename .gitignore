@@ -7,3 +7,4 @@ memory-bank/
 .rooignore
 .codex/
 .spec-workflow/
+.omc/
