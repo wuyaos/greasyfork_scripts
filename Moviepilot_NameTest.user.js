@@ -10,7 +10,6 @@
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
-// @match        https://*.dmhy.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
