@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
-// @description  moviepilots名称测试 - 重构优化版
+// @version      3.2.0
+// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
 // @match        http://*/details.php?id=*
@@ -43,9 +43,11 @@
         API_ENDPOINTS: {
             LOGIN: '/api/v1/login/access-token',
             RECOGNIZE: '/api/v1/media/recognize',
+            RECOGNIZE_BY_ID: '/api/v1/media/tmdb:',
             GET_SITE: '/api/v1/site/domain/',
             DOWNLOAD: '/api/v1/download/',
         },
+        ALLOWED_HOSTS: ['api.themoviedb.org'],
         COLORS: {
             PRIMARY: '#2775b6',
             SECONDARY: '#e6702e',
@@ -61,7 +63,10 @@
         DEFAULT_CONFIG: {
             moviepilotUrl: 'http://127.0.0.1:3000',
             moviepilotUser: 'admin',
-            moviepilotPassword: ''
+            moviepilotPassword: '',
+            moviepilotAuthMode: 'password',
+            moviepilotApiKey: '',
+            moviepilotTmdbKey: ''
         }
     };
 
@@ -72,14 +77,20 @@
             this._values.url = GM_getValue('moviepilotUrl', CONSTANTS.DEFAULT_CONFIG.moviepilotUrl);
             this._values.user = GM_getValue('moviepilotUser', CONSTANTS.DEFAULT_CONFIG.moviepilotUser);
             this._values.pass = GM_getValue('moviepilotPassword', CONSTANTS.DEFAULT_CONFIG.moviepilotPassword);
+            this._values.authMode = GM_getValue('moviepilotAuthMode', CONSTANTS.DEFAULT_CONFIG.moviepilotAuthMode);
+            this._values.apiKey = GM_getValue('moviepilotApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotApiKey);
+            this._values.tmdbKey = GM_getValue('moviepilotTmdbKey', CONSTANTS.DEFAULT_CONFIG.moviepilotTmdbKey);
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass }) {
+        save({ url, user, pass, authMode, apiKey, tmdbKey }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
-            this.load(); // Reload config after saving
+            GM_setValue('moviepilotAuthMode', authMode || 'password');
+            GM_setValue('moviepilotApiKey', apiKey || '');
+            GM_setValue('moviepilotTmdbKey', tmdbKey || '');
+            this.load();
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
             UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
         },
@@ -89,6 +100,9 @@
                 GM_deleteValue('moviepilotUrl');
                 GM_deleteValue('moviepilotUser');
                 GM_deleteValue('moviepilotPassword');
+                GM_deleteValue('moviepilotAuthMode');
+                GM_deleteValue('moviepilotApiKey');
+                GM_deleteValue('moviepilotTmdbKey');
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
             }
@@ -99,12 +113,23 @@
         },
 
         ensure() {
-            if (!this.get('url') || !this.get('user')) {
+            if (!this.get('url')) {
                 GM_log(`[${SCRIPT_NAME}] 配置不完整，显示配置弹窗。`);
                 UI.showConfigModal(true);
                 return false;
             }
-            GM_log(`[${SCRIPT_NAME}] 配置完整。URL: ${this.get('url')}, User: ${this.get('user')}`);
+            const mode = this.get('authMode') || 'password';
+            if (mode === 'password' && (!this.get('user') || !this.get('pass'))) {
+                GM_log(`[${SCRIPT_NAME}] 密码模式配置不完整，显示配置弹窗。`);
+                UI.showConfigModal(true);
+                return false;
+            }
+            if (mode === 'apikey' && !this.get('apiKey')) {
+                GM_log(`[${SCRIPT_NAME}] API Key 模式配置不完整，显示配置弹窗。`);
+                UI.showConfigModal(true);
+                return false;
+            }
+            GM_log(`[${SCRIPT_NAME}] 配置完整。URL: ${this.get('url')}, AuthMode: ${mode}`);
             return true;
         }
     };
@@ -146,12 +171,40 @@
         },
 
         _addModalEventListeners(isInitialSetup) {
+            const modeSelect = this.configModal.element.querySelector('#mpAuthMode');
+            const passFields = this.configModal.element.querySelector('#mpPasswordFields');
+            const apiKeyFields = this.configModal.element.querySelector('#mpApiKeyFields');
+
+            const toggleAuthFields = () => {
+                const mode = modeSelect.value;
+                passFields.style.display = mode === 'password' ? '' : 'none';
+                apiKeyFields.style.display = mode === 'apikey' ? '' : 'none';
+            };
+            modeSelect.addEventListener('change', toggleAuthFields);
+
             this.configModal.element.querySelector('.mp-save-btn').addEventListener('click', () => {
                 const newConfig = {
-                    url: document.getElementById('mpUrl').value.trim(),
+                    url: document.getElementById('mpUrl').value.trim().replace(/\/$/, ''),
                     user: document.getElementById('mpUser').value.trim(),
-                    pass: document.getElementById('mpPass').value
+                    pass: document.getElementById('mpPass').value,
+                    authMode: modeSelect.value,
+                    apiKey: document.getElementById('mpApiKey').value.trim(),
+                    tmdbKey: document.getElementById('mpTmdbKey').value.trim()
                 };
+
+                if (!newConfig.url) {
+                    alert('请填写 MoviePilot 地址。');
+                    return;
+                }
+                if (newConfig.authMode === 'password' && (!newConfig.user || !newConfig.pass)) {
+                    alert('密码模式下必须填写用户名和密码。');
+                    return;
+                }
+                if (newConfig.authMode === 'apikey' && !newConfig.apiKey) {
+                    alert('API Key 模式下必须填写 API Key。');
+                    return;
+                }
+
                 CONFIG.save(newConfig);
                 this.closeConfigModal();
             });
@@ -171,19 +224,42 @@
         },
 
         _getConfigModalHTML() {
+            const currentMode = CONFIG.get('authMode') || 'password';
+            const showPass = currentMode === 'password';
+            const showApiKey = currentMode === 'apikey';
             return `
                 <h2>配置 Moviepilot 参数</h2>
                 <div>
                     <label for="mpUrl">Moviepilot服务器 URL:</label>
-                    <input type="text" id="mpUrl" value="${CONFIG.get('url') || ''}">
+                    <input type="text" id="mpUrl" placeholder="例如：http://192.168.1.100:3000" value="${CONFIG.get('url') || ''}">
                 </div>
                 <div>
-                    <label for="mpUser">用户名:</label>
-                    <input type="text" id="mpUser" value="${CONFIG.get('user') || ''}">
+                    <label for="mpAuthMode">认证方式:</label>
+                    <select id="mpAuthMode">
+                        <option value="password" ${showPass ? 'selected' : ''}>用户名密码登录</option>
+                        <option value="apikey" ${showApiKey ? 'selected' : ''}>API Key 令牌</option>
+                    </select>
+                </div>
+                <div id="mpPasswordFields" style="${showPass ? '' : 'display:none;'}">
+                    <div>
+                        <label for="mpUser">用户名:</label>
+                        <input type="text" id="mpUser" value="${CONFIG.get('user') || ''}">
+                    </div>
+                    <div>
+                        <label for="mpPass">密码:</label>
+                        <input type="password" id="mpPass" value="${CONFIG.get('pass') || ''}">
+                    </div>
+                </div>
+                <div id="mpApiKeyFields" style="${showApiKey ? '' : 'display:none;'}">
+                    <div>
+                        <label for="mpApiKey">API Key (令牌):</label>
+                        <input type="password" id="mpApiKey" value="${CONFIG.get('apiKey') || ''}">
+                        <p style="margin:4px 0 0;color:#888;font-size:12px;">可在 MoviePilot 设置 → 系统设定 → 基础设置 → API 令牌中获取。</p>
+                    </div>
                 </div>
                 <div>
-                    <label for="mpPass">密码:</label>
-                    <input type="password" id="mpPass" value="${CONFIG.get('pass') || ''}">
+                    <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
+                    <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
                 </div>
                 <div class="mp-modal-buttons">
                     <button class="mp-cancel-btn">取消</button>
@@ -201,7 +277,8 @@
                 #mpConfigModal h2 { margin-top: 0; margin-bottom: 20px; font-size: 20px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; }
                 #mpConfigModal label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
                 #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 24px); padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-                #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus { border-color: #3498db; outline: none; }
+                #mpConfigModal select { width: 100%; padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; }
+                #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: #3498db; outline: none; }
                 #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 25px; }
                 #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
@@ -285,10 +362,43 @@
     const API = {
         _sessionToken: null,
 
+        _isAllowedRequestUrl(rawUrl) {
+            try {
+                const host = new URL(rawUrl, window.location.origin).hostname.toLowerCase();
+                if (CONSTANTS.ALLOWED_HOSTS.includes(host)) return true;
+                const mpUrl = CONFIG.get('url');
+                if (!mpUrl) return false;
+                const mpHost = new URL(mpUrl).hostname.toLowerCase();
+                return host === mpHost;
+            } catch (e) {
+                return false;
+            }
+        },
+
+        _buildAuthHeaders(token) {
+            const mode = CONFIG.get('authMode') || 'password';
+            if (mode === 'apikey') {
+                return {
+                    "user-agent": navigator.userAgent,
+                    "X-API-KEY": CONFIG.get('apiKey') || ''
+                };
+            }
+            return {
+                "user-agent": navigator.userAgent,
+                "Authorization": token ? `bearer ${token}` : ''
+            };
+        },
+
         _request(options) {
             return new Promise((resolve, reject) => {
-                const { method, url, data, headers, responseType, token, isLogin = false } = options;
-                const fullUrl = (isLogin ? '' : CONFIG.get('url')) + url;
+                const { method, url, data, headers, responseType, token, absolute = false } = options;
+                const fullUrl = absolute || /^https?:\/\//i.test(url) ? url : (CONFIG.get('url') + url);
+
+                if (!this._isAllowedRequestUrl(fullUrl)) {
+                    GM_log(`[${SCRIPT_NAME}] 请求被白名单守卫拦截: ${fullUrl}`);
+                    reject({ status: 0, message: 'Blocked by host guard' });
+                    return;
+                }
 
                 const finalHeaders = {
                     "accept": "application/json",
@@ -296,7 +406,7 @@
                     ...headers
                 };
 
-                if (token) {
+                if (token && !finalHeaders["Authorization"] && !finalHeaders["X-API-KEY"]) {
                     finalHeaders["Authorization"] = `bearer ${token}`;
                 }
 
@@ -332,11 +442,10 @@
             try {
                 const res = await this._request({
                     method: 'POST',
-                    url: CONFIG.get('url') + CONSTANTS.API_ENDPOINTS.LOGIN,
-                    data: `username=${CONFIG.get('user')}&password=${CONFIG.get('pass')}`,
+                    url: CONSTANTS.API_ENDPOINTS.LOGIN,
+                    data: `username=${encodeURIComponent(CONFIG.get('user'))}&password=${encodeURIComponent(CONFIG.get('pass'))}`,
                     headers: { "content-type": "application/x-www-form-urlencoded" },
-                    responseType: 'json',
-                    isLogin: true
+                    responseType: 'json'
                 });
 
                 if (res && res.access_token) {
@@ -353,13 +462,18 @@
                     return this.login(retryCount + 1);
                 } else {
                     const status = error.status || 'N/A';
-                    showToast(`[${SCRIPT_NAME}] 登录 Moviepilot 失败！\n\n已尝试 ${MAX_RETRIES} 次。\n请检查您的配置是否正确。\n服务器返回状态: ${status}`);
+                    UI.showToast(`[${SCRIPT_NAME}] 登录 Moviepilot 失败！已尝试 ${MAX_RETRIES} 次，状态: ${status}`);
                     throw new Error(`登录失败，已达最大重试次数`);
                 }
             }
         },
 
         async getAuthenticatedToken() {
+            const mode = CONFIG.get('authMode') || 'password';
+            if (mode === 'apikey') {
+                if (!CONFIG.get('apiKey')) throw new Error('API Key 未配置');
+                return CONFIG.get('apiKey');
+            }
             if (this._sessionToken) {
                 return this._sessionToken;
             }
@@ -368,14 +482,34 @@
 
         async recognize(title, subtitle) {
             const token = await this.getAuthenticatedToken();
-            const url = `${CONSTANTS.API_ENDPOINTS.RECOGNIZE}?title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle)}`;
-            return this._request({ method: 'GET', url, token, responseType: 'json' });
+            const url = `${CONSTANTS.API_ENDPOINTS.RECOGNIZE}?title=${encodeURIComponent(title)}&subtitle=${encodeURIComponent(subtitle || '')}`;
+            return this._request({ method: 'GET', url, headers: this._buildAuthHeaders(token), responseType: 'json' });
+        },
+
+        async recognizeById(tmdbId, typeName) {
+            const token = await this.getAuthenticatedToken();
+            const url = `${CONSTANTS.API_ENDPOINTS.RECOGNIZE_BY_ID}${tmdbId}?type_name=${encodeURIComponent(typeName)}`;
+            return this._request({ method: 'GET', url, headers: this._buildAuthHeaders(token), responseType: 'json' });
+        },
+
+        async searchTmdb(query, type = '') {
+            const key = (CONFIG.get('tmdbKey') || '').trim();
+            if (!key) return [];
+            const path = type ? `search/${type}` : 'search/multi';
+            const url = `https://api.themoviedb.org/3/${path}?api_key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&language=zh-CN`;
+            try {
+                const res = await this._request({ method: 'GET', url, responseType: 'json', absolute: true });
+                return res?.results || [];
+            } catch (e) {
+                GM_log(`[${SCRIPT_NAME}] TMDB 搜索失败:`, e);
+                return [];
+            }
         },
 
         async getSite() {
             const token = await this.getAuthenticatedToken();
             const url = `${CONSTANTS.API_ENDPOINTS.GET_SITE}${window.location.hostname}`;
-            return this._request({ method: 'GET', url, token, responseType: 'json' });
+            return this._request({ method: 'GET', url, headers: this._buildAuthHeaders(token), responseType: 'json' });
         },
 
         async download(media_info, torrent_info) {
@@ -385,8 +519,7 @@
                 method: 'POST',
                 url: CONSTANTS.API_ENDPOINTS.DOWNLOAD,
                 data: JSON.stringify(download_info),
-                headers: { "content-type": "application/json" },
-                token,
+                headers: { ...this._buildAuthHeaders(token), "content-type": "application/json" },
                 responseType: 'json'
             });
         },
@@ -633,6 +766,421 @@
 
 
     // ——————————————————————————————————————
+    // [4.5] M-Team 链接多层捕获 (MTEAM LINK CAPTURE)
+    // ——————————————————————————————————————
+
+    const MTeamLinkCapture = {
+        _runtimeLinks: {},
+        _prefetchState: {},
+        _watcherState: {},
+        _listenerInstalled: false,
+        _hookInstalled: false,
+
+        _getCurrentTid() {
+            const m = window.location.pathname.match(/\/detail\/(\d+)/);
+            return m ? m[1] : '';
+        },
+
+        _isLikelyTorrentDownloadUrl(url) {
+            const s = String(url || '');
+            if (!s) return false;
+            if (/\/api\/rss\/dlv2\?/i.test(s)) return true;
+            if (/\/api\/torrent\/download\?/i.test(s)) return true;
+            if (/\.torrent(?:\?|$)/i.test(s)) return true;
+            if (/[?&](?:app_id|payload|playload)=/i.test(s) && /[?&]sign=/i.test(s) && /[?&]t=/i.test(s)) return true;
+            if (/halomt\.com/i.test(s) && /[?&]sign=/i.test(s)) return true;
+            return false;
+        },
+
+        _isAllowedDownloadHost(url) {
+            try {
+                const host = new URL(url).hostname.toLowerCase();
+                return /(^|\.)m-team\.cc$|(^|\.)m-team\.io$|(^|\.)halomt\.com$/.test(host);
+            } catch (e) {
+                return false;
+            }
+        },
+
+        _extractLinkFromString(text) {
+            const raw = String(text || '')
+                .replace(/\\\//g, '/')
+                .replace(/\\u002F/ig, '/')
+                .replace(/\\u003A/ig, ':')
+                .replace(/\\u003F/ig, '?')
+                .replace(/\\u003D/ig, '=')
+                .replace(/\\u0026/ig, '&')
+                .replace(/\\u0025/ig, '%')
+                .replace(/&amp;/g, '&');
+            const match = raw.match(/https?:\/\/[^\s"'`<>\\]+|\/api\/rss\/dlv2\?[^\s"'`<>\\]+|\/api\/torrent\/download\?[^\s"'`<>\\]+/i);
+            if (!match) return '';
+            try {
+                return new URL(match[0], window.location.origin).href;
+            } catch (e) {
+                return '';
+            }
+        },
+
+        _deepFindDownloadLinkInObject(root, maxNodes = 5000) {
+            if (!root) return '';
+            const stack = [root];
+            const visited = new Set();
+            let count = 0;
+            while (stack.length && count < maxNodes) {
+                const current = stack.pop();
+                count++;
+                if (!current) continue;
+                const t = typeof current;
+                if (t === 'string') {
+                    const parsed = this._extractLinkFromString(current);
+                    if (parsed) return parsed;
+                    continue;
+                }
+                if (t !== 'object' && t !== 'function') continue;
+                if (visited.has(current)) continue;
+                visited.add(current);
+                let keys = [];
+                try { keys = Object.keys(current); } catch (e) { continue; }
+                for (const key of keys) {
+                    let val;
+                    try { val = current[key]; } catch (e) { continue; }
+                    if (typeof val === 'string') {
+                        const parsed = this._extractLinkFromString(val);
+                        if (parsed) return parsed;
+                    } else if (val && (typeof val === 'object' || typeof val === 'function')) {
+                        stack.push(val);
+                    }
+                }
+            }
+            return '';
+        },
+
+        _findNativeDownloadButton() {
+            return document.querySelector('div.flex.justify-between [class*="download"], div.flex.justify-between button, div.flex.justify-between a');
+        },
+
+        _dispatchSyntheticClick(el) {
+            if (!el) return;
+            try { el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
+            try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
+            try { el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
+            try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
+            try { if (typeof el.click === 'function') el.click(); } catch (e) {}
+        },
+
+        _getDownloadAttrsFromElement(el) {
+            if (!el || typeof el.getAttribute !== 'function') return [];
+            const attrs = ['href', 'data-url', 'data-href', 'onclick', 'title', 'aria-label'];
+            const values = [];
+            attrs.forEach((attr) => {
+                const v = el.getAttribute(attr);
+                if (v) values.push(v);
+            });
+            if (el.outerHTML) values.push(el.outerHTML);
+            return values;
+        },
+
+        setRuntimeLink(url, source) {
+            const tid = this._getCurrentTid();
+            if (!tid || !url) return;
+            const existing = this._runtimeLinks[tid];
+            if (existing?.url === url) {
+                existing.at = Date.now();
+                return;
+            }
+            this._runtimeLinks[tid] = { url, source: source || 'runtime', at: Date.now() };
+            GM_log(`[${SCRIPT_NAME}] M-Team 链接已捕获: ${source} → ${url}`);
+            try {
+                document.dispatchEvent(new CustomEvent('mp-mteam-runtime-link-updated', { detail: { tid, url, source } }));
+            } catch (e) {}
+        },
+
+        getRuntimeLink() {
+            const tid = this._getCurrentTid();
+            if (!tid) return '';
+            const item = this._runtimeLinks[tid];
+            if (!item?.url) return '';
+            if (Date.now() - (item.at || 0) > 10 * 60 * 1000) return '';
+            return item.url;
+        },
+
+        init() {
+            this._installRuntimeCaptureListener();
+            this._installPageContextHook();
+            this._installNativeDownloadHook();
+        },
+
+        _installRuntimeCaptureListener() {
+            if (this._listenerInstalled) return;
+            this._listenerInstalled = true;
+            document.addEventListener('mp-download-url-captured', (ev) => {
+                try {
+                    const rawUrl = ev?.detail?.url || '';
+                    const source = ev?.detail?.source || 'page-hook';
+                    if (!rawUrl) return;
+                    const abs = new URL(rawUrl, window.location.origin).href;
+                    if (!this._isLikelyTorrentDownloadUrl(abs)) return;
+                    if (!this._isAllowedDownloadHost(abs)) return;
+                    const tid = this._getCurrentTid();
+                    if (tid && /[?&]tid=\d+/.test(abs) && !new RegExp(`[?&]tid=${tid}(?:&|$)`).test(abs)) return;
+                    this.setRuntimeLink(abs, `page:${source}`);
+                } catch (e) {}
+            }, true);
+        },
+
+        _installPageContextHook() {
+            if (this._hookInstalled) return;
+            this._hookInstalled = true;
+            if (document.getElementById('mp-mteam-page-hook-script')) return;
+
+            const script = document.createElement('script');
+            script.id = 'mp-mteam-page-hook-script';
+            script.textContent = `(function(){
+                if(window.__mpMTeamPageHookInstalled)return;
+                window.__mpMTeamPageHookInstalled=true;
+                window.__mpMTeamPrefetchUntil=0;
+                function shouldCapture(url){try{var s=String(url||'').toLowerCase();return s.indexOf('dlv2')>=0||s.indexOf('torrent/download')>=0||s.indexOf('.torrent')>=0||(s.indexOf('halomt.com')>=0&&s.indexOf('sign=')>=0)||((s.indexOf('app_id=')>=0||s.indexOf('payload=')>=0)&&s.indexOf('sign=')>=0)}catch(e){return false}}
+                function inPrefetch(){try{return Date.now()<(window.__mpMTeamPrefetchUntil||0)}catch(e){return false}}
+                try{document.addEventListener('mp-mteam-prefetch-mode',function(ev){try{var d=Number(ev&&ev.detail&&ev.detail.duration)||5000;if(d<500)d=500;window.__mpMTeamPrefetchUntil=Date.now()+d}catch(e){}},true)}catch(e){}
+                function emit(url,source){try{if(!url||!shouldCapture(url))return;document.dispatchEvent(new CustomEvent('mp-download-url-captured',{detail:{url:String(url),source:source||'page-hook'}}))}catch(e){}}
+                try{var origOpen=window.open;if(typeof origOpen==='function'){window.open=function(url){emit(url,'window.open');if(inPrefetch()&&shouldCapture(url))return null;return origOpen.apply(this,arguments)}}}catch(e){}
+                try{if(window.fetch){var origFetch=window.fetch;window.fetch=function(input){try{var u=(typeof input==='string')?input:(input&&input.url);emit(u,'fetch')}catch(e){}return origFetch.apply(this,arguments)}}}catch(e){}
+                try{var origXhrOpen=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(method,url){emit(url,'xhr.open');return origXhrOpen.apply(this,arguments)}}catch(e){}
+                try{var origAnchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){emit(this&&this.href,'anchor.click');if(inPrefetch()&&shouldCapture(this&&this.href))return;return origAnchorClick.apply(this,arguments)}}catch(e){}
+                try{document.addEventListener('click',function(ev){var path=ev.composedPath?ev.composedPath():[ev.target];for(var i=0;i<path.length;i++){var n=path[i];if(!n||!n.getAttribute)continue;emit(n.getAttribute('href'),'dom.click');emit(n.getAttribute('data-url'),'dom.click');emit(n.getAttribute('data-href'),'dom.click')}},true)}catch(e){}
+            })();`;
+            (document.documentElement || document.head || document.body).appendChild(script);
+        },
+
+        _installNativeDownloadHook() {
+            const nativeBtn = this._findNativeDownloadButton();
+            if (!nativeBtn) return;
+            if (nativeBtn.dataset?.mpHooked === '1') return;
+            if (nativeBtn.dataset) nativeBtn.dataset.mpHooked = '1';
+
+            nativeBtn.addEventListener('click', () => {
+                try {
+                    this._getDownloadAttrsFromElement(nativeBtn).forEach((raw) => {
+                        const parsed = this._extractLinkFromString(raw);
+                        if (parsed && this._isLikelyTorrentDownloadUrl(parsed) && this._isAllowedDownloadHost(parsed)) {
+                            this.setRuntimeLink(parsed, 'native-click');
+                        }
+                    });
+                } catch (e) {}
+
+                [250, 800, 1600, 2600, 4000].forEach((delay) => {
+                    setTimeout(() => {
+                        const perfHit = this._captureFromPerformance(`native-click+${delay}ms`);
+                        if (perfHit) return;
+                        const late = this.extractDownloadLink();
+                        if (late) this.setRuntimeLink(late, `native-click-extract+${delay}ms`);
+                    }, delay);
+                });
+            }, true);
+        },
+
+        _captureFromPerformance(source) {
+            const tid = this._getCurrentTid();
+            if (!tid) return '';
+            try {
+                const entries = performance.getEntriesByType('resource') || [];
+                for (let i = entries.length - 1; i >= 0; i--) {
+                    const url = entries[i]?.name || '';
+                    if (!this._isLikelyTorrentDownloadUrl(url)) continue;
+                    if (!this._isAllowedDownloadHost(url)) continue;
+                    if (/[?&]tid=\d+/.test(url) && !new RegExp(`[?&]tid=${tid}(?:&|$)`).test(url)) continue;
+                    this.setRuntimeLink(url, source || 'performance');
+                    return url;
+                }
+            } catch (e) {}
+            return '';
+        },
+
+        extractDownloadLink() {
+            const tid = this._getCurrentTid();
+            const seen = new Set();
+            let bestUrl = '';
+
+            const tryPush = (raw, source) => {
+                if (!raw) return;
+                let abs = '';
+                try { abs = new URL(String(raw).replace(/\\\//g, '/').replace(/&amp;/g, '&'), window.location.origin).href; } catch (e) { return; }
+                if (!this._isLikelyTorrentDownloadUrl(abs)) return;
+                if (!this._isAllowedDownloadHost(abs)) return;
+                if (tid && /[?&]tid=\d+/.test(abs) && !new RegExp(`[?&]tid=${tid}(?:&|$)`).test(abs)) return;
+                if (!seen.has(abs)) {
+                    seen.add(abs);
+                    if (!bestUrl) bestUrl = abs;
+                }
+            };
+
+            // 1. 运行时缓存
+            const cached = this.getRuntimeLink();
+            if (cached) return cached;
+
+            // 2. 原生下载按钮
+            const nativeBtn = this._findNativeDownloadButton();
+            if (nativeBtn) {
+                this._getDownloadAttrsFromElement(nativeBtn).forEach((raw) => {
+                    tryPush(this._extractLinkFromString(raw), 'native-btn');
+                });
+                const reactKeys = Object.keys(nativeBtn).filter(k => /^__reactProps\$|^__reactFiber\$/i.test(k));
+                reactKeys.forEach((key) => {
+                    const reactHit = this._deepFindDownloadLinkInObject(nativeBtn[key]);
+                    if (reactHit) tryPush(reactHit, `react:${key}`);
+                });
+            }
+
+            // 3. DOM selector 扫描
+            const selectors = [
+                'a[href*="/api/rss/dlv2"]', 'a[href*="dlv2"]', 'a[href*="torrent/download"]',
+                'a[href*=".torrent"]', '[data-url*="dlv2"]', '[data-href*="dlv2"]',
+                '[class*="download"]', 'button[onclick*="dlv2"]', 'a[onclick*="download"]'
+            ];
+            for (const selector of selectors) {
+                try {
+                    document.querySelectorAll(selector).forEach((node) => {
+                        const href = node.getAttribute('href');
+                        if (href) tryPush(href, selector);
+                        const dataUrl = node.getAttribute('data-url') || node.getAttribute('data-href');
+                        if (dataUrl) tryPush(dataUrl, selector);
+                        const inline = node.getAttribute('onclick') || node.textContent;
+                        const parsed = this._extractLinkFromString(inline);
+                        if (parsed) tryPush(parsed, selector);
+                    });
+                } catch (e) {}
+            }
+
+            // 4. Performance API
+            if (!bestUrl) this._captureFromPerformance('extract-fallback');
+
+            // 5. 兜底扫脚本文本
+            if (!bestUrl) {
+                document.querySelectorAll('script').forEach((s) => {
+                    const parsed = this._extractLinkFromString(s.textContent || '');
+                    if (parsed) tryPush(parsed, 'script');
+                });
+            }
+
+            return bestUrl || this.getRuntimeLink();
+        },
+
+        _triggerPrefetchMode(durationMs = 5000) {
+            try {
+                document.dispatchEvent(new CustomEvent('mp-mteam-prefetch-mode', { detail: { duration: durationMs } }));
+            } catch (e) {}
+        },
+
+        _startMutationWatcher(reason = 'auto', windowMs = 9000) {
+            const tid = this._getCurrentTid();
+            if (!tid) return;
+            const state = this._watcherState[tid];
+            if (state?.active) return;
+
+            const observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    if (m.type !== 'attributes') continue;
+                    const node = m.target;
+                    if (!node || typeof node.getAttribute !== 'function') continue;
+                    this._getDownloadAttrsFromElement(node).forEach((raw) => {
+                        const parsed = this._extractLinkFromString(raw);
+                        if (parsed && this._isLikelyTorrentDownloadUrl(parsed) && this._isAllowedDownloadHost(parsed)) {
+                            this.setRuntimeLink(parsed, `mutation:${reason}`);
+                        }
+                    });
+                }
+            });
+
+            this._watcherState[tid] = { active: true, observer };
+            observer.observe(document.documentElement || document.body, {
+                subtree: true, attributes: true,
+                attributeFilter: ['href', 'data-url', 'data-href', 'onclick', 'title', 'aria-label']
+            });
+            setTimeout(() => {
+                try { observer.disconnect(); } catch (e) {}
+                this._watcherState[tid] = { active: false };
+            }, windowMs);
+        },
+
+        autoPrefetch(reason = 'auto', options = {}) {
+            const tid = this._getCurrentTid();
+            if (!tid) return;
+            if (this.getRuntimeLink()) return;
+
+            const force = Boolean(options.force);
+            const cooldownMs = Number(options.cooldownMs || 30000);
+            const lastTs = this._prefetchState[tid] || 0;
+            if (!force && Date.now() - lastTs < cooldownMs) return;
+
+            const nativeBtn = this._findNativeDownloadButton();
+            if (!nativeBtn) return;
+
+            this._prefetchState[tid] = Date.now();
+            GM_log(`[${SCRIPT_NAME}] M-Team 预取开始: ${reason}`);
+
+            this._triggerPrefetchMode(8000);
+            this._startMutationWatcher(reason, 9000);
+            this._dispatchSyntheticClick(nativeBtn);
+
+            [300, 900, 1600, 2600, 4000, 5200].forEach((delay) => {
+                setTimeout(() => {
+                    const perfHit = this._captureFromPerformance(`prefetch+${delay}ms`);
+                    if (perfHit) return;
+                    const late = this.extractDownloadLink();
+                    if (late) this.setRuntimeLink(late, `prefetch-extract+${delay}ms`);
+                }, delay);
+            });
+        },
+
+        async waitForLinkOnDemand(initialLink = '') {
+            this.autoPrefetch('manual-push', { force: true, cooldownMs: 1200 });
+            const immediate = this.extractDownloadLink() || initialLink;
+            if (immediate) return immediate;
+
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const maxAttempts = 24;
+                const intervalMs = 700;
+
+                const cleanup = () => {
+                    clearInterval(timer);
+                    document.removeEventListener('mp-mteam-runtime-link-updated', onRuntimeLink, true);
+                };
+
+                const onRuntimeLink = () => {
+                    const got = this.getRuntimeLink() || this.extractDownloadLink();
+                    if (got) { cleanup(); resolve(got); }
+                };
+                document.addEventListener('mp-mteam-runtime-link-updated', onRuntimeLink, true);
+
+                const timer = setInterval(() => {
+                    attempts++;
+                    if (attempts % 2 === 0) {
+                        this.autoPrefetch('manual-push-retry', { force: true, cooldownMs: 1200 });
+                    }
+                    const got = this.getRuntimeLink() || this.extractDownloadLink();
+                    if (got) { cleanup(); resolve(got); return; }
+                    if (attempts >= maxAttempts) { cleanup(); resolve(''); }
+                }, intervalMs);
+            });
+        },
+
+        pruneCaches() {
+            const now = Date.now();
+            const maxAgeMs = 10 * 60 * 1000;
+            const tid = this._getCurrentTid();
+            Object.keys(this._runtimeLinks).forEach((k) => {
+                if (k === tid) return;
+                if (now - (this._runtimeLinks[k]?.at || 0) > maxAgeMs) delete this._runtimeLinks[k];
+            });
+            Object.keys(this._prefetchState).forEach((k) => {
+                if (k === tid) return;
+                if (now - (this._prefetchState[k] || 0) > maxAgeMs) delete this._prefetchState[k];
+            });
+        }
+    };
+
+
+    // ——————————————————————————————————————
     // [5] 核心逻辑 (CORE LOGIC)
     // ——————————————————————————————————————
 
@@ -690,23 +1238,96 @@
         },
 
         async startRecognition(row, rowType, torrentInfo) {
-            const trigger = row.querySelector('.mp-recognize-trigger');
-            if (trigger) {
-                trigger.setAttribute('data-state', 'running');
-                trigger.innerHTML = UI.renderTag('识别中...', CONSTANTS.COLORS.PRIMARY);
-            }
+            const setRunning = (msg) => {
+                const trigger = row.querySelector('.mp-recognize-trigger');
+                if (trigger) {
+                    trigger.setAttribute('data-state', 'running');
+                    trigger.innerHTML = UI.renderTag(msg, CONSTANTS.COLORS.PRIMARY);
+                }
+            };
+            setRunning('识别中...');
 
             try {
-                const data = await API.recognize(torrentInfo.name, torrentInfo.description);
-                if (data && data.media_info) {
-                    this.renderSuccess(row, rowType, data, torrentInfo);
-                } else {
-                    this.renderManualEntry(row, rowType, torrentInfo, 'error', '识别失败，重试');
+                const candidates = UTILS.getRecognitionCandidates(torrentInfo.name, torrentInfo.description);
+                GM_log(`[${SCRIPT_NAME}] 识别候选词:`, candidates);
+
+                for (let i = 0; i < candidates.length; i++) {
+                    if (i > 0) setRunning(`识别重试 (${i + 1}/${candidates.length})...`);
+                    const subtitle = i === 0 ? torrentInfo.description : '';
+                    try {
+                        const data = await API.recognize(candidates[i], subtitle);
+                        if (data && data.media_info) {
+                            this.renderSuccess(row, rowType, data, torrentInfo);
+                            return;
+                        }
+                    } catch (e) {
+                        if ((e.message || '').includes('配置不完整') || (e.message || '').includes('API Key')) {
+                            this.renderManualEntry(row, rowType, torrentInfo, 'error', '配置异常，重试');
+                            return;
+                        }
+                        GM_log(`[${SCRIPT_NAME}] 候选词识别失败: ${candidates[i]}`, e);
+                    }
                 }
+
+                if (CONFIG.get('tmdbKey')) {
+                    setRunning('TMDB 智能匹配中...');
+                    const mediaInfo = await this.tmdbFallback(candidates, torrentInfo.description);
+                    if (mediaInfo && mediaInfo.tmdb_id) {
+                        this.renderSuccess(row, rowType, { media_info: mediaInfo, meta_info: {} }, torrentInfo);
+                        return;
+                    }
+                }
+
+                this.renderManualEntry(row, rowType, torrentInfo, 'error', '识别失败，重试');
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Recognition failed:`, error);
                 const message = (error.message || '').includes('配置不完整') ? '配置异常，重试' : '识别失败，重试';
                 this.renderManualEntry(row, rowType, torrentInfo, 'error', message);
+            }
+        },
+
+        async tmdbFallback(candidates, subtitle) {
+            try {
+                const uniqueQueries = [];
+                const addQuery = (q) => {
+                    const val = String(q || '').trim();
+                    if (val && !uniqueQueries.includes(val)) uniqueQueries.push(val);
+                };
+                candidates.forEach(addQuery);
+                UTILS.extractSubtitleCandidates(subtitle).forEach(addQuery);
+
+                const yearHints = UTILS.extractYearHintsFromText(`${candidates.join(' ')} ${subtitle || ''}`);
+                const preferType = UTILS.inferTmdbSearchTypeFromText(`${candidates.join(' ')} ${subtitle || ''}`);
+                const topQueries = uniqueQueries.slice(0, 6);
+                const scored = [];
+                const dedup = new Set();
+
+                for (const q of topQueries) {
+                    const modes = preferType ? [preferType, ''] : [''];
+                    for (const mode of modes) {
+                        const results = await API.searchTmdb(q, mode);
+                        (results || []).slice(0, 12).forEach((item) => {
+                            const key = `${item?.media_type || mode || ''}:${item?.id || ''}`;
+                            if (!item?.id || dedup.has(key)) return;
+                            dedup.add(key);
+                            const mediaType = item?.media_type || (mode || 'movie');
+                            const effectiveType = mediaType === 'tv' ? 'tv' : 'movie';
+                            const score = UTILS.scoreTmdbResult({ ...item, media_type: effectiveType }, q, yearHints, preferType);
+                            scored.push({ id: item.id, mediaType: effectiveType, score });
+                        });
+                    }
+                }
+
+                scored.sort((a, b) => b.score - a.score);
+                const best = scored[0];
+                GM_log(`[${SCRIPT_NAME}] TMDB 兜底结果 (top 5):`, scored.slice(0, 5));
+                if (!best || best.score < 6) return null;
+
+                const typeName = best.mediaType === 'tv' ? '电视剧' : '电影';
+                return await API.recognizeById(best.id, typeName);
+            } catch (e) {
+                GM_log(`[${SCRIPT_NAME}] TMDB 兜底失败:`, e);
+                return null;
             }
         },
 
@@ -768,18 +1389,24 @@
             const originalText = "下载种子";
         
             try {
-                // 如果是 M-Team, 在此时获取下载链接
+                // 如果是 M-Team, 在此时获取下载链接（多层捕获优先，genDlToken 兜底）
                 if (Site.adapter.id === 'm-team') {
                     button.textContent = "获取链接...";
-                    try {
-                        torrentInfo.downloadLink = await API.getMteamDownloadLink();
-                        button.textContent = "正在推送..."; // 获取成功后更新文本
-                    } catch (linkError) {
-                        GM_log(`[${SCRIPT_NAME}] M-Team link acquisition failed:`, linkError);
+                    let link = await MTeamLinkCapture.waitForLinkOnDemand(torrentInfo.downloadLink);
+                    if (!link) {
+                        try {
+                            link = await API.getMteamDownloadLink();
+                        } catch (linkError) {
+                            GM_log(`[${SCRIPT_NAME}] M-Team genDlToken 兜底失败:`, linkError);
+                        }
+                    }
+                    if (!link) {
                         button.textContent = "链接获取失败";
                         setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
-                        return; // 获取失败，终止操作
+                        return;
                     }
+                    torrentInfo.downloadLink = link;
+                    button.textContent = "正在推送...";
                 }
         
                 const siteData = await API.getSite();
@@ -838,6 +1465,167 @@
         getFormattedDate() {
             return new Date().toISOString().slice(0, 19).replace('T', ' ');
         },
+
+        escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
+
+        cleanText(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        },
+
+        normalizeTorrentTitle(rawTitle) {
+            if (!rawTitle) return '';
+            let title = String(rawTitle).replace(/\s+/g, ' ').trim();
+            title = title
+                .replace(/\.torrent$/i, '')
+                .replace(/\.(mkv|mp4|avi|ts|m2ts|flv|wmv)$/i, '');
+            for (let i = 0; i < 6; i++) {
+                const next = title.replace(/^\s*(?:\[[^\]]{1,30}\]|\([^\)]{1,30}\)|【[^】]{1,30}】|<[^>]{1,30}>)(?:[\s._-]+|$)/, '');
+                if (next === title) break;
+                title = next;
+            }
+            title = title
+                .replace(/^[^A-Za-z0-9\u4e00-\u9fa5]+/, '')
+                .replace(/^[A-Za-z0-9]{2,10}\]\s*/, '')
+                .replace(/^[\]\)\】\}]+/, '');
+            title = title.replace(/[._]+/g, ' ');
+            const noisyPart = title.match(/\b(?:4320p|2160p|1080p|720p|480p|web[-\s]?dl|webrip|bluray|bdrip|hdtv|dvdrip|remux|h\.?26[45]|x26[45]|hevc|avc|aac(?:\d\.\d)?|ddp?\d(?:\.\d)?|dts(?:-hd)?|atmos|hdr10\+?|dolby[\s-]?vision|10bit|8bit)\b/i);
+            if (noisyPart && noisyPart.index > 0) {
+                title = title.slice(0, noisyPart.index);
+            }
+            title = title.replace(/\s+free\s+\d+\s*h(?:\s+\d+\s*min)?$/i, '');
+            title = title.replace(/\s+-[A-Za-z0-9][A-Za-z0-9._-]*$/, '');
+            return title.replace(/\s+/g, ' ').trim();
+        },
+
+        stripEpisodeInfo(title) {
+            return String(title || '')
+                .replace(/\bS\d{1,2}E\d{1,3}\b/ig, ' ')
+                .replace(/\bE\d{1,3}\b/ig, ' ')
+                .replace(/\b第\s*\d+\s*[季集]\b/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        extractSubtitleCandidates(subtitle) {
+            const results = [];
+            const add = (v) => {
+                const val = String(v || '').replace(/\s+/g, ' ').trim();
+                if (val && !results.includes(val)) results.push(val);
+            };
+            if (!subtitle) return results;
+            const clean = String(subtitle || '')
+                .replace(/\*[^*]{1,40}\*/g, ' ')
+                .replace(/\[[^\]]{1,40}\]/g, ' ')
+                .replace(/[|｜]/g, '/')
+                .replace(/\s+/g, ' ')
+                .trim();
+            clean.split(/\s*\/\s*/).forEach((part) => {
+                let p = String(part || '').trim();
+                if (!p) return;
+                p = p
+                    .replace(/(?:评论音轨|多国语字幕|字幕|中字|簡繁|简繁|国语|日语|英语|粤语|双语|音轨|內封|外挂|內嵌).*/gi, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                add(p);
+                const words = p.match(/\b[A-Za-z][A-Za-z0-9'’-]{3,}\b/g) || [];
+                words.forEach(add);
+            });
+            return results.slice(0, 8);
+        },
+
+        extractYearHintsFromText(text) {
+            const years = [];
+            String(text || '').replace(/\b(19|20)\d{2}\b/g, (m) => {
+                if (!years.includes(m)) years.push(m);
+                return m;
+            });
+            return years;
+        },
+
+        inferTmdbSearchTypeFromText(text) {
+            const raw = String(text || '');
+            if (/\bS\d{1,2}E\d{1,3}\b/i.test(raw)) return 'tv';
+            if (/\bE\d{1,3}\b/i.test(raw) || /第\s*\d+\s*季/.test(raw)) return 'tv';
+            return '';
+        },
+
+        normalizeForMatch(text) {
+            return String(text || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        },
+
+        getRecognitionCandidates(rawTitle, subtitle = '') {
+            const candidates = [];
+            const addCandidate = (title) => {
+                const val = String(title || '')
+                    .replace(/\s+/g, ' ')
+                    .replace(/\.torrent$/i, '')
+                    .replace(/\.(mkv|mp4|avi|ts|m2ts|flv|wmv)$/i, '')
+                    .replace(/^[A-Za-z0-9]{2,10}\]\s*/, '')
+                    .trim();
+                if (val && !candidates.includes(val)) candidates.push(val);
+            };
+
+            const normalized = this.normalizeTorrentTitle(rawTitle);
+            const withoutEpisode = this.stripEpisodeInfo(normalized);
+            const slashAlias = normalized.split(/\s*\/\s*/)[0].trim();
+            const hasTvPattern = /\bS\d{1,2}E\d{1,3}\b/i.test(normalized)
+                || /\bE\d{1,3}\b/i.test(normalized)
+                || /第\s*\d+\s*[季集]/.test(normalized);
+
+            addCandidate(rawTitle);
+            addCandidate(normalized);
+            addCandidate(slashAlias);
+            addCandidate(withoutEpisode);
+            this.extractSubtitleCandidates(subtitle).forEach(addCandidate);
+
+            if (!hasTvPattern) {
+                const yearMatch = normalized.match(/\b(?:19|20)\d{2}\b/);
+                if (yearMatch) {
+                    const year = yearMatch[0];
+                    const noYear = normalized
+                        .replace(new RegExp(`\\b${year}\\b`, 'g'), ' ')
+                        .replace(/\(\s*\)/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    addCandidate(noYear);
+                    if (noYear) {
+                        addCandidate(`${noYear} ${year}`);
+                        addCandidate(`${noYear} (${year})`);
+                    }
+                }
+            }
+            return candidates;
+        },
+
+        scoreTmdbResult(item, query, yearHints, preferType) {
+            const title = item?.title || item?.name || '';
+            const nt = this.normalizeForMatch(title);
+            const nq = this.normalizeForMatch(query);
+            let score = 0;
+            if (!nt || !nq) return score;
+            if (nt === nq) score += 12;
+            else if (nt.includes(nq) || nq.includes(nt)) score += 8;
+            const qTokens = nq.split(' ').filter(Boolean);
+            const tTokens = nt.split(' ').filter(Boolean);
+            const overlap = qTokens.filter(t => tTokens.includes(t)).length;
+            score += Math.min(overlap, 6);
+            const mediaType = item?.media_type || '';
+            if (preferType && mediaType === preferType) score += 2;
+            const y = String(item?.release_date || item?.first_air_date || '').slice(0, 4);
+            if (y && yearHints.includes(y)) score += 4;
+            return score;
+        },
     };
 
     function main() {
@@ -870,6 +1658,9 @@
 
         // 5. 处理 M-Team 的动态加载，等待详细信息出现后再渲染入口
         if (Site.adapter.id === 'm-team') {
+            // 立即初始化链接捕获，越早 hook fetch/XHR 命中越多
+            MTeamLinkCapture.init();
+
             const originOpen = XMLHttpRequest.prototype.open;
             let executed = false;
             XMLHttpRequest.prototype.open = function(...args) {
@@ -877,14 +1668,19 @@
                 if (typeof url === 'string' && url.includes("/api/torrent/detail")) {
                     this.addEventListener("readystatechange", function() {
                         if (this.readyState === 4 && this.status === 200) {
-                            if (executed) return; // 防止重复执行
+                            if (executed) return;
                             try {
                                 const res = JSON.parse(this.responseText);
                                 if (res && res.message === 'SUCCESS') {
                                     executed = true;
-                                GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Recognition trigger is ready.`);
-                                    // 延迟以确保页面数据填充完成，再渲染入口
-                                    setTimeout(() => bootCore(), 200);
+                                    GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Recognition trigger is ready.`);
+                                    setTimeout(() => {
+                                        bootCore();
+                                        // 启动后再 hook 一次原生按钮（此时 DOM 才齐全）
+                                        MTeamLinkCapture._installNativeDownloadHook();
+                                        // 后台预取（用户还没点下载之前先抓一次）
+                                        setTimeout(() => MTeamLinkCapture.autoPrefetch('initial'), 800);
+                                    }, 200);
                                 }
                             } catch (e) {
                                 GM_log(`[${SCRIPT_NAME}] Error parsing M-Team API response.`, e);
