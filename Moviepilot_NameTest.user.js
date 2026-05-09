@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.2.0
-// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获
+// @version      3.3.0
+// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别结果缓存24h
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
 // @match        http://*/details.php?id=*
@@ -47,6 +47,11 @@
             DOWNLOAD: '/api/v1/download/',
         },
         ALLOWED_HOSTS: ['api.themoviedb.org'],
+        RECOGNIZE_CACHE: {
+            KEY: 'mp_recognize_cache',
+            TTL_MS: 24 * 60 * 60 * 1000,  // 24 小时
+            MAX_ENTRIES: 200
+        },
         COLORS: {
             PRIMARY: '#2775b6',
             SECONDARY: '#e6702e',
@@ -102,6 +107,7 @@
                 GM_deleteValue('moviepilotAuthMode');
                 GM_deleteValue('moviepilotApiKey');
                 GM_deleteValue('moviepilotTmdbKey');
+                try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
             }
@@ -1225,7 +1231,16 @@
                 return;
             }
 
-            this.renderManualEntry(row, rowType, { name, description, downloadLink, size });
+            const torrentData = { name, description, downloadLink, size };
+
+            // 检查缓存：有则直接渲染成功结果，无则显示手动入口
+            const cached = Cache.get(name);
+            if (cached && cached.media_info) {
+                GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${name}`);
+                this.renderSuccess(row, rowType, cached, torrentData);
+            } else {
+                this.renderManualEntry(row, rowType, torrentData);
+            }
         },
 
         renderManualEntry(row, rowType, torrentInfo, state = 'idle', message = '点击识别') {
@@ -1272,6 +1287,7 @@
                     try {
                         const data = await API.recognize(candidates[i], subtitle);
                         if (data && data.media_info) {
+                            Cache.set(torrentInfo.name, data);
                             this.renderSuccess(row, rowType, data, torrentInfo);
                             return;
                         }
@@ -1288,7 +1304,9 @@
                     setRunning('TMDB 智能匹配中...');
                     const mediaInfo = await this.tmdbFallback(candidates, torrentInfo.description);
                     if (mediaInfo && mediaInfo.tmdb_id) {
-                        this.renderSuccess(row, rowType, { media_info: mediaInfo, meta_info: {} }, torrentInfo);
+                        const data = { media_info: mediaInfo, meta_info: {} };
+                        Cache.set(torrentInfo.name, data);
+                        this.renderSuccess(row, rowType, data, torrentInfo);
                         return;
                     }
                 }
@@ -1643,6 +1661,92 @@
         },
     };
 
+
+    // ——————————————————————————————————————
+    // [6.5] 识别结果缓存 (RECOGNIZE CACHE)
+    // ——————————————————————————————————————
+
+    const Cache = {
+        _data: null,
+
+        _load() {
+            if (this._data) return this._data;
+            try {
+                const raw = GM_getValue(CONSTANTS.RECOGNIZE_CACHE.KEY, '{}');
+                this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});
+            } catch (e) {
+                this._data = {};
+            }
+            return this._data;
+        },
+
+        _persist() {
+            try {
+                GM_setValue(CONSTANTS.RECOGNIZE_CACHE.KEY, JSON.stringify(this._data || {}));
+            } catch (e) {
+                GM_log(`[${SCRIPT_NAME}] 缓存写入失败:`, e);
+            }
+        },
+
+        _normalizeKey(name) {
+            return UTILS.cleanText(name).toLowerCase();
+        },
+
+        get(name) {
+            const key = this._normalizeKey(name);
+            if (!key) return null;
+            const data = this._load();
+            const item = data[key];
+            if (!item) return null;
+            if (Date.now() - (item.ts || 0) > CONSTANTS.RECOGNIZE_CACHE.TTL_MS) {
+                delete data[key];
+                this._persist();
+                return null;
+            }
+            return item.payload || null;
+        },
+
+        set(name, payload) {
+            const key = this._normalizeKey(name);
+            if (!key || !payload) return;
+            const data = this._load();
+            data[key] = { payload, ts: Date.now() };
+            this._prune();
+            this._persist();
+        },
+
+        _prune() {
+            const data = this._data || {};
+            const now = Date.now();
+            const ttl = CONSTANTS.RECOGNIZE_CACHE.TTL_MS;
+            // 先删过期项
+            Object.keys(data).forEach((k) => {
+                if (now - (data[k]?.ts || 0) > ttl) delete data[k];
+            });
+            // 超出条数则删最旧的
+            const max = CONSTANTS.RECOGNIZE_CACHE.MAX_ENTRIES;
+            const keys = Object.keys(data);
+            if (keys.length > max) {
+                keys
+                    .map((k) => ({ k, ts: data[k]?.ts || 0 }))
+                    .sort((a, b) => a.ts - b.ts)
+                    .slice(0, keys.length - max)
+                    .forEach(({ k }) => delete data[k]);
+            }
+        },
+
+        clear() {
+            this._data = {};
+            try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
+            UI.showToast(`[${SCRIPT_NAME}] 识别缓存已清空。`);
+            GM_log(`[${SCRIPT_NAME}] 识别缓存已清空。`);
+        },
+
+        size() {
+            return Object.keys(this._load()).length;
+        }
+    };
+
     function main() {
         // 1. 加载配置
         CONFIG.load();
@@ -1650,6 +1754,7 @@
         // 2. 注册菜单命令
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand("配置Moviepilot参数", () => UI.showConfigModal(false), "c");
+            GM_registerMenuCommand("清除识别缓存", () => Cache.clear(), "x");
             GM_registerMenuCommand("重置所有配置", CONFIG.reset, "r");
         }
     
