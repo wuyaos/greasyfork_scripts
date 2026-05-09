@@ -233,7 +233,7 @@
             const showPass = currentMode === 'password';
             const showApiKey = currentMode === 'apikey';
             return `
-                <h2>配置 Moviepilot 参数</h2>
+                <h2>⚙️ MoviePilot 配置</h2>
                 <div>
                     <label for="mpUrl">Moviepilot服务器 URL:</label>
                     <input type="text" id="mpUrl" placeholder="例如：http://192.168.1.100:3000" value="${CONFIG.get('url') || ''}">
@@ -278,8 +278,8 @@
             if (document.getElementById(styleId)) return;
             const css = `
                 #mpConfigModalBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 2147483646; display: flex; align-items: center; justify-content: center; }
-                #mpConfigModal { background-color: #f9f9f9; padding: 25px; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.25); z-index: 2147483647; width: 420px; font-family: "Segoe UI", sans-serif; color: #333; }
-                #mpConfigModal h2 { margin-top: 0; margin-bottom: 20px; font-size: 20px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+                #mpConfigModal { background-color: #f9f9f9; padding: 28px 25px 25px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); z-index: 2147483647; width: 420px; font-family: "Segoe UI", system-ui, sans-serif; color: #333; }
+                #mpConfigModal h2 { margin: 0 0 18px; font-size: 18px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #2775b6, #5bb053); padding: 12px 16px; border-radius: 6px; letter-spacing: 0.5px; }
                 #mpConfigModal label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
                 #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 24px); padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
                 #mpConfigModal select { width: 100%; padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; }
