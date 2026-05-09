@@ -855,7 +855,20 @@
         },
 
         _findNativeDownloadButton() {
-            return document.querySelector('div.flex.justify-between [class*="download"], div.flex.justify-between button, div.flex.justify-between a');
+            // 精确选择器：m-team 新版 UI 的下载按钮位置（避免误匹配其他导航按钮导致跳转）
+            const exactSelector = '#app-content > div > div.app-content__inner.px-\\[40px\\].flex.flex-col.justify-between > div.mx-auto.w-full > div.flex.py-5.mb-5.border-0.border-b.border-solid.border-\\[--mt-line-color\\].sticky.items-start.top-0.z-\\[999\\].bg-mt-primary-1.text-\\[--mt-text-base\\] > div.flex-grow.w-1.flex.flex-col.justify-between > div.flex.justify-between > div > div > div > div:nth-child(4)';
+            const exact = document.querySelector(exactSelector);
+            if (exact) return exact;
+
+            // 兜底：在标题栏 sticky 容器内找带 download 关键字的元素
+            const scope = document.querySelector('div.flex.py-5.mb-5.sticky') || document.querySelector('#app-content');
+            if (!scope) return null;
+            const candidates = scope.querySelectorAll('[class*="download" i], [title*="下載"], [title*="下载"], [aria-label*="下載"], [aria-label*="下载"]');
+            for (const c of candidates) {
+                const txt = (c.textContent || '').toLowerCase();
+                if (txt.includes('下載') || txt.includes('下载') || txt.includes('download')) return c;
+            }
+            return null;
         },
 
         _dispatchSyntheticClick(el) {
@@ -1112,7 +1125,10 @@
             if (!force && Date.now() - lastTs < cooldownMs) return;
 
             const nativeBtn = this._findNativeDownloadButton();
-            if (!nativeBtn) return;
+            if (!nativeBtn) {
+                GM_log(`[${SCRIPT_NAME}] M-Team 预取跳过: 未找到原生下载按钮 (${reason})`);
+                return;
+            }
 
             this._prefetchState[tid] = Date.now();
             GM_log(`[${SCRIPT_NAME}] M-Team 预取开始: ${reason}`);
@@ -1678,8 +1694,8 @@
                                         bootCore();
                                         // 启动后再 hook 一次原生按钮（此时 DOM 才齐全）
                                         MTeamLinkCapture._installNativeDownloadHook();
-                                        // 后台预取（用户还没点下载之前先抓一次）
-                                        setTimeout(() => MTeamLinkCapture.autoPrefetch('initial'), 800);
+                                        // 不在初始化时自动预取（合成点击可能导致跳转），
+                                        // 链接获取延迟到用户点击"下载种子"时按需触发
                                     }, 200);
                                 }
                             } catch (e) {
