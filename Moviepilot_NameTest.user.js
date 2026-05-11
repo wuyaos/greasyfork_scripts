@@ -253,6 +253,73 @@
             this.configModal.backdrop.addEventListener('click', (event) => {
                 if (event.target === this.configModal.backdrop) cancelAction();
             });
+
+            // 测试 MoviePilot 连通性
+            this.configModal.element.querySelector('.mp-test-mp-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                const mpUrl = document.getElementById('mpUrl').value.trim().replace(/\/$/, '');
+                const authMode = modeSelect.value;
+                if (!mpUrl) { alert('请先填写 MoviePilot 地址'); return; }
+                btn.disabled = true; btn.textContent = '测试中...';
+                try {
+                    const testUrl = `${mpUrl}/api/v1/site/statistic`;
+                    const headers = {};
+                    if (authMode === 'apikey') {
+                        const key = document.getElementById('mpApiKey').value.trim();
+                        if (!key) { alert('请填写 API Key'); btn.disabled = false; btn.textContent = '测试 MoviePilot'; return; }
+                        headers['X-API-KEY'] = key;
+                    } else {
+                        const user = document.getElementById('mpUser').value.trim();
+                        const pass = document.getElementById('mpPass').value;
+                        if (!user || !pass) { alert('请填写用户名密码'); btn.disabled = false; btn.textContent = '测试 MoviePilot'; return; }
+                        const loginRes = await new Promise((resolve, reject) => GM_xmlhttpRequest({
+                            method: 'POST', url: `${mpUrl}/api/v1/login/access-token`,
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
+                            responseType: 'json', onload: resolve, onerror: reject
+                        }));
+                        if (loginRes.status !== 200) throw new Error(`登录失败: ${loginRes.status}`);
+                        headers['Authorization'] = `bearer ${loginRes.response?.access_token}`;
+                    }
+                    const res = await new Promise((resolve, reject) => GM_xmlhttpRequest({
+                        method: 'GET', url: testUrl, headers, responseType: 'json', onload: resolve, onerror: reject
+                    }));
+                    if (res.status === 200) {
+                        btn.textContent = '连接成功'; btn.style.color = '#27ae60';
+                    } else {
+                        btn.textContent = `失败: ${res.status}`; btn.style.color = '#e74c3c';
+                    }
+                } catch (err) {
+                    btn.textContent = '连接失败'; btn.style.color = '#e74c3c';
+                }
+                setTimeout(() => { btn.disabled = false; btn.textContent = '测试 MoviePilot'; btn.style.color = ''; }, 3000);
+            });
+
+            // 测试 qBittorrent 连通性
+            this.configModal.element.querySelector('.mp-test-qb-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                const qbUrl = document.getElementById('mpQbUrl').value.trim().replace(/\/$/, '');
+                if (!qbUrl) { alert('请先填写 qBittorrent 地址'); return; }
+                btn.disabled = true; btn.textContent = '测试中...';
+                try {
+                    const user = document.getElementById('mpQbUser').value.trim();
+                    const pass = document.getElementById('mpQbPass').value;
+                    const res = await new Promise((resolve, reject) => GM_xmlhttpRequest({
+                        method: 'POST', url: `${qbUrl}/api/v2/auth/login`,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
+                        responseType: 'text', onload: resolve, onerror: reject
+                    }));
+                    if (res.responseText === 'Ok.') {
+                        btn.textContent = '连接成功'; btn.style.color = '#27ae60';
+                    } else {
+                        btn.textContent = '登录失败'; btn.style.color = '#e74c3c';
+                    }
+                } catch (err) {
+                    btn.textContent = '连接失败'; btn.style.color = '#e74c3c';
+                }
+                setTimeout(() => { btn.disabled = false; btn.textContent = '测试 qB'; btn.style.color = ''; }, 3000);
+            });
         },
 
         _getConfigModalHTML() {
@@ -308,6 +375,8 @@
                     <p style="margin:4px 0 0;color:#888;font-size:12px;">站点未适配 MoviePilot 时，将通过 qBittorrent 直接下载。</p>
                 </div>
                 <div class="mp-modal-buttons">
+                    <button class="mp-test-mp-btn" style="float:left;">测试 MoviePilot</button>
+                    <button class="mp-test-qb-btn" style="float:left;margin-left:8px;">测试 qB</button>
                     <button class="mp-cancel-btn">取消</button>
                     <button class="mp-save-btn">保存</button>
                 </div>
@@ -325,7 +394,9 @@
                 #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 24px); padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
                 #mpConfigModal select { width: 100%; padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; }
                 #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: #3498db; outline: none; }
-                #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 25px; }
+                #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 25px; overflow: hidden; }
+                #mpConfigModal .mp-test-mp-btn, #mpConfigModal .mp-test-qb-btn { background-color: #3498db; color: white; font-size: 12px; padding: 8px 12px; }
+                #mpConfigModal .mp-test-mp-btn:hover, #mpConfigModal .mp-test-qb-btn:hover { background-color: #2980b9; }
                 #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
                 #mpConfigModal button.mp-save-btn:hover { background-color: ${CONSTANTS.COLORS.BTN_SAVE_HOVER}; }
@@ -1826,6 +1897,7 @@
                 await API.download(media_info, torrentPayload);
                 button.textContent = "推送成功";
                 button.disabled = false;
+                UI.showToast(`MoviePilot 推送成功: ${torrentInfo.name}`, 3000);
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
                 // MoviePilot 推送失败（站点未适配等），尝试 qBittorrent 直推
@@ -1835,16 +1907,20 @@
                         await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
                         button.textContent = "qB推送成功";
                         button.disabled = false;
+                        UI.showToast(`qBittorrent 推送成功: ${torrentInfo.name}`, 3000);
                         return;
                     } catch (qbError) {
                         GM_log(`[${SCRIPT_NAME}] qBittorrent fallback failed:`, qbError);
                         button.textContent = qbError.message || 'qB推送失败';
+                        UI.showToast(`qBittorrent 推送失败: ${qbError.message}`, 4000);
                         setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
                         return;
                     }
                 }
                 if (button.textContent !== "链接获取失败") {
-                    button.textContent = error.message.includes('站点') ? '站点未适配' : '推送失败';
+                    const msg = error.message.includes('站点') ? '站点未适配' : '推送失败';
+                    button.textContent = msg;
+                    UI.showToast(`${msg}: ${error.message}`, 4000);
                 }
                 setTimeout(() => { 
                     button.textContent = originalText; 
