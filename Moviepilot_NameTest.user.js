@@ -636,13 +636,18 @@
         async download(media_info, torrent_info) {
             const token = await this.getAuthenticatedToken();
             const download_info = { media_in: media_info, torrent_in: torrent_info };
-            return this._request({
+            const res = await this._request({
                 method: 'POST',
                 url: CONSTANTS.API_ENDPOINTS.DOWNLOAD,
                 data: JSON.stringify(download_info),
                 headers: { ...this._buildAuthHeaders(token), "content-type": "application/json" },
                 responseType: 'json'
             });
+            // MoviePilot 可能返回 200 但 success=false
+            if (res && res.success === false) {
+                throw { status: 200, message: res.message || '推送被 MoviePilot 拒绝', response: res };
+            }
+            return res;
         },
 
         async getMteamDownloadLink() {
