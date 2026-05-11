@@ -752,20 +752,21 @@
             id: 'bangumi-moe',
             matches: () => window.location.hostname === 'bangumi.moe',
             getInfo: () => {
-                if (!/^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname)) return null;
-                const titleElement = document.querySelector('a[href*="/torrent/"]');
-                const title = titleElement?.textContent?.trim()
+                // 详情页（URL 直接访问）或弹窗（列表页内点击）
+                const modal = document.querySelector('.torrent-details-content');
+                const isDetailUrl = /^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname);
+                if (!isDetailUrl && !modal) return null;
+                const root = modal || document;
+                const titleEl = root.querySelector('a.title-link b') || root.querySelector('a[href*="/torrent/"]');
+                const title = titleEl?.textContent?.trim()
                     || BT_SITE_HELPERS.text('.torrent-title, .subject-title, .title')
                     || document.title.replace(/\s*[-|_].*$/, '').trim();
-                const downloadLink = BT_SITE_HELPERS.findDownloadLink([
-                    'a[href^="magnet:"]',
-                    'a[href*="/download/"]',
-                    'a[href*=".torrent"]'
-                ]);
-                const description = BT_SITE_HELPERS.text('.torrent-info, .description, .content, .panel-body') || title;
-                const sizeText = document.body?.innerText || '';
-                const insertPoint = titleElement?.closest('.torrent-info') || document.querySelector('.torrent-info, .torrent-title, .subject-title, .title') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+                const downloadLink = (root.querySelector('a[href^="magnet:"]')?.href)
+                    || BT_SITE_HELPERS.findDownloadLink(['a[href^="magnet:"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']);
+                const sizeText = root.querySelector('.filesize')?.textContent || root.textContent || '';
+                const insertPoint = (modal ? root.querySelector('.torrent-details-div') : titleEl?.closest('.torrent-info'))
+                    || root.querySelector('.torrent-info, .torrent-title') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description: title, downloadLink, sizeText, insertPoint });
             },
             getListInfo: () => {
                 if (/^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname)) return null;
@@ -2096,6 +2097,17 @@
             const origReplace = history.replaceState;
             history.pushState = function(...args) { origPush.apply(this, args); onUrlChange(); };
             history.replaceState = function(...args) { origReplace.apply(this, args); onUrlChange(); };
+            window.addEventListener('popstate', onUrlChange);
+
+            // 监听弹窗：列表页点击种子后 DOM 插入 .torrent-details-content，URL 不变
+            const modalObserver = new MutationObserver(() => {
+                const modal = document.querySelector('.torrent-details-content');
+                if (modal && !modal.querySelector('.mp-recognize-trigger')) {
+                    hasBooted = false;
+                    bootCore();
+                }
+            });
+            modalObserver.observe(document.body, { childList: true, subtree: true });
             window.addEventListener('popstate', onUrlChange);
         } else {
             bootCore();
