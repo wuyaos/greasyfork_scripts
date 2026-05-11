@@ -1515,7 +1515,9 @@
         attachRecognizeTrigger(row, rowType, torrentInfo) {
             const trigger = row.querySelector('.mp-recognize-trigger');
             if (!trigger) return;
-            trigger.addEventListener('click', () => {
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
                 const state = trigger.getAttribute('data-state');
                 if (state === 'running') return;
                 this.startRecognition(row, rowType, torrentInfo);
