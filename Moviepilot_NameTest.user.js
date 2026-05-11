@@ -764,8 +764,7 @@
                 const downloadLink = (root.querySelector('a[href^="magnet:"]')?.href)
                     || BT_SITE_HELPERS.findDownloadLink(['a[href^="magnet:"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']);
                 const sizeText = root.querySelector('.filesize')?.textContent || root.textContent || '';
-                const insertPoint = (modal ? root.querySelector('.torrent-details-div') : titleEl?.closest('.torrent-info'))
-                    || root.querySelector('.torrent-info, .torrent-title') || document.body;
+                const insertPoint = titleEl?.closest('a.title-link') || titleEl?.closest('.torrent-info') || root.querySelector('.torrent-info, .torrent-title') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description: title, downloadLink, sizeText, insertPoint });
             },
             getListInfo: () => {
