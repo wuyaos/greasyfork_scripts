@@ -778,7 +778,7 @@
                         name, description: name,
                         downloadLink: '',
                         sizeText: '',
-                        insertPoint: item
+                        insertPoint: item.parentElement || item
                     });
                 }).filter(Boolean);
             }
