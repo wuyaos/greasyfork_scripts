@@ -801,7 +801,7 @@
                 ]) || (encodedMagnet ? decodeURIComponent(encodedMagnet) : '') || (hash ? `magnet:?xt=urn:btih:${hash}` : '');
                 const description = BT_SITE_HELPERS.text('.intro, .entry-content, .content, .description, .panel-body, article') || title;
                 const sizeText = document.body?.innerText || '';
-                const insertPoint = document.querySelector('.intro, .basic_info, .entry-content, .content, article') || document.body;
+                const insertPoint = document.querySelector('.c2 > .box > .intro') || document.querySelector('.intro, .basic_info') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
             }
         },
