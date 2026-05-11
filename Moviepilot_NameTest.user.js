@@ -4,23 +4,28 @@
 // @version      3.4.0
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
-// @match        *://*/details.php?id=*
-// @match        *://*/details_movie.php?id=*
-// @match        *://*/details_tv.php?id=*
-// @match        *://*/details_animate.php?id=*
+// @match        https://*/details.php?id=*
+// @match        http://*/details.php?id=*
+// @match        https://*/details_movie.php?id=*
+// @match        https://*/details_tv.php?id=*
+// @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
 // @match        https://bangumi.moe/*
 // @match        https://mikanani.me/Home/Episode/*
-// @match        *://*.comicat.org/*
-// @match        *://comicat.org/*
+// @match        https://*.comicat.org/*
+// @match        https://comicat.org/*
+// @match        http://*.comicat.org/*
+// @match        http://comicat.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
 // @match        https://monikadesign.uk/torrents/*
 // @match        https://acg.rip/t/*
 // @match        https://nyaa.si/view/*
-// @match        *://*.kisssub.org/*
-// @match        *://kisssub.org/*
+// @match        https://*.kisssub.org/*
+// @match        https://kisssub.org/*
+// @match        http://*.kisssub.org/*
+// @match        http://kisssub.org/*
 // @grant        GM_log
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
