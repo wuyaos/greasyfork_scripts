@@ -82,7 +82,10 @@
             moviepilotPassword: '',
             moviepilotAuthMode: 'password',
             moviepilotApiKey: '',
-            moviepilotTmdbKey: ''
+            moviepilotTmdbKey: '',
+            qbUrl: '',
+            qbUser: '',
+            qbPass: ''
         }
     };
 
@@ -96,16 +99,22 @@
             this._values.authMode = GM_getValue('moviepilotAuthMode', CONSTANTS.DEFAULT_CONFIG.moviepilotAuthMode);
             this._values.apiKey = GM_getValue('moviepilotApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotApiKey);
             this._values.tmdbKey = GM_getValue('moviepilotTmdbKey', CONSTANTS.DEFAULT_CONFIG.moviepilotTmdbKey);
+            this._values.qbUrl = GM_getValue('qbUrl', CONSTANTS.DEFAULT_CONFIG.qbUrl);
+            this._values.qbUser = GM_getValue('qbUser', CONSTANTS.DEFAULT_CONFIG.qbUser);
+            this._values.qbPass = GM_getValue('qbPass', CONSTANTS.DEFAULT_CONFIG.qbPass);
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass, authMode, apiKey, tmdbKey }) {
+        save({ url, user, pass, authMode, apiKey, tmdbKey, qbUrl, qbUser, qbPass }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
             GM_setValue('moviepilotAuthMode', authMode || 'password');
             GM_setValue('moviepilotApiKey', apiKey || '');
             GM_setValue('moviepilotTmdbKey', tmdbKey || '');
+            GM_setValue('qbUrl', qbUrl || '');
+            GM_setValue('qbUser', qbUser || '');
+            GM_setValue('qbPass', qbPass || '');
             this.load();
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
             UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
@@ -119,6 +128,9 @@
                 GM_deleteValue('moviepilotAuthMode');
                 GM_deleteValue('moviepilotApiKey');
                 GM_deleteValue('moviepilotTmdbKey');
+                GM_deleteValue('qbUrl');
+                GM_deleteValue('qbUser');
+                GM_deleteValue('qbPass');
                 try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
@@ -206,7 +218,10 @@
                     pass: document.getElementById('mpPass').value,
                     authMode: modeSelect.value,
                     apiKey: document.getElementById('mpApiKey').value.trim(),
-                    tmdbKey: document.getElementById('mpTmdbKey').value.trim()
+                    tmdbKey: document.getElementById('mpTmdbKey').value.trim(),
+                    qbUrl: document.getElementById('mpQbUrl').value.trim().replace(/\/$/, ''),
+                    qbUser: document.getElementById('mpQbUser').value.trim(),
+                    qbPass: document.getElementById('mpQbPass').value
                 };
 
                 if (!newConfig.url) {
@@ -277,6 +292,20 @@
                 <div>
                     <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
                     <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
+                </div>
+                <h2 style="font-size:15px; margin:18px 0 12px; padding:8px 12px;">📥 qBittorrent 直推 (可选)</h2>
+                <div>
+                    <label for="mpQbUrl">qBittorrent Web UI 地址:</label>
+                    <input type="text" id="mpQbUrl" placeholder="例如：http://192.168.1.100:8080" value="${CONFIG.get('qbUrl') || ''}">
+                </div>
+                <div>
+                    <label for="mpQbUser">qBittorrent 用户名:</label>
+                    <input type="text" id="mpQbUser" value="${CONFIG.get('qbUser') || ''}">
+                </div>
+                <div>
+                    <label for="mpQbPass">qBittorrent 密码:</label>
+                    <input type="password" id="mpQbPass" value="${CONFIG.get('qbPass') || ''}">
+                    <p style="margin:4px 0 0;color:#888;font-size:12px;">站点未适配 MoviePilot 时，将通过 qBittorrent 直接下载。</p>
                 </div>
                 <div class="mp-modal-buttons">
                     <button class="mp-cancel-btn">取消</button>
@@ -578,6 +607,79 @@
                 GM_log(`[Moviepilot] M-Team adapter: 获取下载链接失败. ${error.message}`);
                 throw error; // 将错误向上抛出
             }
+        }
+    };
+
+
+    // ——————————————————————————————————————
+    // [3.5] qBittorrent 直推 (QB MODULE)
+    // ——————————————————————————————————————
+
+    const QB = {
+        _sid: null,
+
+        isConfigured() {
+            return !!CONFIG.get('qbUrl');
+        },
+
+        _rawRequest(options) {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    ...options,
+                    onload: (res) => resolve(res),
+                    onerror: (err) => reject(new Error('qBittorrent 请求失败')),
+                    ontimeout: () => reject(new Error('qBittorrent 请求超时'))
+                });
+            });
+        },
+
+        async login() {
+            const qbUrl = CONFIG.get('qbUrl');
+            const user = CONFIG.get('qbUser');
+            const pass = CONFIG.get('qbPass');
+            if (!qbUrl) throw new Error('未配置 qBittorrent 地址');
+            const res = await this._rawRequest({
+                method: 'POST',
+                url: `${qbUrl}/api/v2/auth/login`,
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
+                responseType: 'text'
+            });
+            if (res.responseText === 'Ok.') {
+                const cookie = res.responseHeaders?.match(/SID=([^;\s]+)/i);
+                this._sid = cookie ? cookie[1] : null;
+                return true;
+            }
+            throw new Error('qBittorrent 登录失败，请检查用户名密码');
+        },
+
+        async addTorrent(downloadLink, torrentName) {
+            if (!this._sid) await this.login();
+            const qbUrl = CONFIG.get('qbUrl');
+            const boundary = '----MP' + Date.now();
+            let body = '';
+            body += `--${boundary}\r\nContent-Disposition: form-data; name="urls"\r\n\r\n${downloadLink}\r\n`;
+            if (torrentName) {
+                body += `--${boundary}\r\nContent-Disposition: form-data; name="rename"\r\n\r\n${torrentName}\r\n`;
+            }
+            body += `--${boundary}--\r\n`;
+            const res = await this._rawRequest({
+                method: 'POST',
+                url: `${qbUrl}/api/v2/torrents/add`,
+                headers: {
+                    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                    'Cookie': this._sid ? `SID=${this._sid}` : ''
+                },
+                data: body,
+                responseType: 'text'
+            });
+            if (res.status === 200 && res.responseText === 'Ok.') return true;
+            if (res.status === 403) {
+                this._sid = null;
+                await this.login();
+                return this.addTorrent(downloadLink, torrentName);
+            }
+            throw new Error(`qBittorrent 添加失败: ${res.status} ${res.responseText}`);
         }
     };
 
@@ -1720,14 +1822,27 @@
                     pubdate: UTILS.getFormattedDate(),
                     site_ua: navigator.userAgent
                 };
-        
+
                 await API.download(media_info, torrentPayload);
                 button.textContent = "推送成功";
-                // 成功后不再禁用按钮，并保持“推送成功”状态
-                button.disabled = false; 
+                button.disabled = false;
             } catch (error) {
-                GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
-                // 主 catch 块现在也可以捕获站点或下载错误
+                GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
+                // MoviePilot 推送失败（站点未适配等），尝试 qBittorrent 直推
+                if (QB.isConfigured() && torrentInfo.downloadLink) {
+                    try {
+                        button.textContent = "qB直推中...";
+                        await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
+                        button.textContent = "qB推送成功";
+                        button.disabled = false;
+                        return;
+                    } catch (qbError) {
+                        GM_log(`[${SCRIPT_NAME}] qBittorrent fallback failed:`, qbError);
+                        button.textContent = qbError.message || 'qB推送失败';
+                        setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
+                        return;
+                    }
+                }
                 if (button.textContent !== "链接获取失败") {
                     button.textContent = error.message.includes('站点') ? '站点未适配' : '推送失败';
                 }
