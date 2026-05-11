@@ -766,6 +766,21 @@
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = titleElement?.closest('.torrent-info') || document.querySelector('.torrent-info, .torrent-title, .subject-title, .title') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            },
+            getListInfo: () => {
+                if (/^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname)) return null;
+                const items = document.querySelectorAll('div.torrent-title');
+                return Array.from(items).map(item => {
+                    const h3 = item.querySelector('h3');
+                    const name = h3?.textContent?.trim();
+                    if (!name) return null;
+                    return BT_SITE_HELPERS.simpleDivInfo({
+                        name, description: name,
+                        downloadLink: '',
+                        sizeText: '',
+                        insertPoint: item
+                    });
+                }).filter(Boolean);
             }
         },
         {
