@@ -1858,37 +1858,38 @@
 
         async handleDownload(button, media_info, torrentInfo) {
             button.disabled = true;
-            button.textContent = "正在推送...";
-        
             const originalText = "下载种子";
-        
+            const setStatus = (text) => { button.textContent = text; UI.showToast(text, 2000); };
+
             try {
-                // 如果是 M-Team, 在此时获取下载链接（多层捕获优先，genDlToken 兜底）
+                // M-Team 链接获取
                 if (Site.adapter.id === 'm-team') {
-                    button.textContent = "获取链接...";
+                    setStatus("M-Team: 获取下载链接...");
                     let link = await MTeamLinkCapture.waitForLinkOnDemand(torrentInfo.downloadLink);
                     if (!link) {
-                        try {
-                            link = await API.getMteamDownloadLink();
-                        } catch (linkError) {
-                            GM_log(`[${SCRIPT_NAME}] M-Team genDlToken 兜底失败:`, linkError);
-                        }
+                        try { link = await API.getMteamDownloadLink(); } catch (e) { GM_log(`[${SCRIPT_NAME}] genDlToken 失败:`, e); }
                     }
                     if (!link) {
-                        button.textContent = "链接获取失败";
+                        setStatus("链接获取失败");
                         setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
                         return;
                     }
                     torrentInfo.downloadLink = link;
-                    button.textContent = "正在推送...";
                 }
-        
+
+                // 1. 获取站点信息
+                setStatus("查询站点信息...");
                 let siteData = null;
                 try {
                     siteData = await API.getSite();
-                } catch (siteErr) {
-                    GM_log(`[${SCRIPT_NAME}] getSite 失败，使用默认站点信息:`, siteErr);
+                    setStatus(`站点: ${siteData.name}`);
+                } catch (e) {
+                    setStatus("站点未适配，使用通用模式...");
+                    GM_log(`[${SCRIPT_NAME}] getSite 失败:`, e);
                 }
+
+                // 2. 推送到 MoviePilot
+                setStatus("推送到 MoviePilot...");
                 const torrentPayload = {
                     title: torrentInfo.name,
                     description: torrentInfo.description,
@@ -1902,39 +1903,29 @@
                     pubdate: UTILS.getFormattedDate(),
                     site_ua: navigator.userAgent
                 };
-
                 await API.download(media_info, torrentPayload);
-                button.textContent = "推送成功";
+                setStatus("MoviePilot 推送成功");
                 button.disabled = false;
-                UI.showToast(`MoviePilot 推送成功: ${torrentInfo.name}`, 3000);
             } catch (error) {
-                GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
-                // MoviePilot 推送完全失败，尝试 qBittorrent 直推
+                GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
+
+                // 3. MoviePilot 失败，尝试 qBittorrent 直推
                 if (QB.isConfigured() && torrentInfo.downloadLink) {
                     try {
-                        button.textContent = "qB直推中...";
+                        setStatus("qBittorrent 直推中...");
                         await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
-                        button.textContent = "qB推送成功";
+                        setStatus("qBittorrent 推送成功");
                         button.disabled = false;
-                        UI.showToast(`qBittorrent 推送成功: ${torrentInfo.name}`, 3000);
                         return;
-                    } catch (qbError) {
-                        GM_log(`[${SCRIPT_NAME}] qBittorrent failed:`, qbError);
-                        button.textContent = qbError.message || 'qB推送失败';
-                        UI.showToast(`qBittorrent 推送失败: ${qbError.message}`, 4000);
-                        setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
+                    } catch (qbErr) {
+                        GM_log(`[${SCRIPT_NAME}] qBittorrent failed:`, qbErr);
+                        setStatus(`qB失败: ${qbErr.message}`);
+                        setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
                         return;
                     }
                 }
-                if (button.textContent !== "链接获取失败") {
-                    const msg = error.message || '推送失败';
-                    button.textContent = '推送失败';
-                    UI.showToast(`推送失败: ${msg}`, 4000);
-                }
-                setTimeout(() => { 
-                    button.textContent = originalText; 
-                    button.disabled = false; 
-                }, 2000);
+                setStatus(`推送失败: ${error.message || '未知错误'}`);
+                setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
             }
         }
     };
