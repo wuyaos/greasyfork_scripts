@@ -57,6 +57,8 @@
             RECOGNIZE_BY_ID: '/api/v1/media/tmdb:',
             GET_SITE: '/api/v1/site/domain/',
             DOWNLOAD: '/api/v1/download/',
+            DOWNLOAD_ADD: '/api/v1/download/add',
+            GET_CLIENTS: '/api/v1/download/clients',
         },
         ALLOWED_HOSTS: ['api.themoviedb.org'],
         RECOGNIZE_CACHE: {
@@ -644,6 +646,36 @@
                 responseType: 'json'
             });
             // MoviePilot 可能返回 200 但 success=false
+            if (res && res.success === false) {
+                throw { status: 200, message: res.message || '推送被 MoviePilot 拒绝', response: res };
+            }
+            return res;
+        },
+
+        async getClients() {
+            const token = await this.getAuthenticatedToken();
+            return this._request({ method: 'GET', url: CONSTANTS.API_ENDPOINTS.GET_CLIENTS, headers: this._buildAuthHeaders(token), responseType: 'json' });
+        },
+
+        async downloadAdd(torrentInfo, downloader) {
+            const token = await this.getAuthenticatedToken();
+            const payload = {
+                torrent_in: {
+                    title: torrentInfo.name,
+                    description: torrentInfo.description,
+                    page_url: window.location.href,
+                    enclosure: torrentInfo.downloadLink,
+                    size: torrentInfo.size,
+                },
+                downloader: downloader || null
+            };
+            const res = await this._request({
+                method: 'POST',
+                url: CONSTANTS.API_ENDPOINTS.DOWNLOAD_ADD,
+                data: JSON.stringify(payload),
+                headers: { ...this._buildAuthHeaders(token), "content-type": "application/json" },
+                responseType: 'json'
+            });
             if (res && res.success === false) {
                 throw { status: 200, message: res.message || '推送被 MoviePilot 拒绝', response: res };
             }
@@ -1889,27 +1921,33 @@
                     siteData = await API.getSite();
                     setStatus(`站点: ${siteData.name}`);
                 } catch (e) {
-                    setStatus("站点未适配，使用通用模式...");
                     GM_log(`[${SCRIPT_NAME}] getSite 失败:`, e);
                 }
 
-                // 2. 推送到 MoviePilot
-                setStatus("推送到 MoviePilot...");
-                const torrentPayload = {
-                    title: torrentInfo.name,
-                    description: torrentInfo.description,
-                    page_url: window.location.href,
-                    enclosure: torrentInfo.downloadLink,
-                    size: torrentInfo.size,
-                    site: siteData?.id || -1,
-                    site_name: siteData?.name || window.location.hostname,
-                    site_cookie: siteData?.cookie || '',
-                    proxy: siteData?.proxy || false,
-                    pubdate: UTILS.getFormattedDate(),
-                    site_ua: navigator.userAgent
-                };
-                await API.download(media_info, torrentPayload);
-                setStatus("MoviePilot 推送成功");
+                if (siteData) {
+                    // 2a. 站点已适配：走完整下载流程（含媒体信息）
+                    setStatus("推送到 MoviePilot...");
+                    const torrentPayload = {
+                        title: torrentInfo.name,
+                        description: torrentInfo.description,
+                        page_url: window.location.href,
+                        enclosure: torrentInfo.downloadLink,
+                        size: torrentInfo.size,
+                        site: siteData.id,
+                        site_name: siteData.name,
+                        site_cookie: siteData.cookie,
+                        proxy: siteData.proxy,
+                        pubdate: UTILS.getFormattedDate(),
+                        site_ua: navigator.userAgent
+                    };
+                    await API.download(media_info, torrentPayload);
+                    setStatus("MoviePilot 推送成功");
+                } else {
+                    // 2b. 站点未适配：通过 MoviePilot 下载器直推（不含站点信息）
+                    setStatus("通过 MoviePilot 下载器直推...");
+                    await API.downloadAdd(torrentInfo);
+                    setStatus("MoviePilot 下载器推送成功");
+                }
                 button.disabled = false;
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
