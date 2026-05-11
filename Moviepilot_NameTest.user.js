@@ -764,7 +764,7 @@
                 const downloadLink = (root.querySelector('a[href^="magnet:"]')?.href)
                     || BT_SITE_HELPERS.findDownloadLink(['a[href^="magnet:"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']);
                 const sizeText = root.querySelector('.filesize')?.textContent || root.textContent || '';
-                const insertPoint = titleEl?.closest('a.title-link') || titleEl?.closest('.torrent-info') || root.querySelector('.torrent-info, .torrent-title') || document.body;
+                const insertPoint = titleEl?.closest('.torrent-info') || root.querySelector('.torrent-info, .torrent-title') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description: title, downloadLink, sizeText, insertPoint });
             },
             getListInfo: () => {
@@ -2101,15 +2101,26 @@
             window.addEventListener('popstate', onUrlChange);
 
             // 监听弹窗：列表页点击种子后 DOM 插入 .torrent-details-content，URL 不变
+            let modalProcessing = false;
+            let modalDebounce = null;
             const modalObserver = new MutationObserver(() => {
-                const modal = document.querySelector('.torrent-details-content');
-                if (modal && !modal.querySelector('.mp-recognize-trigger')) {
-                    hasBooted = false;
-                    bootCore();
-                }
+                if (modalProcessing) return;
+                clearTimeout(modalDebounce);
+                modalDebounce = setTimeout(() => {
+                    const modal = document.querySelector('.torrent-details-content');
+                    if (modal && !modal.querySelector('.mp-recognize-trigger')) {
+                        modalProcessing = true;
+                        modalObserver.disconnect();
+                        hasBooted = false;
+                        bootCore();
+                        setTimeout(() => {
+                            modalProcessing = false;
+                            modalObserver.observe(document.body, { childList: true, subtree: false });
+                        }, 500);
+                    }
+                }, 300);
             });
-            modalObserver.observe(document.body, { childList: true, subtree: true });
-            window.addEventListener('popstate', onUrlChange);
+            modalObserver.observe(document.body, { childList: true, subtree: false });
         } else {
             bootCore();
         }
