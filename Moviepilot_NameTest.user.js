@@ -328,6 +328,7 @@
             const showApiKey = currentMode === 'apikey';
             return `
                 <h2>⚙️ MoviePilot 配置</h2>
+                <div class="mp-modal-body">
                 <div>
                     <label for="mpUrl">Moviepilot服务器 URL:</label>
                     <input type="text" id="mpUrl" placeholder="例如：http://192.168.1.100:3000" value="${CONFIG.get('url') || ''}">
@@ -360,7 +361,7 @@
                     <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
                     <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
                 </div>
-                <h2 style="font-size:15px; margin:18px 0 12px; padding:8px 12px;">📥 qBittorrent 直推 (可选)</h2>
+                <h2 class="mp-section-title">📥 qBittorrent 直推 (可选)</h2>
                 <div>
                     <label for="mpQbUrl">qBittorrent Web UI 地址:</label>
                     <input type="text" id="mpQbUrl" placeholder="例如：http://192.168.1.100:8080" value="${CONFIG.get('qbUrl') || ''}">
@@ -380,6 +381,7 @@
                     <button class="mp-cancel-btn">取消</button>
                     <button class="mp-save-btn">保存</button>
                 </div>
+                </div>
             `;
         },
 
@@ -387,15 +389,17 @@
             const styleId = 'mp-config-modal-style';
             if (document.getElementById(styleId)) return;
             const css = `
-                #mpConfigModalBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 2147483646; display: flex; align-items: center; justify-content: center; }
-                #mpConfigModal { background-color: #f9f9f9; padding: 28px 25px 25px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); z-index: 2147483647; width: 420px; font-family: "Segoe UI", system-ui, sans-serif; color: #333; }
-                #mpConfigModal h2 { margin: 0 0 18px; font-size: 18px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #2775b6, #5bb053); padding: 12px 16px; border-radius: 6px; letter-spacing: 0.5px; }
-                #mpConfigModal label { display: block; margin-bottom: 6px; font-weight: 600; color: #555; font-size: 14px; }
-                #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 24px); padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-                #mpConfigModal select { width: 100%; padding: 10px; margin-bottom: 18px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; }
+                #mpConfigModalBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 2147483646; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+                #mpConfigModal { background-color: #f9f9f9; padding: 0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); z-index: 2147483647; width: 440px; max-height: calc(100vh - 40px); overflow-y: auto; font-family: "Segoe UI", system-ui, sans-serif; color: #333; }
+                #mpConfigModal .mp-modal-body { padding: 20px 25px 25px; }
+                #mpConfigModal h2 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #2775b6, #5bb053); padding: 14px 20px; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 1; }
+                #mpConfigModal h2.mp-section-title { font-size: 14px; margin: 12px -25px 10px; padding: 8px 20px; border-radius: 0; background: linear-gradient(135deg, #8e44ad, #3498db); }
+                #mpConfigModal label { display: block; margin-bottom: 4px; font-weight: 600; color: #555; font-size: 13px; }
+                #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 20px); padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+                #mpConfigModal select { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
                 #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: #3498db; outline: none; }
-                #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 25px; overflow: hidden; }
-                #mpConfigModal .mp-test-mp-btn, #mpConfigModal .mp-test-qb-btn { background-color: #3498db; color: white; font-size: 12px; padding: 8px 12px; }
+                #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; overflow: hidden; }
+                #mpConfigModal .mp-test-mp-btn, #mpConfigModal .mp-test-qb-btn { background-color: #3498db; color: white; font-size: 12px; padding: 7px 10px; }
                 #mpConfigModal .mp-test-mp-btn:hover, #mpConfigModal .mp-test-qb-btn:hover { background-color: #2980b9; }
                 #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
