@@ -1787,16 +1787,26 @@
                             onerror: reject
                         }));
                         if (apiRes?.magnet) {
-                            const bangumiTrackers = [
-                                'https://tr.bangumi.moe:9696/announce',
-                                'http://tr.bangumi.moe:6969/announce',
-                                'udp://tr.bangumi.moe:6969/announce',
-                                'http://open.acgtracker.com:1096/announce',
-                                'http://t.nyaatracker.com/announce',
-                                'http://share.camoe.cn:8080/announce',
-                                'http://opentracker.acgnx.se/announce',
-                            ].map(t => `&tr=${encodeURIComponent(t)}`).join('');
-                            torrentInfo.downloadLink = apiRes.magnet + bangumiTrackers;
+                            // 从页面已有 magnet 链接提取 tracker，提取不到用硬编码兜底
+                            let trackerParams = '';
+                            const existingMagnet = document.querySelector('a[href^="magnet:"]')?.href || '';
+                            const extractedTrs = existingMagnet.split('&tr=').slice(1).map(t => '&tr=' + t.split('&')[0]);
+                            if (extractedTrs.length > 0) {
+                                trackerParams = extractedTrs.join('');
+                                log(`从页面提取到 ${extractedTrs.length} 个 tracker`);
+                            } else {
+                                trackerParams = [
+                                    'https://tr.bangumi.moe:9696/announce',
+                                    'http://tr.bangumi.moe:6969/announce',
+                                    'udp://tr.bangumi.moe:6969/announce',
+                                    'http://open.acgtracker.com:1096/announce',
+                                    'http://share.camoe.cn:8080/announce',
+                                    'http://opentracker.acgnx.se/announce',
+                                    'http://t.nyaatracker.com/announce',
+                                ].map(t => `&tr=${encodeURIComponent(t)}`).join('');
+                                log('使用硬编码 tracker 兜底');
+                            }
+                            torrentInfo.downloadLink = apiRes.magnet + trackerParams;
                             if (apiRes.size) torrentInfo.size = UTILS.parseSize(apiRes.size);
                             log(`bangumi API 获取成功: ${torrentInfo.downloadLink.substring(0, 80)}...`);
                         }
