@@ -11,7 +11,7 @@
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
 // @match        https://bangumi.moe/*
-// @match        https://mikanani.me/Home/Episode/*
+// @match        https://mikanani.me/Home/*
 // @match        https://*.comicat.org/*
 // @match        https://comicat.org/*
 // @match        http://*.comicat.org/*
@@ -20,8 +20,8 @@
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
 // @match        https://monikadesign.uk/torrents/*
-// @match        https://acg.rip/t/*
-// @match        https://nyaa.si/view/*
+// @match        https://acg.rip/*
+// @match        https://nyaa.si/*
 // @match        https://*.kisssub.org/*
 // @match        https://kisssub.org/*
 // @match        http://*.kisssub.org/*
@@ -750,8 +750,9 @@
         },
         {
             id: 'bangumi-moe',
-            matches: () => window.location.hostname === 'bangumi.moe' && /^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname),
+            matches: () => window.location.hostname === 'bangumi.moe',
             getInfo: () => {
+                if (!/^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname)) return null;
                 const titleElement = document.querySelector('a[href*="/torrent/"]');
                 const title = titleElement?.textContent?.trim()
                     || BT_SITE_HELPERS.text('.torrent-title, .subject-title, .title')
@@ -769,8 +770,9 @@
         },
         {
             id: 'mikanani',
-            matches: () => window.location.hostname === 'mikanani.me' && window.location.pathname.includes('/Home/Episode/'),
+            matches: () => window.location.hostname === 'mikanani.me' && window.location.pathname.startsWith('/Home/'),
             getInfo: () => {
+                if (!window.location.pathname.includes('/Home/Episode/')) return null;
                 const rawTitle = BT_SITE_HELPERS.text('.episode-title, h1, h2, .an-text')
                     || document.title.replace(/\s*-\s*Mikan Project\s*$/, '').trim();
                 const title = rawTitle.replace(/\s*\[\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB)\]\s*$/i, '').trim();
@@ -784,12 +786,31 @@
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = document.querySelector('.episode-title, h1, h2, .an-text') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            },
+            getListInfo: () => {
+                if (!window.location.pathname.includes('/Home/Bangumi/')) return null;
+                const rows = document.querySelectorAll('table tbody tr');
+                return Array.from(rows).map(row => {
+                    const titleEl = row.querySelector('a[href*="/Home/Episode/"]') || row.querySelector('a');
+                    const name = titleEl?.textContent?.trim()?.replace(/\s*\[\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB)\]\s*$/i, '').trim();
+                    if (!name) return null;
+                    const magnet = row.querySelector('input[data-magnet]')?.getAttribute('data-magnet') || '';
+                    const tds = row.querySelectorAll('td');
+                    const sizeText = tds[2]?.textContent?.trim() || '';
+                    return BT_SITE_HELPERS.simpleDivInfo({
+                        name, description: name,
+                        downloadLink: magnet,
+                        sizeText,
+                        insertPoint: titleEl
+                    });
+                }).filter(Boolean);
             }
         },
         {
             id: 'comicat-kisssub',
-            matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(window.location.hostname) && /\/show-[a-f0-9]{40}\.html$/i.test(window.location.pathname),
+            matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(window.location.hostname),
             getInfo: () => {
+                if (!/\/show-[a-f0-9]{40}\.html$/i.test(window.location.pathname)) return null;
                 const title = document.title.replace(/\s*-\s*(?:漫猫动漫|爱恋动漫)\s+[a-f0-9]{40}\s*$/i, '').trim();
                 const hash = window.location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || '';
                 const encodedMagnet = Array.from(document.querySelectorAll('a[href*="magnet%3A"], a[href*="magnet%3a"]'))
@@ -803,12 +824,30 @@
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = document.querySelector('.c2 > .box > .intro') || document.querySelector('.intro, .basic_info') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            },
+            getListInfo: () => {
+                if (/\/show-[a-f0-9]{40}\.html$/i.test(window.location.pathname)) return null;
+                const rows = document.querySelectorAll('tr.alt1, tr.alt2');
+                return Array.from(rows).map(row => {
+                    const titleEl = row.querySelector('a[href*="show-"]');
+                    const name = titleEl?.textContent?.trim();
+                    if (!name) return null;
+                    const hash = titleEl.href.match(/show-([a-f0-9]{40})/i)?.[1] || '';
+                    const downloadLink = hash ? `magnet:?xt=urn:btih:${hash}` : '';
+                    return BT_SITE_HELPERS.simpleDivInfo({
+                        name, description: name,
+                        downloadLink,
+                        sizeText: row.textContent,
+                        insertPoint: titleEl
+                    });
+                }).filter(Boolean);
             }
         },
         {
             id: 'acg-rip',
-            matches: () => window.location.hostname === 'acg.rip' && /^\/t\/\d+$/.test(window.location.pathname),
+            matches: () => window.location.hostname === 'acg.rip',
             getInfo: () => {
+                if (!/^\/t\/\d+$/.test(window.location.pathname)) return null;
                 const panelContent = document.querySelector('.panel-body.post-content');
                 const heading = panelContent?.parentElement?.querySelector('.panel-heading');
                 const title = heading?.textContent?.trim() || document.title.replace(/\s*-\s*ACG\.RIP\s*$/i, '').trim();
@@ -820,12 +859,30 @@
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = heading || panelContent || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            },
+            getListInfo: () => {
+                const rows = document.querySelectorAll('table tbody tr');
+                return Array.from(rows).map(row => {
+                    const titleEl = row.querySelector('a[href*="/t/"]');
+                    const name = titleEl?.textContent?.trim();
+                    if (!name || titleEl.href.includes('.torrent')) return null;
+                    const torrent = row.querySelector('a[href*=".torrent"]')?.href || '';
+                    const tds = row.querySelectorAll('td');
+                    const sizeText = tds[tds.length - 1]?.textContent?.trim() || '';
+                    return BT_SITE_HELPERS.simpleDivInfo({
+                        name, description: name,
+                        downloadLink: torrent,
+                        sizeText,
+                        insertPoint: titleEl
+                    });
+                }).filter(Boolean);
             }
         },
         {
             id: 'nyaa',
-            matches: () => window.location.hostname === 'nyaa.si' && /^\/view\/\d+$/.test(window.location.pathname),
+            matches: () => window.location.hostname === 'nyaa.si',
             getInfo: () => {
+                if (!/^\/view\/\d+$/.test(window.location.pathname)) return null;
                 const title = BT_SITE_HELPERS.text('h3.panel-title')
                     || document.title.replace(/\s*::\s*Nyaa\s*$/i, '').trim();
                 const downloadLink = BT_SITE_HELPERS.findDownloadLink([
@@ -837,6 +894,23 @@
                 const sizeText = document.body?.innerText || '';
                 const insertPoint = document.querySelector('.panel-heading') || document.body;
                 return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+            },
+            getListInfo: () => {
+                const rows = document.querySelectorAll('table.torrent-list tbody tr');
+                return Array.from(rows).map(row => {
+                    const titleEl = row.querySelector('td:nth-child(2) a:not(.comments)');
+                    const name = titleEl?.textContent?.trim();
+                    if (!name) return null;
+                    const magnet = row.querySelector('a[href^="magnet:"]')?.href || '';
+                    const torrent = row.querySelector('a[href*="/download/"]')?.href || '';
+                    const size = row.querySelector('td:nth-child(4)')?.textContent?.trim() || '';
+                    return BT_SITE_HELPERS.simpleDivInfo({
+                        name, description: name,
+                        downloadLink: magnet || torrent,
+                        sizeText: size,
+                        insertPoint: titleEl
+                    });
+                }).filter(Boolean);
             }
         },
         {
@@ -918,7 +992,15 @@
             }
         },
         async getTorrentInfo() {
-            return this.adapter ? await this.adapter.getInfo() : null;
+            if (!this.adapter) return null;
+            // 优先列表模式（多条）
+            if (this.adapter.getListInfo) {
+                const list = await this.adapter.getListInfo();
+                if (list && list.length > 0) return list;
+            }
+            // 回退到详情页单条模式
+            const single = await this.adapter.getInfo();
+            return single ? [single] : null;
         }
     };
 
@@ -1360,15 +1442,19 @@
 
     const Core = {
         async handlePage() {
-            const torrentInfo = await Site.getTorrentInfo();
-            // 日志
-            GM_log(`MP 消息: 正在处理页面，匹配到的种子信息:`, torrentInfo && (({ insertPoint, insertAction, ...rest }) => rest)(torrentInfo));
-
-            if (!torrentInfo || !torrentInfo.name) {
+            const torrentInfoList = await Site.getTorrentInfo();
+            if (!torrentInfoList || torrentInfoList.length === 0) {
                 GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
                 return;
             }
+            GM_log(`[${SCRIPT_NAME}] 匹配到 ${torrentInfoList.length} 条种子信息`);
+            for (const torrentInfo of torrentInfoList) {
+                if (!torrentInfo || !torrentInfo.name) continue;
+                this._processOneTorrent(torrentInfo);
+            }
+        },
 
+        _processOneTorrent(torrentInfo) {
             const { name, description, downloadLink, size, insertPoint, insertIndex, insertAction, rowType } = torrentInfo;
 
             const row = document.createElement(rowType === 'common' ? 'tr' : 'div');
