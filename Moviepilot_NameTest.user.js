@@ -1671,7 +1671,11 @@
 
             const downloadButton = row.querySelector('#mp-download-button');
             if (downloadButton) {
-                downloadButton.addEventListener("click", () => this.handleDownload(downloadButton, data.media_info, torrentInfo));
+                downloadButton.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this.handleDownload(downloadButton, data.media_info, torrentInfo);
+                });
             }
         },
 
