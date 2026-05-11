@@ -779,7 +779,7 @@
                         name, description: name,
                         downloadLink: '',
                         sizeText: '',
-                        insertPoint: item.parentElement || item
+                        insertPoint: item.closest('md-item, .torrent-row') || item.parentElement || item
                     });
                 }).filter(Boolean);
             }
