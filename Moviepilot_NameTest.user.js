@@ -1707,7 +1707,7 @@
                 return;
             }
 
-            const torrentData = { name, description, downloadLink, size };
+            const torrentData = { name, description, downloadLink, size, _bangumiId: torrentInfo._bangumiId };
 
             // 检查缓存：有则直接渲染成功结果，无则显示手动入口
             const cached = Cache.get(name);
