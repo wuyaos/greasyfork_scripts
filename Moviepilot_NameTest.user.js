@@ -988,12 +988,16 @@
                     const h3 = item.querySelector('h3');
                     const name = h3?.textContent?.trim();
                     if (!name) return null;
-                    return BT_SITE_HELPERS.simpleDivInfo({
+                    const torrentLink = item.querySelector('a[href*="/torrent/"]');
+                    const torrentId = torrentLink?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || '';
+                    const info = BT_SITE_HELPERS.simpleDivInfo({
                         name, description: name,
                         downloadLink: '',
                         sizeText: '',
                         insertPoint: item.closest('md-item, .torrent-row') || item.parentElement || item
                     });
+                    if (info && torrentId) info._bangumiId = torrentId;
+                    return info;
                 }).filter(Boolean);
             }
         },
@@ -1896,9 +1900,33 @@
         async handleDownload(button, media_info, torrentInfo) {
             button.disabled = true;
             const originalText = "下载种子";
-            const setStatus = (text) => { button.textContent = text; UI.showToast(text, 2000); };
+            const log = (msg, ...args) => GM_log(`[${SCRIPT_NAME}] [Download] ${msg}`, ...args);
+            const setStatus = (text) => { button.textContent = text; UI.showToast(text, 2000); log(text); };
 
             try {
+                // bangumi.moe 列表项：通过 API 获取真实 magnet
+                if (torrentInfo._bangumiId && !torrentInfo.downloadLink) {
+                    setStatus("获取 bangumi.moe 磁力链接...");
+                    try {
+                        const apiRes = await new Promise((resolve, reject) => GM_xmlhttpRequest({
+                            method: 'GET',
+                            url: `https://bangumi.moe/api/v2/torrent/${torrentInfo._bangumiId}`,
+                            responseType: 'json',
+                            onload: (r) => r.status === 200 ? resolve(r.response) : reject(new Error(`API ${r.status}`)),
+                            onerror: reject
+                        }));
+                        if (apiRes?.magnet) {
+                            torrentInfo.downloadLink = apiRes.magnet;
+                            if (apiRes.size) torrentInfo.size = UTILS.parseSize(apiRes.size);
+                            log(`bangumi API 获取成功: ${apiRes.magnet.substring(0, 60)}...`);
+                        }
+                    } catch (e) {
+                        log('bangumi API 获取失败:', e);
+                    }
+                }
+
+                log('开始推送:', { name: torrentInfo.name, downloadLink: torrentInfo.downloadLink?.substring(0, 60), size: torrentInfo.size });
+
                 // M-Team 链接获取
                 if (Site.adapter.id === 'm-team') {
                     setStatus("M-Team: 获取下载链接...");
@@ -1919,6 +1947,7 @@
                 let pushed = false;
                 try {
                     const siteData = await API.getSite();
+                    log(`站点匹配成功: id=${siteData.id}, name=${siteData.name}`);
                     setStatus(`站点: ${siteData.name}，推送中...`);
                     const torrentPayload = {
                         title: torrentInfo.name,
@@ -1933,22 +1962,26 @@
                         pubdate: UTILS.getFormattedDate(),
                         site_ua: navigator.userAgent
                     };
-                    await API.download(media_info, torrentPayload);
+                    log('完整推送 payload:', torrentPayload);
+                    const dlRes = await API.download(media_info, torrentPayload);
+                    log('完整推送响应:', dlRes);
                     setStatus("MoviePilot 推送成功");
                     pushed = true;
                 } catch (e) {
-                    GM_log(`[${SCRIPT_NAME}] 完整推送失败:`, e);
+                    log('完整推送失败:', e);
                 }
 
                 // 2. 完整推送失败，尝试 downloadAdd（不含站点信息，走 MoviePilot 下载器）
                 if (!pushed && torrentInfo.downloadLink) {
                     try {
                         setStatus("通过 MoviePilot 下载器直推...");
-                        await API.downloadAdd(torrentInfo);
+                        log('downloadAdd 参数:', { name: torrentInfo.name, enclosure: torrentInfo.downloadLink?.substring(0, 60) });
+                        const addRes = await API.downloadAdd(torrentInfo);
+                        log('downloadAdd 响应:', addRes);
                         setStatus("MoviePilot 下载器推送成功");
                         pushed = true;
                     } catch (e) {
-                        GM_log(`[${SCRIPT_NAME}] downloadAdd 失败:`, e);
+                        log('downloadAdd 失败:', e);
                     }
                 }
 
@@ -1956,6 +1989,7 @@
                 if (!pushed && QB.isConfigured() && torrentInfo.downloadLink) {
                     try {
                         setStatus("qBittorrent 直推中...");
+                        log('qB 直推:', torrentInfo.downloadLink?.substring(0, 60));
                         await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
                         setStatus("qBittorrent 推送成功");
                         pushed = true;
