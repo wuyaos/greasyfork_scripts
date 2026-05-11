@@ -360,7 +360,7 @@
         },
 
         renderTag(text, color) {
-            return `<span style="background-color:${color};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;border-radius:0.375rem;font-size:12px;padding:0.25rem 0.75rem;font-weight:bold;">${text}</span>`;
+            return `<span style="background-color:${color};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;border-radius:0.375rem;font-size:12px;padding:0.25rem 0.75rem;font-weight:bold;">${UTILS.escapeHtml(text)}</span>`;
         },
 
         renderRecognizeRow(type, html) {
@@ -735,16 +735,17 @@
             matches: () => window.location.href.includes('totheglory.im/t/'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead, .heading');
-                const nameLink = rows[0].nextElementSibling.querySelector('a');
+                if (rows.length < 2) return null;
+                const nameLink = rows[0].nextElementSibling?.querySelector('a');
                 const sizeString = Array.from(rows)
                     .find(row => row.textContent.includes('尺寸'))
                     ?.nextElementSibling?.innerText || '';
-                const description = document.querySelector("h1").textContent.replace(/.*?\[/, '[').trim();
+                const description = document.querySelector("h1")?.textContent.replace(/.*?\[/, '[').trim() || '';
                 return {
                     name: nameLink?.textContent.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || '',
-                    downloadLink: document.querySelector("td[valign='top'] a").getAttribute("href") || '',
+                    downloadLink: document.querySelector("td[valign='top'] a")?.getAttribute("href") || '',
                     description: description,
-                    size: UTILS.parseSize(sizeString || 0),
+                    size: UTILS.parseSize(sizeString || ''),
                     insertPoint: rows[1].parentElement.parentElement,
                     rowType: 'common',
                     insertAction: (point, element) => point.insertBefore(element, point.children[2])
@@ -756,16 +757,17 @@
             matches: () => window.location.href.includes('hdsky.me/details.php'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
+                if (rows.length < 4) return null;
                 const nameRow = rows[0], downloadLinkRow = rows[1], descRow = rows[2], sizeRow = rows[3];
-                const nameLink = nameRow.parentElement.querySelector('.rowfollow input[type="submit"]').value.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '';
-                const downloadLink = downloadLinkRow.parentElement.querySelector('.rowfollow a').href  || '';
-                const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
-                const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim();
+                const nameLink = nameRow.parentElement.querySelector('.rowfollow input[type="submit"]')?.value.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '';
+                const downloadLink = downloadLinkRow.parentElement.querySelector('.rowfollow a')?.href || '';
+                const description = descRow.parentElement.querySelector('.rowfollow')?.textContent.trim() || '';
+                const sizeString = sizeRow.parentElement.querySelector('.rowfollow')?.textContent.trim() || '';
                 return {
                     name: nameLink,
                     downloadLink: downloadLink,
                     description: description,
-                    size: UTILS.parseSize(sizeString || 0),
+                    size: UTILS.parseSize(sizeString || ''),
                     insertPoint: rows[1].parentElement.parentElement,
                     rowType: 'common',
                     insertAction: (point, element) => point.insertBefore(element, point.children[2])
@@ -777,16 +779,17 @@
             matches: () => window.location.href.includes('pt.sjtu.edu.cn/details.php'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead, .heading');
+                if (rows.length < 4) return null;
                 const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3];
-                const nameLink = nameRow.nextElementSibling.querySelector('a').textContent.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '';
-                const downloadLink = nameRow.nextElementSibling.querySelector('a')?.href || '';
+                const nameLink = nameRow.nextElementSibling?.querySelector('a')?.textContent.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '';
+                const downloadLink = nameRow.nextElementSibling?.querySelector('a')?.href || '';
                 const description = descRow.parentElement.querySelector('.rowfollow').textContent.trim() || '';
                 const sizeString = sizeRow.parentElement.querySelector('.rowfollow').textContent.trim();
                 return {
                     name: nameLink,
                     downloadLink: downloadLink,
                     description: description,
-                    size: UTILS.parseSize(sizeString || 0),
+                    size: UTILS.parseSize(sizeString || ''),
                     insertPoint: rows[1].parentElement.parentElement,
                     rowType: 'common',
                     insertAction: (point, element) => point.insertBefore(element, point.children[2])
@@ -798,16 +801,17 @@
             matches: () => window.location.href.includes('hdcity.city/t-'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.blocktitle');
+                if (rows.length < 4) return null;
                 const nameLink = rows[0].textContent;
-                const sizeblock = rows[1].nextElementSibling.textContent;
-                const description = rows[0].parentElement.querySelector('.blockcontent').textContent.trim() || "";
-                const downloadLink =  rows[3].nextElementSibling.querySelector('input[type="text"][title="DirectLink"]').value || "";
+                const sizeblock = rows[1].nextElementSibling?.textContent || '';
+                const description = rows[0].parentElement?.querySelector('.blockcontent')?.textContent.trim() || "";
+                const downloadLink = rows[3].nextElementSibling?.querySelector('input[type="text"][title="DirectLink"]')?.value || "";
 
                 return {
                     name: nameLink,
                     downloadLink: downloadLink,
                     description: description,
-                    size: UTILS.parseSize(sizeblock || 0),
+                    size: UTILS.parseSize(sizeblock || ''),
                     insertPoint: document.querySelector('div.block'),
                     rowType: 'div',
                     insertAction: (point, element) => {
@@ -831,7 +835,7 @@
                     name: nameElement.textContent.trim(),
                     description: descriptionElement ? descriptionElement.textContent.trim() : '',
                     downloadLink: downloadLinkElement ? downloadLinkElement.href : '',
-                    size: UTILS.parseSize(size.replace(/iB/gi, 'B') || 0),
+                    size: UTILS.parseSize(size.replace(/iB/gi, 'B') || ''),
                     insertPoint: insertPoint,
                     rowType: 'common',
                     insertAction: (point, element) => {
@@ -1026,7 +1030,7 @@
         },
         {
             id: 'generic-nexusphp',
-            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdcity.city'),
+            matches: () => document.querySelector('.rowhead') && !window.location.href.includes('totheglory.im') && !window.location.href.includes('hdsky.me') && !window.location.href.includes('hdcity.city'),
             getInfo: () => {
                 const rows = document.querySelectorAll('.rowhead');
                 if (rows.length < 3) return null;
@@ -1566,7 +1570,7 @@
         },
 
         _processOneTorrent(torrentInfo) {
-            const { name, description, downloadLink, size, insertPoint, insertIndex, insertAction, rowType } = torrentInfo;
+            const { name, description, downloadLink, size, insertPoint, insertAction, rowType } = torrentInfo;
 
             // 去重：insertPoint 附近已有识别按钮则跳过
             if (insertPoint?.nextElementSibling?.querySelector?.('.mp-recognize-trigger')
@@ -1578,8 +1582,6 @@
             }
             if (insertAction) {
                 insertAction(insertPoint, row);
-            } else if (insertPoint && typeof insertIndex !== 'undefined') {
-                insertPoint.insertBefore(row, insertPoint.children[insertIndex]);
             } else {
                 GM_log(`[${SCRIPT_NAME}] No valid insert point for UI.`);
                 return;
@@ -1599,14 +1601,11 @@
 
         renderManualEntry(row, rowType, torrentInfo, state = 'idle', message = '点击识别') {
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
-            const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; padding: 0.25rem 0.75rem;`;
             const isRunning = state === 'running';
             const tagColor = state === 'error' ? CONSTANTS.COLORS.WARNING : (isRunning ? CONSTANTS.COLORS.PRIMARY : CONSTANTS.COLORS.SECONDARY);
             const manualTag = `<span class="mp-recognize-trigger" data-state="${state}">${UI.renderTag(message, tagColor)}</span>`;
-            const showButton = state === 'success';
-            const downloadButton = showButton ? `<button id="mp-download-button" style="${buttonStyle}">下载种子</button>` : '';
 
-            const html = `<div style="${containerStyle}">${manualTag}${downloadButton}</div>`;
+            const html = `<div style="${containerStyle}">${manualTag}</div>`;
             row.innerHTML = UI.renderRecognizeRow(rowType, html);
             this.attachRecognizeTrigger(row, rowType, torrentInfo);
         },
@@ -1728,7 +1727,7 @@
             // Manual trigger + Download Button
             finalHtml += `<span class="mp-recognize-trigger" data-state="idle">${UI.renderTag('重新识别', CONSTANTS.COLORS.SECONDARY)}</span>`;
             const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; padding: 0.25rem 0.75rem;`;
-            finalHtml += `<button id="mp-download-button" style="${buttonStyle}">下载种子</button>`;
+            finalHtml += `<button class="mp-download-button" style="${buttonStyle}">下载种子</button>`;
 
             // Tags
             finalHtml += media_info.type ? UI.renderTag(media_info.type, CONSTANTS.COLORS.PRIMARY) : '';
@@ -1765,7 +1764,7 @@
                 });
             }
 
-            const downloadButton = row.querySelector('#mp-download-button');
+            const downloadButton = row.querySelector('.mp-download-button');
             if (downloadButton) {
                 downloadButton.addEventListener("click", (e) => {
                     e.stopPropagation();
@@ -1904,6 +1903,8 @@
 
     const UTILS = {
         parseSize(sizeStr) {
+            sizeStr = String(sizeStr || '');
+            sizeStr = sizeStr.replace(/iB/gi, 'B');
             if (!sizeStr) return 0;
             const match = sizeStr.toUpperCase().match(/(\d+\.?\d*)\s*(TB|GB|MB|KB)/);
             if (!match) return 0;
@@ -2177,7 +2178,7 @@
         if (typeof GM_registerMenuCommand === 'function') {
             GM_registerMenuCommand("配置Moviepilot参数", () => UI.showConfigModal(false), "c");
             GM_registerMenuCommand("清除识别缓存", () => Cache.clear(), "x");
-            GM_registerMenuCommand("重置所有配置", CONFIG.reset, "r");
+            GM_registerMenuCommand("重置所有配置", () => CONFIG.reset(), "r");
         }
     
         // 3. 确保配置存在，否则弹窗并终止
