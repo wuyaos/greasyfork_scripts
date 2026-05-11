@@ -581,7 +581,14 @@
 
         async download(media_info, torrent_info) {
             const token = await this.getAuthenticatedToken();
-            const download_info = { media_in: media_info, torrent_in: torrent_info };
+            // 修复 media_info 中字符串化的数组/对象字段
+            const fixedMedia = { ...media_info };
+            for (const [k, v] of Object.entries(fixedMedia)) {
+                if (typeof v === 'string' && v.startsWith('[')) {
+                    try { fixedMedia[k] = JSON.parse(v); } catch (_) {}
+                }
+            }
+            const download_info = { media_in: fixedMedia, torrent_in: torrent_info };
             const res = await this._request({
                 method: 'POST',
                 url: CONSTANTS.API_ENDPOINTS.DOWNLOAD,
