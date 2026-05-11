@@ -1914,19 +1914,12 @@
                     torrentInfo.downloadLink = link;
                 }
 
-                // 1. 获取站点信息
+                // 1. 尝试完整推送（含站点+媒体信息）
                 setStatus("查询站点信息...");
-                let siteData = null;
+                let pushed = false;
                 try {
-                    siteData = await API.getSite();
-                    setStatus(`站点: ${siteData.name}`);
-                } catch (e) {
-                    GM_log(`[${SCRIPT_NAME}] getSite 失败:`, e);
-                }
-
-                if (siteData) {
-                    // 2a. 站点已适配：走完整下载流程（含媒体信息）
-                    setStatus("推送到 MoviePilot...");
+                    const siteData = await API.getSite();
+                    setStatus(`站点: ${siteData.name}，推送中...`);
                     const torrentPayload = {
                         title: torrentInfo.name,
                         description: torrentInfo.description,
@@ -1942,32 +1935,45 @@
                     };
                     await API.download(media_info, torrentPayload);
                     setStatus("MoviePilot 推送成功");
-                } else {
-                    // 2b. 站点未适配：通过 MoviePilot 下载器直推（不含站点信息）
-                    setStatus("通过 MoviePilot 下载器直推...");
-                    await API.downloadAdd(torrentInfo);
-                    setStatus("MoviePilot 下载器推送成功");
+                    pushed = true;
+                } catch (e) {
+                    GM_log(`[${SCRIPT_NAME}] 完整推送失败:`, e);
                 }
-                button.disabled = false;
-            } catch (error) {
-                GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
 
-                // 3. MoviePilot 失败，尝试 qBittorrent 直推
-                if (QB.isConfigured() && torrentInfo.downloadLink) {
+                // 2. 完整推送失败，尝试 downloadAdd（不含站点信息，走 MoviePilot 下载器）
+                if (!pushed && torrentInfo.downloadLink) {
+                    try {
+                        setStatus("通过 MoviePilot 下载器直推...");
+                        await API.downloadAdd(torrentInfo);
+                        setStatus("MoviePilot 下载器推送成功");
+                        pushed = true;
+                    } catch (e) {
+                        GM_log(`[${SCRIPT_NAME}] downloadAdd 失败:`, e);
+                    }
+                }
+
+                // 3. MoviePilot 都失败，尝试 qBittorrent 直推
+                if (!pushed && QB.isConfigured() && torrentInfo.downloadLink) {
                     try {
                         setStatus("qBittorrent 直推中...");
                         await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
                         setStatus("qBittorrent 推送成功");
-                        button.disabled = false;
-                        return;
+                        pushed = true;
                     } catch (qbErr) {
                         GM_log(`[${SCRIPT_NAME}] qBittorrent failed:`, qbErr);
-                        setStatus(`qB失败: ${qbErr.message}`);
-                        setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
-                        return;
                     }
                 }
-                setStatus(`推送失败: ${error.message || '未知错误'}`);
+
+                if (!pushed) {
+                    const reason = !torrentInfo.downloadLink ? '无下载链接（请到详情页操作）' : '所有推送方式均失败';
+                    setStatus(reason);
+                    setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
+                    return;
+                }
+                button.disabled = false;
+            } catch (outerErr) {
+                GM_log(`[${SCRIPT_NAME}] handleDownload 异常:`, outerErr);
+                setStatus(`异常: ${outerErr.message || '未知错误'}`);
                 setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
             }
         }
