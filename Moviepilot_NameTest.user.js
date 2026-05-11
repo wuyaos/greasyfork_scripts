@@ -84,10 +84,7 @@
             moviepilotPassword: '',
             moviepilotAuthMode: 'password',
             moviepilotApiKey: '',
-            moviepilotTmdbKey: '',
-            qbUrl: '',
-            qbUser: '',
-            qbPass: ''
+            moviepilotTmdbKey: ''
         }
     };
 
@@ -101,22 +98,16 @@
             this._values.authMode = GM_getValue('moviepilotAuthMode', CONSTANTS.DEFAULT_CONFIG.moviepilotAuthMode);
             this._values.apiKey = GM_getValue('moviepilotApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotApiKey);
             this._values.tmdbKey = GM_getValue('moviepilotTmdbKey', CONSTANTS.DEFAULT_CONFIG.moviepilotTmdbKey);
-            this._values.qbUrl = GM_getValue('qbUrl', CONSTANTS.DEFAULT_CONFIG.qbUrl);
-            this._values.qbUser = GM_getValue('qbUser', CONSTANTS.DEFAULT_CONFIG.qbUser);
-            this._values.qbPass = GM_getValue('qbPass', CONSTANTS.DEFAULT_CONFIG.qbPass);
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass, authMode, apiKey, tmdbKey, qbUrl, qbUser, qbPass }) {
+        save({ url, user, pass, authMode, apiKey, tmdbKey }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
             GM_setValue('moviepilotAuthMode', authMode || 'password');
             GM_setValue('moviepilotApiKey', apiKey || '');
             GM_setValue('moviepilotTmdbKey', tmdbKey || '');
-            GM_setValue('qbUrl', qbUrl || '');
-            GM_setValue('qbUser', qbUser || '');
-            GM_setValue('qbPass', qbPass || '');
             this.load();
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
             UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
@@ -130,9 +121,6 @@
                 GM_deleteValue('moviepilotAuthMode');
                 GM_deleteValue('moviepilotApiKey');
                 GM_deleteValue('moviepilotTmdbKey');
-                GM_deleteValue('qbUrl');
-                GM_deleteValue('qbUser');
-                GM_deleteValue('qbPass');
                 try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
@@ -220,10 +208,7 @@
                     pass: document.getElementById('mpPass').value,
                     authMode: modeSelect.value,
                     apiKey: document.getElementById('mpApiKey').value.trim(),
-                    tmdbKey: document.getElementById('mpTmdbKey').value.trim(),
-                    qbUrl: document.getElementById('mpQbUrl').value.trim().replace(/\/$/, ''),
-                    qbUser: document.getElementById('mpQbUser').value.trim(),
-                    qbPass: document.getElementById('mpQbPass').value
+                    tmdbKey: document.getElementById('mpTmdbKey').value.trim()
                 };
 
                 if (!newConfig.url) {
@@ -296,32 +281,6 @@
                 }
                 setTimeout(() => { btn.disabled = false; btn.textContent = '测试 MoviePilot'; btn.style.color = ''; }, 3000);
             });
-
-            // 测试 qBittorrent 连通性
-            this.configModal.element.querySelector('.mp-test-qb-btn').addEventListener('click', async (e) => {
-                const btn = e.target;
-                const qbUrl = document.getElementById('mpQbUrl').value.trim().replace(/\/$/, '');
-                if (!qbUrl) { alert('请先填写 qBittorrent 地址'); return; }
-                btn.disabled = true; btn.textContent = '测试中...';
-                try {
-                    const user = document.getElementById('mpQbUser').value.trim();
-                    const pass = document.getElementById('mpQbPass').value;
-                    const res = await new Promise((resolve, reject) => GM_xmlhttpRequest({
-                        method: 'POST', url: `${qbUrl}/api/v2/auth/login`,
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
-                        responseType: 'text', onload: resolve, onerror: reject
-                    }));
-                    if (res.responseText === 'Ok.') {
-                        btn.textContent = '连接成功'; btn.style.color = '#27ae60';
-                    } else {
-                        btn.textContent = '登录失败'; btn.style.color = '#e74c3c';
-                    }
-                } catch (err) {
-                    btn.textContent = '连接失败'; btn.style.color = '#e74c3c';
-                }
-                setTimeout(() => { btn.disabled = false; btn.textContent = '测试 qB'; btn.style.color = ''; }, 3000);
-            });
         },
 
         _getConfigModalHTML() {
@@ -363,23 +322,8 @@
                     <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
                     <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
                 </div>
-                <h2 class="mp-section-title">📥 qBittorrent 直推 (可选)</h2>
-                <div>
-                    <label for="mpQbUrl">qBittorrent Web UI 地址:</label>
-                    <input type="text" id="mpQbUrl" placeholder="例如：http://192.168.1.100:8080" value="${CONFIG.get('qbUrl') || ''}">
-                </div>
-                <div>
-                    <label for="mpQbUser">qBittorrent 用户名:</label>
-                    <input type="text" id="mpQbUser" value="${CONFIG.get('qbUser') || ''}">
-                </div>
-                <div>
-                    <label for="mpQbPass">qBittorrent 密码:</label>
-                    <input type="password" id="mpQbPass" value="${CONFIG.get('qbPass') || ''}">
-                    <p style="margin:4px 0 0;color:#888;font-size:12px;">站点未适配 MoviePilot 时，将通过 qBittorrent 直接下载。</p>
-                </div>
                 <div class="mp-modal-buttons">
                     <button class="mp-test-mp-btn" style="float:left;">测试 MoviePilot</button>
-                    <button class="mp-test-qb-btn" style="float:left;margin-left:8px;">测试 qB</button>
                     <button class="mp-cancel-btn">取消</button>
                     <button class="mp-save-btn">保存</button>
                 </div>
@@ -401,8 +345,8 @@
                 #mpConfigModal select { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
                 #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: #3498db; outline: none; }
                 #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; overflow: hidden; }
-                #mpConfigModal .mp-test-mp-btn, #mpConfigModal .mp-test-qb-btn { background-color: #3498db; color: white; font-size: 12px; padding: 7px 10px; }
-                #mpConfigModal .mp-test-mp-btn:hover, #mpConfigModal .mp-test-qb-btn:hover { background-color: #2980b9; }
+                #mpConfigModal .mp-test-mp-btn { background-color: #3498db; color: white; font-size: 12px; padding: 7px 10px; }
+                #mpConfigModal .mp-test-mp-btn:hover { background-color: #2980b9; }
                 #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
                 #mpConfigModal button.mp-save-btn:hover { background-color: ${CONSTANTS.COLORS.BTN_SAVE_HOVER}; }
@@ -719,79 +663,6 @@
                 GM_log(`[Moviepilot] M-Team adapter: 获取下载链接失败. ${error.message}`);
                 throw error; // 将错误向上抛出
             }
-        }
-    };
-
-
-    // ——————————————————————————————————————
-    // [3.5] qBittorrent 直推 (QB MODULE)
-    // ——————————————————————————————————————
-
-    const QB = {
-        _sid: null,
-
-        isConfigured() {
-            return !!CONFIG.get('qbUrl');
-        },
-
-        _rawRequest(options) {
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    ...options,
-                    onload: (res) => resolve(res),
-                    onerror: (err) => reject(new Error('qBittorrent 请求失败')),
-                    ontimeout: () => reject(new Error('qBittorrent 请求超时'))
-                });
-            });
-        },
-
-        async login() {
-            const qbUrl = CONFIG.get('qbUrl');
-            const user = CONFIG.get('qbUser');
-            const pass = CONFIG.get('qbPass');
-            if (!qbUrl) throw new Error('未配置 qBittorrent 地址');
-            const res = await this._rawRequest({
-                method: 'POST',
-                url: `${qbUrl}/api/v2/auth/login`,
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
-                responseType: 'text'
-            });
-            if (res.responseText === 'Ok.') {
-                const cookie = res.responseHeaders?.match(/SID=([^;\s]+)/i);
-                this._sid = cookie ? cookie[1] : null;
-                return true;
-            }
-            throw new Error('qBittorrent 登录失败，请检查用户名密码');
-        },
-
-        async addTorrent(downloadLink, torrentName) {
-            if (!this._sid) await this.login();
-            const qbUrl = CONFIG.get('qbUrl');
-            const boundary = '----MP' + Date.now();
-            let body = '';
-            body += `--${boundary}\r\nContent-Disposition: form-data; name="urls"\r\n\r\n${downloadLink}\r\n`;
-            if (torrentName) {
-                body += `--${boundary}\r\nContent-Disposition: form-data; name="rename"\r\n\r\n${torrentName}\r\n`;
-            }
-            body += `--${boundary}--\r\n`;
-            const res = await this._rawRequest({
-                method: 'POST',
-                url: `${qbUrl}/api/v2/torrents/add`,
-                headers: {
-                    'Content-Type': `multipart/form-data; boundary=${boundary}`,
-                    'Cookie': this._sid ? `SID=${this._sid}` : ''
-                },
-                data: body,
-                responseType: 'text'
-            });
-            if (res.status === 200 && res.responseText === 'Ok.') return true;
-            if (res.status === 403) {
-                this._sid = null;
-                await this.login();
-                return this.addTorrent(downloadLink, torrentName);
-            }
-            throw new Error(`qBittorrent 添加失败: ${res.status} ${res.responseText}`);
         }
     };
 
@@ -1982,19 +1853,6 @@
                         pushed = true;
                     } catch (e) {
                         log('downloadAdd 失败:', e);
-                    }
-                }
-
-                // 3. MoviePilot 都失败，尝试 qBittorrent 直推
-                if (!pushed && QB.isConfigured() && torrentInfo.downloadLink) {
-                    try {
-                        setStatus("qBittorrent 直推中...");
-                        log('qB 直推:', torrentInfo.downloadLink?.substring(0, 60));
-                        await QB.addTorrent(torrentInfo.downloadLink, torrentInfo.name);
-                        setStatus("qBittorrent 推送成功");
-                        pushed = true;
-                    } catch (qbErr) {
-                        GM_log(`[${SCRIPT_NAME}] qBittorrent failed:`, qbErr);
                     }
                 }
 
