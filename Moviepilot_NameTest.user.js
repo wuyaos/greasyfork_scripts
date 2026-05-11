@@ -1883,17 +1883,22 @@
                     button.textContent = "正在推送...";
                 }
         
-                const siteData = await API.getSite();
+                let siteData = null;
+                try {
+                    siteData = await API.getSite();
+                } catch (siteErr) {
+                    GM_log(`[${SCRIPT_NAME}] getSite 失败，使用默认站点信息:`, siteErr);
+                }
                 const torrentPayload = {
                     title: torrentInfo.name,
                     description: torrentInfo.description,
                     page_url: window.location.href,
                     enclosure: torrentInfo.downloadLink,
                     size: torrentInfo.size,
-                    site: siteData.id,
-                    site_name: siteData.name,
-                    site_cookie: siteData.cookie,
-                    proxy: siteData.proxy,
+                    site: siteData?.id || -1,
+                    site_name: siteData?.name || window.location.hostname,
+                    site_cookie: siteData?.cookie || '',
+                    proxy: siteData?.proxy || false,
                     pubdate: UTILS.getFormattedDate(),
                     site_ua: navigator.userAgent
                 };
@@ -1903,8 +1908,8 @@
                 button.disabled = false;
                 UI.showToast(`MoviePilot 推送成功: ${torrentInfo.name}`, 3000);
             } catch (error) {
-                GM_log(`[${SCRIPT_NAME}] MoviePilot download failed:`, error);
-                // MoviePilot 推送失败（站点未适配等），尝试 qBittorrent 直推
+                GM_log(`[${SCRIPT_NAME}] Download failed:`, error);
+                // MoviePilot 推送完全失败，尝试 qBittorrent 直推
                 if (QB.isConfigured() && torrentInfo.downloadLink) {
                     try {
                         button.textContent = "qB直推中...";
@@ -1914,7 +1919,7 @@
                         UI.showToast(`qBittorrent 推送成功: ${torrentInfo.name}`, 3000);
                         return;
                     } catch (qbError) {
-                        GM_log(`[${SCRIPT_NAME}] qBittorrent fallback failed:`, qbError);
+                        GM_log(`[${SCRIPT_NAME}] qBittorrent failed:`, qbError);
                         button.textContent = qbError.message || 'qB推送失败';
                         UI.showToast(`qBittorrent 推送失败: ${qbError.message}`, 4000);
                         setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
@@ -1922,9 +1927,9 @@
                     }
                 }
                 if (button.textContent !== "链接获取失败") {
-                    const msg = error.message.includes('站点') ? '站点未适配' : '推送失败';
-                    button.textContent = msg;
-                    UI.showToast(`${msg}: ${error.message}`, 4000);
+                    const msg = error.message || '推送失败';
+                    button.textContent = '推送失败';
+                    UI.showToast(`推送失败: ${msg}`, 4000);
                 }
                 setTimeout(() => { 
                     button.textContent = originalText; 
