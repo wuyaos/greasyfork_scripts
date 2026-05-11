@@ -1472,6 +1472,10 @@
         _processOneTorrent(torrentInfo) {
             const { name, description, downloadLink, size, insertPoint, insertIndex, insertAction, rowType } = torrentInfo;
 
+            // 去重：insertPoint 附近已有识别按钮则跳过
+            if (insertPoint?.nextElementSibling?.querySelector?.('.mp-recognize-trigger')
+                || insertPoint?.querySelector?.('.mp-recognize-trigger')) return;
+
             const row = document.createElement(rowType === 'common' ? 'tr' : 'div');
             if (rowType === 'common' && window.location.href.includes("m-team")) {
                 row.className = "ant-descriptions-row";
