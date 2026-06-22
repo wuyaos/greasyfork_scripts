@@ -7,6 +7,7 @@ Input: 浏览器用户脚本运行环境、目标站点页面、用户本地 GM 
 
 - `README.md`: 脚本列表与安装入口说明。
 - `IYUU_Reseed_Checker.user.js`: 独立 IYUU 辅种检测脚本，支持手动/自动查询、站点选择、详情页跳转、多选打开和选中站点种子下载。
+- `PT_OneClickClaim.user.js`: PT 一键认领增强脚本，支持按标题表达式、体积、多选 IP、多选客户端筛选当前做种并预览后批量认领。
 - `Moviepilot_AutoLogin.user.js`: MoviePilot 自动登录脚本。
 - `Moviepilot_NameTest.user.js`: PT/BT 种子名称识别与 MoviePilot 推送脚本，支持默认关闭的自动查询与缓存复用。
 - `Bangumi_Enhanced.user.js`: Bangumi 中文标题与放送日历增强脚本。
