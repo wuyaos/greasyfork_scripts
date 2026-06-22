@@ -6,6 +6,7 @@
 
 *   **[Moviepilot_AutoLogin](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_AutoLogin.user.js)**: MoviePilot自动登录
 *   **[Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js)**: PT站种子名称识别，推送moviepilots
+*   **[IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js)**: IYUU辅种检测助手，手动查询并用小图标展示可辅种站点
 *   **[Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js)**: Bangumi增强脚本：显示中文标题，优化放送日历(仿B站番剧时间表)
 *   **[AI_WebSummary](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js)**: 使用AI总结网页内容
 *   **[NicePT_ReplaceIcon](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js)**: 替换NicePT分类中的图标
