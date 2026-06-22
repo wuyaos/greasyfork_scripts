@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.0.6
+// @version      1.0.8
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @match        https://*/details.php?id=*
@@ -97,7 +97,7 @@
             Store.set(KEYS.mteamKey, String(mteamKey || '').trim());
             Store.set(KEYS.autoQuery, Boolean(autoQuery));
             Store.set(KEYS.configured, true);
-            Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey); Store.del(KEYS.result);
+            Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey);
             this.load();
         },
         reset() {
@@ -230,6 +230,7 @@
         detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl, true); },
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
         isMTeam(s) { const text = `${s?.host || ''} ${s?.url || ''} ${s?.downloadUrl || ''} ${s?.name || ''}`; return /m-team\.(cc|io|vip)|馒头|饅頭|M[- ]?Team/i.test(text); },
+        mTeamApi(s) { const host = String(s?.host || s?.downloadUrl || s?.url || '').match(/m-team\.(cc|io|vip)/i)?.[0] || 'm-team.cc'; return `https://api.${host.replace(/^api\./, '')}/api/torrent/genDlToken`; },
         currentSid(list) { const current = location.hostname.replace(/^www\./, '').toLowerCase(); const match = (list || []).find(s => { const host = this.host(s); return host && (current === host || current.endsWith(`.${host}`) || host.endsWith(`.${current}`)); }); return match ? String(match.id || match.sid || '') : ''; },
         bySid(list) { const m = new Map(); (list || []).forEach(s => m.set(String(s.id || s.sid), s)); return m; },
         matchMoviePilot(mpSites, iyuuSites) { const hosts = new Set((mpSites || []).map(s => this.host(s)).filter(Boolean)); return (iyuuSites || []).filter(s => { const host = this.host(s); return host && [...hosts].some(h => h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }).map(s => String(s.id || s.sid)).filter(Boolean); },
@@ -285,7 +286,7 @@
     const IYUU = {
         async sidSha1() { const sitesIndex = await SiteIndex.get(false); const currentSid = SiteIndex.currentSid(sitesIndex); const sortedSites = Array.from(new Set([...Config.owned, currentSid].map(Number).filter(Boolean))).sort((a, b) => a - b); log('sid list for reportExisting', { currentSid, owned: Config.owned, sortedSites }); const key = sortedSites.join(','); const oldKey = Store.get(KEYS.sidKey, ''); const old = Store.get(KEYS.sid, ''); const ts = Number(Store.get(KEYS.sidTime, 0)); if (old && key === oldKey && Date.now() - ts < 7 * 864e5) { log('reuse cached sid_sha1', { key }); return old; } if (!sortedSites.length) throw new Error('请先在菜单配置已拥有站点，或刷新站点索引以识别当前站'); const res = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/sites/reportExisting`, headers: { Token: Config.token, 'Content-Type': 'application/json' }, data: JSON.stringify({ sid_list: sortedSites }) }); log('reportExisting response', res); const val = res?.data?.sid_sha1 || ''; if (!val) throw new Error(res?.msg || '获取 sid_sha1 失败'); Store.set(KEYS.sid, val); Store.set(KEYS.sidKey, key); Store.set(KEYS.sidTime, Date.now()); return val; },
         async query(hash) { if (!Config.token) return { ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] }; const sid_sha1 = await this.sidSha1(); const hashes = Array.from(new Set([hash.toLowerCase()])).sort(); const sha1 = await Crypto.sha1Hex(JSON.stringify(hashes)); const params = new URLSearchParams({ hash: JSON.stringify(hashes), sha1, sid_sha1, timestamp: String(Math.floor(Date.now() / 1000)), version: '8.2.0' }); log('IYUU query params', { hashes, sha1, sid_sha1: `${String(sid_sha1).slice(0, 8)}...` }); const raw = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/index/index`, headers: { Token: Config.token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: params.toString(), allowStatuses: [400, 404] }); log('IYUU query response', raw); if (raw?.msg === '未查询到可辅种数据') return { ok: true, source: 'iyuu', sites: [] }; if (raw?.code === 400 && raw?.msg === '站点缓存哈希值无效') { Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey); throw new Error('站点缓存失效，请重试'); } if (raw && raw.code !== undefined && raw.code !== 0) throw new Error(raw.msg || 'IYUU 查询失败'); return await this.normalize(raw); },
-        async normalize(raw) { const index = SiteIndex.bySid(await SiteIndex.get(false)); const dataObj = raw?.data || {}; const groups = Array.isArray(dataObj) ? dataObj : Object.values(dataObj); const list = groups.flatMap(g => Array.isArray(g?.torrent) ? g.torrent : (Array.isArray(g) ? g : [])); const m = new Map(); list.forEach(x => { const sid = String(x.sid || x.site_id || x.site || x.site_id_str || ''); if (!sid) return; const meta = index.get(sid) || {}; const name = x.site_name || x.site_alias || x.nickname || x.name || SiteIndex.name(meta) || `站点${sid}`; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.zmpt_data?.url || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || x.zmpt_data?.download_url || ''); const item = m.get(sid) || { source: 'iyuu', sid, name, host: SiteIndex.host(meta), icon: x.icon || SiteIndex.icon(meta), count: 0, url, downloadUrl }; item.count++; if (!item.url) item.url = url; if (!item.downloadUrl) item.downloadUrl = downloadUrl; m.set(sid, item); }); return { ok: true, source: 'iyuu', sites: [...m.values()] }; }
+        async normalize(raw) { const index = SiteIndex.bySid(await SiteIndex.get(false)); const dataObj = raw?.data || {}; const groups = Array.isArray(dataObj) ? dataObj : Object.values(dataObj); const list = groups.flatMap(g => Array.isArray(g?.torrent) ? g.torrent : (Array.isArray(g) ? g : [])); const m = new Map(); list.forEach(x => { const sid = String(x.sid || x.site_id || x.site || x.site_id_str || ''); if (!sid) return; const meta = index.get(sid) || {}; const name = x.site_name || x.site_alias || x.nickname || x.name || SiteIndex.name(meta) || `站点${sid}`; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.zmpt_data?.url || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || x.zmpt_data?.download_url || ''); const item = m.get(sid) || { source: 'iyuu', sid, name, host: SiteIndex.host(meta), torrentId, icon: x.icon || SiteIndex.icon(meta), count: 0, url, downloadUrl }; item.count++; if (!item.url) item.url = url; if (!item.downloadUrl) item.downloadUrl = downloadUrl; if (!item.torrentId) item.torrentId = torrentId; m.set(sid, item); }); return { ok: true, source: 'iyuu', sites: [...m.values()] }; }
     };
 
     const Fallback = {
@@ -298,16 +299,22 @@
             if (Array.isArray(raw?.list)) return raw.list;
             return Object.values(data || {}).flatMap(v => Array.isArray(v) ? v : (Array.isArray(v?.torrent) ? v.torrent : []));
         },
-        async query(hash) { if (!Config.zmpt) return { ok: false, source: 'fallback', sites: [] }; const raw = await HTTP.request({ url: `${ZMPT_API}?hash=${encodeURIComponent(hash)}` }); log('IYUU fallback query response', raw); const data = this.items(raw); log('IYUU fallback parsed items', data); const index = SiteIndex.bySid(await SiteIndex.get(false)); return { ok: true, source: 'fallback', sites: data.map((x, i) => { const sid = String(x.sid || x.site_id || x.site || `fallback-${i}`); const meta = index.get(sid) || {}; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.link || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || ''); return { source: 'fallback', sid, name: x.site_name || x.name || x.site || x.nickname || x.name_cn || SiteIndex.name(meta) || 'IYUU', host: SiteIndex.host(meta), icon: x.icon || x.logo || SiteIndex.icon(meta), count: Number(x.count || x.num || 1), url, downloadUrl }; }) }; }
+        async query(hash) { if (!Config.zmpt) return { ok: false, source: 'fallback', sites: [] }; const raw = await HTTP.request({ url: `${ZMPT_API}?hash=${encodeURIComponent(hash)}` }); log('IYUU fallback query response', raw); const data = this.items(raw); log('IYUU fallback parsed items', data); const index = SiteIndex.bySid(await SiteIndex.get(false)); return { ok: true, source: 'fallback', sites: data.map((x, i) => { const sid = String(x.sid || x.site_id || x.site || `fallback-${i}`); const meta = index.get(sid) || {}; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.link || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || ''); return { source: 'fallback', sid, name: x.site_name || x.name || x.site || x.nickname || x.name_cn || SiteIndex.name(meta) || 'IYUU', host: SiteIndex.host(meta), torrentId, icon: x.icon || x.logo || SiteIndex.icon(meta), count: Number(x.count || x.num || 1), url, downloadUrl }; }) }; }
     };
 
     const ResultCache = {
-        _data: null, version: 'mteam-web-auto-v1', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 200,
+        _data: null, version: 'mteam-web-auto-v1', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 500,
         _load() { if (this._data) return this._data; try { const raw = Store.get(KEYS.result, '{}'); this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch (_) { this._data = {}; } return this._data; },
         _persist() { try { Store.set(KEYS.result, JSON.stringify(this._data || {})); } catch (e) { log('result cache write failed', e.message); } },
-        key(hash) { const sidKey = Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); return `${hash}|${sidKey}`; },
-        get(hash) { const data = this._load(); const key = this.key(hash); const item = data[key]; if (!item || item.version !== this.version) return null; const ttl = item.empty ? this.emptyTtl : this.okTtl; if (Date.now() - (item.ts || 0) > ttl) { delete data[key]; this._persist(); return null; } return item.payload || null; },
-        set(hash, payload) { if (!hash || !payload) return; const data = this._load(); data[this.key(hash)] = { payload, ts: Date.now(), version: this.version, empty: !(payload.sites || []).length }; this._prune(); this._persist(); },
+        sidKey() { return Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); },
+        key(hash) { return `hash:${hash}|${this.sidKey()}`; },
+        normalizeUrl(url) { try { const u = new URL(url || location.href, location.origin); u.hash = ''; return u.href; } catch (_) { return String(url || ''); } },
+        pageKey(input = '') { return `page:${this.normalizeUrl(typeof input === 'string' ? input : '')}|${this.sidKey()}`; },
+        siteKeys(payload) { return (payload?.sites || []).map(s => s.url).filter(Boolean).map(url => this.pageKey(url)); },
+        getKey(key) { const data = this._load(); const item = data[key]; if (!item || item.version !== this.version) return null; const ttl = item.empty ? this.emptyTtl : this.okTtl; if (Date.now() - (item.ts || 0) > ttl) { delete data[key]; this._persist(); return null; } return item.payload || null; },
+        get(hash) { return this.getKey(this.key(hash)); },
+        getPage(url = '') { return this.getKey(this.pageKey(url)); },
+        set(hash, payload) { if (!hash || !payload) return; const data = this._load(); const item = { payload, ts: Date.now(), version: this.version, empty: !(payload.sites || []).length }; data[this.key(hash)] = item; data[this.pageKey()] = item; this.siteKeys(payload).forEach(k => { data[k] = item; }); this._prune(); this._persist(); },
         _prune() { const data = this._data || {}; const now = Date.now(); Object.keys(data).forEach(k => { const item = data[k] || {}; const ttl = item.empty ? this.emptyTtl : this.okTtl; if (now - (item.ts || 0) > ttl) delete data[k]; }); const keys = Object.keys(data); if (keys.length > this.max) keys.map(k => ({ k, ts: data[k]?.ts || 0 })).sort((a, b) => a.ts - b.ts).slice(0, keys.length - this.max).forEach(({ k }) => delete data[k]); },
         clear() { this._data = {}; Store.del(KEYS.result); UI.toast('辅种查询缓存已清空'); },
         size() { return Object.keys(this._load()).length; }
@@ -342,24 +349,35 @@
             box.append(btn, summary, multi); row.append(...UI.renderRow(info.rowType, box)); info.insertAction(info.insertPoint, row);
             this.restore(box, btn, info, Config.autoQuery);
         },
-        async restore(box, btn, info, auto = false) { try { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); return; } if (auto && !btn.disabled) this.check(box, btn, info); } catch (_) {} },
+        async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (auto && !btn.disabled) this.check(box, btn, info); } catch (_) {} },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
         download(url) {
             if (!url) { UI.toast('未找到下载链接'); return; }
             if (url.startsWith('magnet:')) { UI.toast('磁力链接，已在新标签打开'); this.openTab(url); return; }
             try { const a = document.createElement('a'); a.href = url; a.download = (url.split('/').pop() || 'download').split('?')[0] || 'download.torrent'; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { UI.toast(`下载失败：${e.message}，改为打开链接`); this.openTab(url); }
         },
-        downloadSelected(selected) {
+        async resolveDownloadUrl(site) {
+            if (!SiteIndex.isMTeam(site)) return site.downloadUrl;
+            if (!Config.mteamKey) throw new Error('未配置 M-Team API Key，无法下载馒头种子');
+            const id = site.torrentId || String(site.url || '').match(/\/detail\/(\d+)/)?.[1] || String(site.downloadUrl || '').match(/[?&](?:id|tid)=(\d+)/)?.[1];
+            if (!id) throw new Error(`${site.name || '馒头'} 缺少种子 ID`);
+            const res = await HTTP.request({ method: 'POST', url: SiteIndex.mTeamApi(site), data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' });
+            const link = res?.data || res?.url || res?.download_url || '';
+            if (!link) throw new Error(res?.message || res?.msg || '获取馒头下载链接失败');
+            return link;
+        },
+        async downloadSelected(selected) {
             const sites = [...selected];
             if (!sites.length) { UI.toast('未勾选可下载站点'); return; }
-            const needMTeamKey = sites.filter(s => SiteIndex.isMTeam(s));
-            if (needMTeamKey.length && !Config.mteamKey) { UI.toast('未配置 M-Team API Key，无法下载馒头种子'); return; }
-            const urls = sites.map(s => s.downloadUrl).filter(Boolean);
-            if (!urls.length) { UI.toast('选中站点缺少下载链接'); return; }
-            if (urls.length === 1) { this.download(urls[0]); UI.toast('已触发下载 1 个站点种子'); return; }
-            urls.forEach((url, i) => setTimeout(() => this.openTab(url), i * 500)); UI.toast(`已分批打开 ${urls.length} 个站点下载链接`);
+            try {
+                const urls = [];
+                for (const site of sites) { const url = await this.resolveDownloadUrl(site); if (url) urls.push(url); }
+                if (!urls.length) { UI.toast('选中站点缺少下载链接'); return; }
+                if (urls.length === 1) { this.download(urls[0]); UI.toast('已触发下载 1 个站点种子'); return; }
+                urls.forEach((url, i) => setTimeout(() => this.openTab(url), i * 500)); UI.toast(`已分批打开 ${urls.length} 个站点下载链接`);
+            } catch (e) { UI.toast(e?.message || '下载失败'); }
         },
-        async check(box, btn, info) { btn.disabled = true; btn.textContent = '查询中...'; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const force = btn.dataset.done === '1'; const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { btn.textContent = '重试'; const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查辅种失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
+        async check(box, btn, info) { btn.disabled = true; btn.textContent = '查询中...'; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const pageCached = ResultCache.getPage(info); if (pageCached && btn.dataset.done !== '1') { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const force = btn.dataset.done === '1'; const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { btn.textContent = '重试'; const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查辅种失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
         mergeSites(list) { const m = new Map(); (list || []).forEach(s => { const key = s.sid || s.name; if (!key) return; const old = m.get(key); if (!old) { m.set(key, s); return; } if (SiteIndex.isHomepageUrl(old.url) && !SiteIndex.isHomepageUrl(s.url)) old.url = s.url; if (!old.downloadUrl && s.downloadUrl) old.downloadUrl = s.downloadUrl; }); return [...m.values()]; },
         async fetch(hash) { log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt }); const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })]; if (Config.zmpt) tasks.push(Fallback.query(hash)); const settled = await Promise.allSettled(tasks); const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] }); log('fetch result sources', sources); return { hash, sources, sites: this.mergeSites(sources.flatMap(s => s.sites || [])) }; },
         render(box, btn, result, info, cached = false) {
