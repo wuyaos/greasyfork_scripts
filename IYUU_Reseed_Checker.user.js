@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.0.4
+// @version      1.0.6
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @match        https://*/details.php?id=*
@@ -63,7 +63,7 @@
         token: 'iyuu_reseed_token', owned: 'iyuu_reseed_owned_sites', zmpt: 'iyuu_reseed_zmpt_enabled',
         sites: 'iyuu_reseed_sites_index', sitesTime: 'iyuu_reseed_sites_index_time', sid: 'iyuu_reseed_sid_sha1',
         sidTime: 'iyuu_reseed_sid_sha1_time', sidKey: 'iyuu_reseed_sid_sha1_key', result: 'iyuu_reseed_result_cache',
-        mteamKey: 'iyuu_reseed_mteam_api_key', configured: 'iyuu_reseed_configured_once',
+        mteamKey: 'iyuu_reseed_mteam_api_key', configured: 'iyuu_reseed_configured_once', autoQuery: 'iyuu_reseed_auto_query',
         mpUrl: 'moviepilotUrl', mpUser: 'moviepilotUser', mpPass: 'moviepilotPassword', mpAuthMode: 'moviepilotAuthMode', mpApiKey: 'moviepilotApiKey'
     };
     const COLORS = { primary: '#2775b6', secondary: '#e6702e', success: '#5bb053', warn: '#c54640', info: '#677489' };
@@ -81,19 +81,21 @@
     };
 
     const Config = {
-        token: '', owned: [], zmpt: true, mteamKey: '',
+        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false,
         load() {
             this.token = Store.get(KEYS.token, '');
             this.owned = Store.json(KEYS.owned, []);
             this.zmpt = true;
             Store.set(KEYS.zmpt, true);
             this.mteamKey = Store.get(KEYS.mteamKey, '');
+            this.autoQuery = Boolean(Store.get(KEYS.autoQuery, false));
         },
-        save({ token, owned, mteamKey }) {
+        save({ token, owned, mteamKey, autoQuery }) {
             Store.set(KEYS.token, String(token || '').trim());
             Store.set(KEYS.owned, JSON.stringify((owned || []).map(String)));
             Store.set(KEYS.zmpt, true);
             Store.set(KEYS.mteamKey, String(mteamKey || '').trim());
+            Store.set(KEYS.autoQuery, Boolean(autoQuery));
             Store.set(KEYS.configured, true);
             Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey); Store.del(KEYS.result);
             this.load();
@@ -145,10 +147,11 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 设置</h2><div class="iyuu-body"><label>IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password"><button id="iyuuSaveToken">保存</button></div><label>M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password"><details class="iyuu-more"><summary>更多 / MoviePilot</summary><label>MoviePilot 地址</label><input id="iyuuMpUrl" type="text"><label>认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select><label>用户名</label><input id="iyuuMpUser" type="text"><label>密码</label><input id="iyuuMpPass" type="password"><label>API Key</label><input id="iyuuMpApiKey" type="password"><button id="iyuuSaveMp">保存 MoviePilot</button></details><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MoviePilot 选择</button><button id="iyuuDetectLogin">选择已登录（不推荐）</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置配置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 设置</h2><div class="iyuu-body"><label>IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password"><button id="iyuuSaveToken">保存</button></div><label>M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password"><label><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><details class="iyuu-more"><summary>更多 / MoviePilot</summary><label>MoviePilot 地址</label><input id="iyuuMpUrl" type="text"><label>认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select><label>用户名</label><input id="iyuuMpUser" type="text"><label>密码</label><input id="iyuuMpPass" type="password"><label>API Key</label><input id="iyuuMpApiKey" type="password"><button id="iyuuSaveMp">保存 MoviePilot</button></details><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MoviePilot 选择</button><button id="iyuuDetectLogin">选择已登录（不推荐）</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置配置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
+            modal.querySelector('#iyuuAutoQuery').checked = Config.autoQuery;
             modal.querySelector('#iyuuMpUrl').value = Store.get(KEYS.mpUrl, 'http://127.0.0.1:3000');
             modal.querySelector('#iyuuMpAuth').value = Store.get(KEYS.mpAuthMode, 'password');
             modal.querySelector('#iyuuMpUser').value = Store.get(KEYS.mpUser, 'admin');
@@ -163,14 +166,14 @@
             modal.querySelector('#iyuuAllSites').onclick = () => { sites.forEach(s => selected.add(String(s.id || s.sid))); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已全选 ${selected.size} 个站点`); };
             modal.querySelector('#iyuuClearSites').onclick = () => { selected.clear(); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast('已清空站点选择'); };
             modal.querySelector('#iyuuRefreshSites').onclick = async () => { const token = tokenInput.value.trim(); if (!token) { this.toast('请先填写 IYUU Token'); return; } try { const first = !Store.get(KEYS.configured, false); sites = await SiteIndex.get(true, token); if (first) { selected.clear(); sites.forEach(s => selected.add(String(s.id || s.sid))); } renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`站点索引已刷新：${sites.length} 个`); } catch (e) { this.toast(`刷新失败：${e.message}`); } };
-            modal.querySelector('#iyuuSaveToken').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, owned: [...selected] }); this.toast('Token 已保存，可继续刷新索引'); };
+            modal.querySelector('#iyuuSaveToken').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('Token 已保存，可继续刷新索引'); };
             modal.querySelector('#iyuuDetectSites').onclick = async () => { try { MoviePilot.save(modal); const detected = SiteIndex.matchMoviePilot(await MoviePilot.sites(), sites); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已按 MoviePilot 选择站点：${detected.length} 个`); } catch (e) { this.toast(`MoviePilot 获取失败：${e.message}`); } };
             modal.querySelector('#iyuuDetectLogin').onclick = async ev => { const b = ev.currentTarget; if (b.disabled) return; if (!confirm('该方式会逐站访问首页检测登录，较慢且较重，确定继续？')) return; b.disabled = true; const detected = await SiteIndex.detectLoggedIn(sites, (done, total) => { b.textContent = `检测中 ${done}/${total}`; }); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); b.disabled = false; b.textContent = '选择已登录（不推荐）'; this.toast(`已选择疑似登录站点：${detected.length} 个`); };
             modal.querySelector('#iyuuSaveMp').onclick = () => { MoviePilot.save(modal); this.toast('MoviePilot 配置已保存'); };
             modal.querySelector('#iyuuClearCache').onclick = () => ResultCache.clear();
             modal.querySelector('#iyuuResetConfig').onclick = () => Config.reset();
             modal.querySelector('.iyuu-cancel').onclick = () => bg.remove(); bg.onclick = e => { if (e.target === bg) bg.remove(); };
-            modal.querySelector('.iyuu-save').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, owned: [...selected] }); this.toast('配置已保存'); };
+            modal.querySelector('.iyuu-save').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('配置已保存'); };
         }
     };
 
@@ -220,9 +223,11 @@
         icon(s) { const direct = s?.icon || s?.logo || s?.favicon; if (direct) return direct; const host = s?.domain || s?.base_url || s?.url; if (!host) return ''; try { const u = host.startsWith('http') ? new URL(host) : new URL(`https://${host}`); return `${u.origin}/favicon.ico`; } catch (_) { return ''; } },
         host(s) { const raw = s?.domain || s?.base_url || s?.url || s?.site || ''; if (!raw) return ''; try { return (raw.startsWith('http') ? new URL(raw) : new URL(`https://${raw}`)).hostname.replace(/^www\./, '').toLowerCase(); } catch (_) { return String(raw).replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase(); } },
         homepage(s) { const raw = s?.base_url || s?.url || s?.domain || s?.site || ''; if (!raw) return ''; try { return (raw.startsWith('http') ? new URL(raw) : new URL(`https://${raw}`)).origin; } catch (_) { const host = this.host(s); return host ? `https://${host}` : ''; } },
+        webOrigin(s) { const origin = this.homepage(s); return /(^|\.)m-team\.(cc|io|vip)$/i.test(this.host(s)) ? 'https://kp.m-team.cc' : origin; },
+        webUrl(url) { try { const u = new URL(url, location.origin); if (/(^|\.)m-team\.(cc|io|vip)$/i.test(u.hostname.replace(/^api\./, ''))) { u.protocol = 'https:'; u.host = 'kp.m-team.cc'; } return u.href; } catch (_) { return url || ''; } },
         isHomepageUrl(url) { try { const u = new URL(url, location.origin); return (!u.pathname || u.pathname === '/') && !u.search && !u.hash; } catch (_) { return false; } },
-        pageUrl(s, pageField, torrentId, rawUrl = '') { const origin = this.homepage(s); const direct = rawUrl || ''; if (!origin) return direct; if (!torrentId) return direct || origin; const tpl = pageField || 'details.php?id={}'; const path = String(tpl).replace('{}', String(torrentId)).replace(/\{[^}]*\}/g, ''); const built = path.startsWith('http') ? path : `${origin}/${path.replace(/^\//, '')}`; return direct && !this.isHomepageUrl(direct) ? direct : built; },
-        detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl); },
+        pageUrl(s, pageField, torrentId, rawUrl = '', web = false) { const origin = web ? this.webOrigin(s) : this.homepage(s); const direct = rawUrl || ''; if (!origin) return web ? this.webUrl(direct) : direct; if (!torrentId) return web ? this.webUrl(direct || origin) : (direct || origin); const tpl = pageField || 'details.php?id={}'; const path = String(tpl).replace('{}', String(torrentId)).replace(/\{[^}]*\}/g, ''); const built = path.startsWith('http') ? path : `${origin}/${path.replace(/^\//, '')}`; const out = direct && !this.isHomepageUrl(direct) ? direct : built; return web ? this.webUrl(out) : out; },
+        detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl, true); },
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
         isMTeam(s) { const text = `${s?.host || ''} ${s?.url || ''} ${s?.downloadUrl || ''} ${s?.name || ''}`; return /m-team\.(cc|io|vip)|馒头|饅頭|M[- ]?Team/i.test(text); },
         currentSid(list) { const current = location.hostname.replace(/^www\./, '').toLowerCase(); const match = (list || []).find(s => { const host = this.host(s); return host && (current === host || current.endsWith(`.${host}`) || host.endsWith(`.${current}`)); }); return match ? String(match.id || match.sid || '') : ''; },
@@ -297,7 +302,7 @@
     };
 
     const ResultCache = {
-        _data: null, version: 'selected-download-v1', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 200,
+        _data: null, version: 'mteam-web-auto-v1', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 200,
         _load() { if (this._data) return this._data; try { const raw = Store.get(KEYS.result, '{}'); this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch (_) { this._data = {}; } return this._data; },
         _persist() { try { Store.set(KEYS.result, JSON.stringify(this._data || {})); } catch (e) { log('result cache write failed', e.message); } },
         key(hash) { const sidKey = Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); return `${hash}|${sidKey}`; },
@@ -335,9 +340,9 @@
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
             box.append(btn, summary, multi); row.append(...UI.renderRow(info.rowType, box)); info.insertAction(info.insertPoint, row);
-            this.restore(box, btn, info);
+            this.restore(box, btn, info, Config.autoQuery);
         },
-        async restore(box, btn, info) { try { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); } } catch (_) {} },
+        async restore(box, btn, info, auto = false) { try { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); return; } if (auto && !btn.disabled) this.check(box, btn, info); } catch (_) {} },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
         download(url) {
             if (!url) { UI.toast('未找到下载链接'); return; }

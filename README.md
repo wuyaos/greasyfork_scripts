@@ -5,8 +5,8 @@
 ## 脚本列表
 
 *   **[Moviepilot_AutoLogin](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_AutoLogin.user.js)**: MoviePilot自动登录
-*   **[Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js)**: PT站种子名称识别，推送moviepilots
-*   **[IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js)**: IYUU辅种检测助手，支持手动查询、站点选择、详情页跳转、多选打开和选中站点种子下载
+*   **[Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js)**: PT站种子名称识别，推送moviepilots，支持默认关闭的自动查询和识别缓存
+*   **[IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js)**: IYUU辅种检测助手，支持手动/自动查询、站点选择、详情页跳转、多选打开和选中站点种子下载
 *   **[Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js)**: Bangumi增强脚本：显示中文标题，优化放送日历(仿B站番剧时间表)
 *   **[AI_WebSummary](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js)**: 使用AI总结网页内容
 *   **[NicePT_ReplaceIcon](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js)**: 替换NicePT分类中的图标

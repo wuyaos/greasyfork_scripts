@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.4.0
+// @version      3.4.1
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -84,7 +84,8 @@
             moviepilotPassword: '',
             moviepilotAuthMode: 'password',
             moviepilotApiKey: '',
-            moviepilotTmdbKey: ''
+            moviepilotTmdbKey: '',
+            moviepilotAutoQuery: false
         }
     };
 
@@ -98,16 +99,18 @@
             this._values.authMode = GM_getValue('moviepilotAuthMode', CONSTANTS.DEFAULT_CONFIG.moviepilotAuthMode);
             this._values.apiKey = GM_getValue('moviepilotApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotApiKey);
             this._values.tmdbKey = GM_getValue('moviepilotTmdbKey', CONSTANTS.DEFAULT_CONFIG.moviepilotTmdbKey);
+            this._values.autoQuery = Boolean(GM_getValue('moviepilotAutoQuery', CONSTANTS.DEFAULT_CONFIG.moviepilotAutoQuery));
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass, authMode, apiKey, tmdbKey }) {
+        save({ url, user, pass, authMode, apiKey, tmdbKey, autoQuery }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
             GM_setValue('moviepilotAuthMode', authMode || 'password');
             GM_setValue('moviepilotApiKey', apiKey || '');
             GM_setValue('moviepilotTmdbKey', tmdbKey || '');
+            GM_setValue('moviepilotAutoQuery', Boolean(autoQuery));
             this.load();
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
             UI.showToast(`[${SCRIPT_NAME}] 配置已保存。部分更改可能需要刷新页面生效。`);
@@ -121,6 +124,7 @@
                 GM_deleteValue('moviepilotAuthMode');
                 GM_deleteValue('moviepilotApiKey');
                 GM_deleteValue('moviepilotTmdbKey');
+                GM_deleteValue('moviepilotAutoQuery');
                 try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
@@ -208,7 +212,8 @@
                     pass: document.getElementById('mpPass').value,
                     authMode: modeSelect.value,
                     apiKey: document.getElementById('mpApiKey').value.trim(),
-                    tmdbKey: document.getElementById('mpTmdbKey').value.trim()
+                    tmdbKey: document.getElementById('mpTmdbKey').value.trim(),
+                    autoQuery: document.getElementById('mpAutoQuery').checked
                 };
 
                 if (!newConfig.url) {
@@ -321,6 +326,9 @@
                 <div>
                     <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
                     <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
+                </div>
+                <div>
+                    <label><input type="checkbox" id="mpAutoQuery" ${CONFIG.get('autoQuery') ? 'checked' : ''}> 自动查询（默认关闭，命中缓存时不会重复请求）</label>
                 </div>
                 <div class="mp-modal-buttons">
                     <button class="mp-test-mp-btn" style="float:left;">测试 MoviePilot</button>
@@ -1600,6 +1608,7 @@
                 this.renderSuccess(row, rowType, cached, torrentData);
             } else {
                 this.renderManualEntry(row, rowType, torrentData);
+                if (CONFIG.get('autoQuery')) setTimeout(() => this.startRecognition(row, rowType, torrentData), 300);
             }
         },
 
