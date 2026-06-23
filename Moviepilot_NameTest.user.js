@@ -21,7 +21,7 @@
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
-// @match        https://greatposterwall.com/torrents.php*
+// @match        https://greatposterwall.com/torrents.php?id=*
 // @match        https://iptorrents.com/torrent.php*
 // @match        https://eiga.moi/torrents/*
 // @match        https://hd-space.org/index.php?page=torrent-details*
@@ -1454,17 +1454,23 @@
                 if (isNewUI) {
                     // --- 新版UI逻辑 ---
                     const headerBar = document.querySelector('div.flex.py-5.mb-5.sticky');
-                    const titleElement = headerBar?.querySelector('h2 span.align-middle') || document.querySelector('h2 span.align-middle, h2, h1');
+                    const titleSpan = headerBar?.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle') || document.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle');
+                    const titleElement = titleSpan || document.querySelector('h2, h1');
                     const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
                     const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
                     const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                    const anchor = descriptionElement || titleElement?.closest('h2,h1') || titleElement || document.querySelector('main') || document.body;
+                    const anchor = titleSpan || titleElement?.closest('h2,h1') || titleElement || document.querySelector('main') || document.body;
                     const sizeElement = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent || ''));
                     let actionRow = document.querySelector('#mteam-script-action-row');
-                    if (!actionRow && anchor) {
-                        actionRow = document.createElement('div');
-                        actionRow.id = 'mteam-script-action-row';
-                        actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px;';
+                    if (actionRow?.tagName !== 'SPAN') {
+                        const nextActionRow = document.createElement('span');
+                        nextActionRow.id = 'mteam-script-action-row';
+                        while (actionRow?.firstChild) nextActionRow.appendChild(actionRow.firstChild);
+                        actionRow?.remove();
+                        actionRow = nextActionRow;
+                    }
+                    actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;margin-top:6px;font-size:12px;font-weight:400;line-height:1.4;';
+                    if (anchor && actionRow.previousElementSibling !== anchor) {
                         anchor.after(actionRow);
                     }
                     let mpRow = document.querySelector('#mteam-script-action-line-mp');

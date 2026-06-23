@@ -12,27 +12,13 @@
 // @match        https://totheglory.im/t/*
 // @match        https://hdsky.me/details.php?id=*
 // @match        https://pt.sjtu.edu.cn/details.php?id=*
-// @match        https://bangumi.moe/*
-// @match        https://mikanani.me/Home/*
 // @match        https://*.comicat.org/*
-// @match        https://comicat.org/*
-// @match        http://*.comicat.org/*
-// @match        http://comicat.org/*
-// @match        https://*.m-team.cc/detail/*
-// @match        https://*.m-team.io/detail/*
-// @match        https://*.m-team.vip/detail/*
+// @match        https://*.m-team.cc/*
+// @match        https://*.m-team.io/*
+// @match        https://*.m-team.vip/*
 // @match        https://hdcity.city/t-*
-// @match        https://greatposterwall.com/torrents.php*
-// @match        https://iptorrents.com/torrent.php*
-// @match        https://eiga.moi/torrents/*
-// @match        https://hd-space.org/index.php?page=torrent-details*
-// @match        https://beyond-hd.me/torrents/*
-// @match        https://filelist.io/details.php?id=*
+// @match        https://greatposterwall.com/torrents.php?id=*
 // @match        https://monikadesign.uk/torrents/*
-// @match        https://acg.rip/*
-// @match        https://nyaa.si/*
-// @match        https://*.kisssub.org/*
-// @match        https://kisssub.org/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -709,15 +695,16 @@
         pageUrl(s, pageField, torrentId, rawUrl = '', web = false) { const origin = web ? this.webOrigin(s) : this.homepage(s); const direct = rawUrl || ''; if (!origin) return web ? this.webUrl(direct) : direct; if (!torrentId) return web ? this.webUrl(direct || origin) : (direct || origin); const tpl = pageField || 'details.php?id={}'; const path = String(tpl).replace('{}', String(torrentId)).replace(/\{[^}]*\}/g, ''); const built = path.startsWith('http') ? path : `${origin}/${path.replace(/^\//, '')}`; const out = direct && !this.isHomepageUrl(direct) ? direct : built; return web ? this.webUrl(out) : out; },
         detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl, true); },
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
-        isMTeam(s) { const text = `${s?.host || ''} ${s?.url || ''} ${s?.downloadUrl || ''} ${s?.name || ''}`; return /m-team\.(cc|io|vip)|馒头|饅頭|M[- ]?Team/i.test(text); },
+        isMTeam(s) { const text = [s?.host, s?.url, s?.downloadUrl, s?.domain, s?.base_url, s?.site, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' '); return /m-team\.(cc|io|vip)|馒头|饅頭|\bM[-_ ]?Team\b|\bMT\b/i.test(text); },
         mTeamApi(s) { const host = String(s?.host || s?.downloadUrl || s?.url || '').match(/m-team\.(cc|io|vip)/i)?.[0] || 'm-team.cc'; return `https://api.${host.replace(/^api\./, '')}/api/torrent/genDlToken`; },
         sameHost(a, b) { return Boolean(a && b && (a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`))); },
         currentSid(list) {
             const current = location.hostname.replace(/^www\./, '').toLowerCase();
+            const currentIsMTeam = /(^|\.)m-team\.(cc|io|vip)$/.test(current);
             const match = firstOf(list || [], s => {
                 const hosts = [this.host(s), this.host({ url: this.autoFeedUrl(s) })].filter(Boolean);
                 const text = [s?.domain, s?.base_url, s?.url, s?.site, s?.host, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' ').toLowerCase();
-                return hosts.some(host => this.sameHost(current, host)) || text.includes(current);
+                return hosts.some(host => this.sameHost(current, host)) || (currentIsMTeam && this.isMTeam(s)) || text.includes(current);
             });
             return match ? String(match.id || match.sid || '') : '';
         },
@@ -969,6 +956,8 @@
         if (!matched) log('当前站点不在 IYUU 站点索引缓存中，跳过 IYUU 入口', location.hostname);
         return matched;
     };
+    const isMTeamHost = () => /(^|\.)m-team\.(cc|io|vip)$/.test(location.hostname);
+    const isMTeamDetail = () => isMTeamHost() && location.pathname.startsWith('/detail/');
 
     const ADAPTERS = [
         { id: 'totheglory', matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'), getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const sizeRow = firstOf(rows, r => /尺寸|大小/.test(r.textContent)); const row = rows[1]?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount: row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend() }); } },
@@ -980,15 +969,21 @@
             id: 'm-team',
             matches: () => /m-team\.(cc|io|vip)\/detail\//.test(location.href),
             getInfo: () => {
-                const titleEl = document.querySelector('h2 span.align-middle, h2');
+                const titleSpan = document.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle');
+                const titleEl = titleSpan || document.querySelector('h2');
                 const descriptionEl = document.querySelector('div.flex.py-5.mb-5.sticky p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                const anchor = descriptionEl || titleEl?.closest('h2') || titleEl || document.querySelector('main') || document.body;
+                const anchor = titleSpan || titleEl?.closest('h2') || titleEl || document.querySelector('main') || document.body;
                 const sizeEl = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent));
                 let actionRow = document.querySelector('#mteam-script-action-row');
-                if (!actionRow && anchor) {
-                    actionRow = document.createElement('div');
-                    actionRow.id = 'mteam-script-action-row';
-                    actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px;';
+                if (actionRow?.tagName !== 'SPAN') {
+                    const nextActionRow = document.createElement('span');
+                    nextActionRow.id = 'mteam-script-action-row';
+                    while (actionRow?.firstChild) nextActionRow.appendChild(actionRow.firstChild);
+                    actionRow?.remove();
+                    actionRow = nextActionRow;
+                }
+                actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;margin-top:6px;font-size:12px;font-weight:400;line-height:1.4;';
+                if (anchor && actionRow.previousElementSibling !== anchor) {
                     anchor.after(actionRow);
                 }
                 let iyuuRow = document.querySelector('#mteam-script-action-line-iyuu');
@@ -1131,6 +1126,7 @@
         UI.initStyle();
         if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('配置 IYUU', () => UI.showConfig());
         const boot = () => {
+            if (isMTeamHost() && !isMTeamDetail()) return;
             if (!isCurrentHostInCachedIndex()) return;
             const ok = Core.init();
             if (!ok && !document.querySelector('.iyuu-check-btn')) {
@@ -1144,7 +1140,15 @@
             if (!Store.get(KEYS.configured, false) && !document.querySelector('.iyuu-modal-bg')) UI.showConfig();
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-        if (location.hostname === 'bangumi.moe' || /m-team\.(cc|io|vip)$/.test(location.hostname)) new MutationObserver(() => { if (!document.querySelector('.iyuu-check-btn')) setTimeout(boot, 300); }).observe(document.body, { childList: true, subtree: true });
+        if (location.hostname === 'bangumi.moe' || isMTeamHost()) new MutationObserver(() => { if (!document.querySelector('.iyuu-check-btn')) setTimeout(boot, 300); }).observe(document.body, { childList: true, subtree: true });
+        if (isMTeamHost()) {
+            let lastUrl = location.href;
+            setInterval(() => {
+                if (location.href === lastUrl) return;
+                lastUrl = location.href;
+                setTimeout(boot, 300);
+            }, 500);
+        }
     }
 
     main();
