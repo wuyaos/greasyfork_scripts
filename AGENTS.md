@@ -14,7 +14,7 @@ Input: 浏览器用户脚本运行环境、目标站点页面、用户本地 GM 
 - `AI_WebSummary.user.js`: AI 网页内容总结脚本。
 - `NicePT_ReplaceIcon.user.js`: NicePT 分类图标替换脚本。
 - `.omc/skills/tampermonkey-dev/SKILL.md`: 项目本地 Tampermonkey 5.4.1 userscript 开发 skill。
-- `Local_Debug_Loader.user.js`: 本地 Tampermonkey 调试入口，通过 `@require http://127.0.0.1:8787/...` 加载仓库脚本。
+- `Local_Debug_Loader.user.js`: 本地 Tampermonkey 调试入口，通过运行时 no-cache 拉取并执行 `http://127.0.0.1:8787/...` 脚本，避免 `@require` 缓存。
 - `serve-debug.sh`: 启动本地无缓存 HTTP 文件服务器，供 `Local_Debug_Loader.user.js` 调试加载。
 - `serve_debug.py`: 本地调试 HTTP server 实现，设置 no-cache 与 CORS 响应头。
 - `icon/`: 脚本图标资源。

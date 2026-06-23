@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.1
+// @version      3.5.2
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -23,6 +23,8 @@
 // @match        https://hdcity.city/t-*
 // @match        https://greatposterwall.com/torrents.php*
 // @match        https://iptorrents.com/torrent.php*
+// @match        https://eiga.moi/torrents/*
+// @match        https://hd-space.org/index.php?page=torrent-details*
 // @match        https://beyond-hd.me/torrents/*
 // @match        https://filelist.io/details.php?id=*
 // @match        https://monikadesign.uk/torrents/*
@@ -374,7 +376,7 @@
         },
 
         renderTag(text, color) {
-            return `<span style="background-color:${color};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;border-radius:0.375rem;font-size:12px;padding:0.25rem 0.75rem;font-weight:bold;">${UTILS.escapeHtml(text)}</span>`;
+            return `<span style="background-color:${color};border:1px solid ${color};color:#ffffff;display:inline-flex;align-items:center;gap:4px;border-radius:0.375rem;font-size:12px;line-height:1.6;padding:2px 7px;font-weight:600;text-decoration:none;">${UTILS.escapeHtml(text)}</span>`;
         },
 
         showToast(message, duration = 3000) {
@@ -424,29 +426,66 @@
         afterNode(target) { return { type: 'div-after', target }; },
         tableRowAfter(target, label = 'MoviePilot') { return { type: 'table-row-after', target, label }; },
         tableColspanAfter(target, label = 'MoviePilot', colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
+        tableColspanBefore(target, label = 'MoviePilot', colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
         blockAfter(target, label = 'MoviePilot') { return { type: 'block-after', target, label }; },
         antRowAfter(target, label = 'MoviePilot') { return { type: 'ant-row-after', target, label }; },
         gridPairAfter(target, label = 'MoviePilot') { return { type: 'grid-pair-after', target, label }; },
         prepend(target = document.body) { return { type: 'prepend', target }; },
+        append(target) { return { type: 'append', target }; },
+        definitionAfter(target, label = 'MoviePilot') { return { type: 'definition-after', target, label }; },
         render(mount, contentNode) {
             const m = mount?.target ? mount : this.prepend();
             if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
             if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
+            if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
             if (m.type === 'block-after') return this.block(m, contentNode);
             if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
             if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
+            if (m.type === 'definition-after') return this.definition(m, contentNode);
+            if (m.type === 'append') return m.target.appendChild(contentNode);
             if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
             return m.target.after(contentNode);
         },
-        tableRow(m, contentNode) { const tr = document.createElement('tr'); const h = document.createElement('td'); h.className = 'rowhead nowrap'; h.textContent = m.label || 'MoviePilot'; const d = document.createElement('td'); d.className = 'rowfollow'; d.appendChild(contentNode); tr.append(h, d); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
-        tableColspan(m, contentNode) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.appendChild(contentNode); tr.appendChild(td); ref?.after ? ref.after(tr) : (m.target || document.body).after(tr); return tr; },
+        tableRow(m, contentNode) {
+            const ref = m.target?.closest?.('tr') || m.target;
+            const tr = document.createElement('tr');
+            const h = document.createElement('td');
+            const d = document.createElement('td');
+            const refHead = ref?.cells?.[0], refBody = ref?.cells?.[1];
+            if (ref?.className) tr.className = ref.className;
+            if (ref?.getAttribute?.('style')) tr.setAttribute('style', ref.getAttribute('style'));
+            h.className = refHead ? refHead.className : 'rowhead nowrap';
+            d.className = refBody ? refBody.className : 'rowfollow';
+            if (refHead?.getAttribute?.('style')) h.setAttribute('style', refHead.getAttribute('style'));
+            if (refBody?.getAttribute?.('style')) d.setAttribute('style', refBody.getAttribute('style'));
+            ['align', 'valign'].forEach(attr => { if (refHead?.getAttribute?.(attr)) h.setAttribute(attr, refHead.getAttribute(attr)); if (refBody?.getAttribute?.(attr)) d.setAttribute(attr, refBody.getAttribute(attr)); });
+            const refText = refHead?.querySelector?.('.td-text');
+            if (refText) {
+                const span = document.createElement('span');
+                span.className = refText.className;
+                span.textContent = m.label || 'MoviePilot';
+                h.appendChild(span);
+            } else if (refHead?.firstElementChild && refHead.firstElementChild.children.length === 0) {
+                const wrapper = refHead.firstElementChild.cloneNode(false);
+                wrapper.textContent = m.label || 'MoviePilot';
+                h.appendChild(wrapper);
+            } else {
+                h.textContent = m.label || 'MoviePilot';
+            }
+            d.appendChild(contentNode);
+            tr.append(h, d);
+            ref?.after ? ref.after(tr) : m.target.after(tr);
+            return tr;
+        },
+        tableColspan(m, contentNode, before = false) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); const label = document.createElement('span'); label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;'; label.textContent = `${m.label || 'MoviePilot'}：`; contentNode.style.display = 'inline-flex'; contentNode.style.alignItems = 'center'; contentNode.style.flexWrap = 'wrap'; contentNode.style.gap = contentNode.style.gap || '6px'; contentNode.style.verticalAlign = 'middle'; td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.style.paddingLeft = '12px'; td.style.paddingTop = '10px'; td.style.paddingBottom = '10px'; td.append(label, contentNode); tr.appendChild(td); if (before && ref?.before) ref.before(tr); else if (ref?.after) ref.after(tr); else (m.target || document.body).after(tr); return tr; },
         block(m, contentNode) { const block = document.createElement('div'); block.className = 'block'; const title = document.createElement('div'); title.className = 'blocktitle'; title.textContent = m.label || 'MoviePilot'; const body = document.createElement('div'); body.className = 'blockcontent'; body.appendChild(contentNode); block.append(title, body); m.target.after(block); return block; },
         antRow(m, contentNode) { const tr = document.createElement('tr'); tr.className = 'ant-descriptions-row'; const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = m.label || 'MoviePilot'; const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(contentNode); tr.append(th, td); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
-        gridPair(m, contentNode) { const label = document.createElement('div'); label.className = 'mp-grid-label'; label.textContent = m.label || 'MoviePilot'; const value = document.createElement('div'); value.className = 'mp-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; }
+        gridPair(m, contentNode) { const refValue = m.target; const refLabel = refValue?.previousElementSibling; const label = document.createElement('div'); label.className = refLabel?.className || refValue?.className || 'mp-grid-label'; label.textContent = m.label || 'MoviePilot'; const value = document.createElement('div'); value.className = refValue?.className || refLabel?.className || 'mp-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; },
+        definition(m, contentNode) { const dt = document.createElement('dt'); dt.textContent = m.label || 'MoviePilot'; const dd = document.createElement('dd'); dd.appendChild(contentNode); const ref = m.target?.closest?.('dd') || m.target; ref.after(dt, dd); return dd; }
     };
 
     const TABLE_MOUNT_POLICY = {
-        COLSPAN_ONLY_SITES: new Set(['monikadesign'])
+        COLSPAN_ONLY_SITES: new Set([])
     };
 
     function tableMount(siteId, row, label) {
@@ -455,6 +494,209 @@
             ? Mount.tableColspanAfter(row, label)
             : Mount.tableRowAfter(row, label);
     }
+
+    const AutoFeedAnchors = {
+        actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
+        nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
+        cellText(cell) { return String(cell?.textContent || '').replace(/\s+/g, ' ').trim(); },
+        rowByFirstCell(root, labels) {
+            const rows = (root || document).querySelectorAll('tr');
+            for (const tr of rows) {
+                if (labels.has(this.cellText(tr.cells?.[0]))) return tr;
+            }
+            return null;
+        },
+        domesticActionRow() {
+            const descr = document.getElementById('kdescr') || document.getElementById('kdescription');
+            const tbody = descr?.closest('tbody') || document.querySelector('#outer table tbody, table tbody');
+            return this.rowByFirstCell(tbody, this.actionLabels) || descr?.closest('tr') || null;
+        },
+        rowAfterName(root) { return this.rowByFirstCell(root, this.nameLabels); },
+        bhdNameRow() { return this.rowAfterName(document.querySelector('.table-details tbody')); },
+        monikaNameRow() {
+            const h4 = document.getElementsByTagName('h4')[0];
+            const box = h4?.parentNode?.parentNode?.getElementsByClassName?.('table-responsive')?.[1];
+            return this.rowAfterName(box?.getElementsByTagName('table')?.[0]) || null;
+        },
+        gpwTorrentRow() {
+            const tid = new URLSearchParams(window.location.search).get('torrentid');
+            if (!tid) return null;
+            return document.querySelector(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
+                || document.querySelector(`#torrent_details a[href*="id=${tid}"]`)?.closest('tr');
+        },
+        hhclubSubtitleValue() {
+            let label = null;
+            for (const el of document.querySelectorAll('div.font-bold.leading-6')) {
+                if (this.cellText(el) === '副标题') {
+                    label = el;
+                    break;
+                }
+            }
+            return label?.nextElementSibling || null;
+        },
+        fileListAnchor(id, labelText) {
+            const descr = document.getElementById('descr');
+            const parent = descr?.parentNode || document.querySelector('.cblock-innercontent,.cblock-content,#maincolumn');
+            if (!parent) return null;
+            const tableId = 'userscript-filelist-actions';
+            let table = document.getElementById(tableId);
+            if (!table) {
+                const wrap = document.createElement('div');
+                wrap.id = `${tableId}-wrap`;
+                wrap.style.cssText = 'margin:10px 0;';
+                table = document.createElement('table');
+                table.id = tableId;
+                table.style.cssText = 'width:100%;border-collapse:collapse;';
+                table.appendChild(document.createElement('tbody'));
+                wrap.appendChild(table);
+                const hr = document.createElement('hr');
+                hr.className = 'separator';
+                hr.style.marginTop = '15px';
+                hr.style.marginBottom = '15px';
+                wrap.appendChild(hr);
+                const before = descr ? (descr.previousElementSibling || descr) : parent.firstChild;
+                parent.insertBefore(wrap, before || null);
+            }
+            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+            const rowId = `${id}-filelist-action-row`;
+            let row = document.getElementById(rowId);
+            if (!row) {
+                row = document.createElement('tr');
+                row.id = rowId;
+                const label = document.createElement('td');
+                label.textContent = labelText || id;
+                label.align = 'right';
+                label.style.cssText = 'width:80px;font-weight:bold;border:0px solid #0D8ED9;vertical-align:top;';
+                const holder = document.createElement('td');
+                holder.id = `${id}-filelist-action-holder`;
+                holder.align = 'left';
+                holder.style.cssText = 'padding-top:10px;padding-bottom:10px;padding-left:12px;border:0px solid #0D8ED9;vertical-align:top;';
+                row.append(label, holder);
+                tbody.appendChild(row);
+            }
+            return document.getElementById(`${id}-filelist-action-holder`) || row.cells[1];
+        },
+        actionTableHolder(tableId, id, labelText, anchor, mode = 'after', padding = '55px') {
+            if (!anchor?.parentNode) return null;
+            const wrapStyle = `display:block;text-align:left;width:auto;margin:0;padding-left:${padding};padding-right:${padding};`;
+            let table = document.getElementById(tableId);
+            if (!table) {
+                const wrap = document.createElement('div');
+                wrap.id = `${tableId}-wrap`;
+                wrap.style.cssText = wrapStyle;
+                table = document.createElement('table');
+                table.id = tableId;
+                table.style.cssText = 'margin:0;text-align:left;width:auto;';
+                table.appendChild(document.createElement('tbody'));
+                wrap.appendChild(table);
+                if (mode === 'prepend') anchor.prepend(wrap);
+                else if (mode === 'before') anchor.parentNode.insertBefore(wrap, anchor);
+                else anchor.after(wrap);
+            } else {
+                const wrap = document.getElementById(`${tableId}-wrap`);
+                if (wrap) wrap.style.cssText = wrapStyle;
+                table.style.cssText = 'margin:0;text-align:left;width:auto;';
+            }
+            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+            const rowId = `${id}-${tableId}-row`;
+            let row = document.getElementById(rowId);
+            if (!row) {
+                row = document.createElement('tr');
+                row.id = rowId;
+                const label = row.insertCell(0);
+                label.textContent = labelText || id;
+                label.align = 'left';
+                label.style.fontWeight = 'bold';
+                const holder = row.insertCell(1);
+                holder.id = `${id}-${tableId}-holder`;
+                holder.align = 'left';
+                tbody.appendChild(row);
+            }
+            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+        },
+        unit3dActionHolder(id, labelText, anchor) {
+            const tableId = 'userscript-unit3d-actions';
+            const ref = Array.from(document.querySelectorAll('tr')).reverse()
+                .find(tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
+            let table = ref?.closest('table');
+            if (!table) {
+                const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
+                const label = holder?.previousElementSibling;
+                if (label) {
+                    label.align = 'left';
+                    label.style.cssText = 'font-weight: bold;';
+                }
+                return holder;
+            }
+            if (!table.id) table.id = `${tableId}-table`;
+            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+            const rowId = `${id}-${tableId}-row`;
+            let row = document.getElementById(rowId);
+            if (!row) {
+                row = document.createElement('tr');
+                row.id = rowId;
+                const label = (ref?.cells?.[0] || document.createElement('td')).cloneNode(false);
+                label.textContent = labelText || id;
+                const holder = (ref?.cells?.[1] || document.createElement('td')).cloneNode(false);
+                holder.id = `${id}-${tableId}-holder`;
+                row.append(label, holder);
+                const rows = Array.from(tbody.querySelectorAll(`tr[id$="-${tableId}-row"]`));
+                (rows.at(-1) || ref || tbody.lastElementChild)?.after(row);
+                if (!row.parentNode) tbody.appendChild(row);
+            }
+            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+        },
+        hdSpaceMediaInfoRow() {
+            const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
+            const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
+            for (const selector of scopes) {
+                const root = document.querySelector(selector);
+                if (!root) continue;
+                let lastDetail = null;
+                for (const tr of root.querySelectorAll('tr')) {
+                    const label = this.cellText(tr.cells?.[0]).replace(/[：:]$/, '');
+                    if (detailLabels.has(label)) lastDetail = tr;
+                }
+                if (lastDetail) return root.closest('#mcol tr') || lastDetail;
+            }
+            return null;
+        },
+        hdSpaceTorrentRow() {
+            for (const tr of document.querySelectorAll('#mcol tr')) {
+                if (this.cellText(tr.cells?.[0]) === 'Torrent') return tr;
+            }
+            return null;
+        },
+        hdSpaceInfoHashRow() {
+            const rows = Array.from(document.querySelectorAll('#mcol tr'));
+            let infoHash = null;
+            let torrent = null;
+            for (const tr of rows) {
+                const label = this.cellText(tr.cells?.[0]);
+                if (!infoHash && label === 'Info Hash') infoHash = tr;
+                if (!torrent && label === 'Torrent') torrent = tr;
+            }
+            return infoHash || torrent || this.rowAfterName(document.querySelector('#mcol'));
+        },
+        iptMovieInfoRow() {
+            const rows = Array.from(document.querySelectorAll('tr'));
+            let plot = null;
+            let genre = null;
+            for (const tr of rows) {
+                const label = this.cellText(tr.cells?.[0]);
+                if (!plot && label === 'Plot') plot = tr;
+                if (!genre && label === 'Genre') genre = tr;
+            }
+            const table = plot?.closest('table');
+            let existing = null;
+            if (table) {
+                for (const tr of table.querySelectorAll('tr')) {
+                    if (['IYUU', 'MoviePilot'].includes(this.cellText(tr.cells?.[0]))) existing = tr;
+                }
+            }
+            return existing || plot || genre;
+        }
+    };
 
     // ——————————————————————————————————————
     // [3] API 模块 (API MODULE)
@@ -712,7 +954,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    //Todo: haidan待定
+    // TODO: 后续适配 https://www.haidan.cc / https://www.yemapt.org / https://rousi.pro
     const BT_SITE_HELPERS = {
         text(selector, root = document) {
             return root.querySelector(selector)?.textContent?.trim() || '';
@@ -848,7 +1090,7 @@
                 const descriptionElement = document.querySelector('h2.text-center');
                 const downloadLinkElement = document.querySelector('a.down[href*="/download/"]');
                 const size = document.querySelector('.torrent-size td:nth-child(2)').textContent.trim();
-                const target = document.querySelector('.meta-general tr.torrent-subhead');
+                const target = AutoFeedAnchors.monikaNameRow();
                 if (!nameElement || !target) return null;
 
                 return {
@@ -1047,13 +1289,44 @@
         {
             id: 'beyond-hd',
             matches: () => window.location.hostname === 'beyond-hd.me' && window.location.pathname.startsWith('/torrents/'),
-            getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const target = dl?.closest('.text-center') || dl?.parentElement || document.querySelector('table.table-details') || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return BT_SITE_HELPERS.simpleDivInfo({
+            getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const row = AutoFeedAnchors.bhdNameRow(); const target = row || document.querySelector('table.table-details') || dl?.closest('.text-center') || dl?.parentElement || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return BT_SITE_HELPERS.info({
                 name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(),
                 description: BT_SITE_HELPERS.text('.panel-body'),
                 downloadLink: dl?.href || '',
                 sizeText: BT_SITE_HELPERS.text('.panel-body'),
-                target
+                mount: row ? tableMount('beyond-hd', row, 'MoviePilot') : Mount.afterNode(target)
             }); }
+        },
+        {
+            id: 'eiga',
+            matches: () => window.location.hostname === 'eiga.moi' && window.location.pathname.startsWith('/torrents/'),
+            getInfo: () => {
+                const dl = document.querySelector('a[href*="/torrents/download/"]');
+                const holder = AutoFeedAnchors.unit3dActionHolder('mp', 'MoviePilot', document.querySelector('menu.torrent__buttons') || document.querySelector('article'));
+                return BT_SITE_HELPERS.info({
+                    name: BT_SITE_HELPERS.text('h1.meta__title') || document.title.replace(/\s+-\s+Torrents.*/i, '').trim(),
+                    description: BT_SITE_HELPERS.text('.meta__description,.bbcode-rendered'),
+                    downloadLink: dl?.href || '',
+                    sizeText: document.body.innerText,
+                    mount: holder ? Mount.append(holder) : Mount.afterNode(document.querySelector('menu.torrent__buttons') || document.body)
+                });
+            }
+        },
+        {
+            id: 'hd-space',
+            matches: () => window.location.hostname === 'hd-space.org' && window.location.search.includes('page=torrent-details'),
+            getInfo: () => {
+                const row = AutoFeedAnchors.hdSpaceTorrentRow() || AutoFeedAnchors.hdSpaceInfoHashRow();
+                const dl = document.querySelector('a[href*="download.php"]');
+                const nameRow = AutoFeedAnchors.rowAfterName(document.querySelector('#mcol'));
+                return BT_SITE_HELPERS.info({
+                    name: nameRow?.cells?.[1]?.textContent?.trim() || document.title,
+                    description: document.body.innerText,
+                    downloadLink: dl?.href || '',
+                    sizeText: document.body.innerText,
+                    mount: row ? tableMount('hd-space', row, 'MoviePilot') : Mount.afterNode(document.querySelector('#mcol') || document.body)
+                });
+            }
         },
         {
             id: 'iptorrents',
@@ -1061,7 +1334,7 @@
             getInfo: () => {
                 const id = new URLSearchParams(window.location.search).get('id') || '';
                 const dl = [...document.querySelectorAll('a[href*="download.php"]')].find(a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]');
-                const row = dl?.closest('tr');
+                const row = AutoFeedAnchors.iptMovieInfoRow();
                 const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body;
                 return BT_SITE_HELPERS.info({
                     name: BT_SITE_HELPERS.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(),
@@ -1078,14 +1351,29 @@
             getInfo: () => {
                 const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
                 const row = dl?.closest('tr');
-                const target = row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body;
+                const target = AutoFeedAnchors.fileListAnchor('mp', 'MoviePilot') || row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body;
                 return BT_SITE_HELPERS.info({
                     name: BT_SITE_HELPERS.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(),
                     description: document.title.split(' :: ')[0].trim(),
                     downloadLink: dl?.href || '',
                     sizeText: target?.textContent || '',
-                    mount: row ? tableMount('filelist', row, 'MoviePilot') : Mount.afterNode(target)
+                    mount: Mount.append(target)
                 });
+            }
+        },
+        {
+            id: 'hudbt',
+            matches: () => window.location.hostname === 'hudbt.hust.edu.cn' && window.location.pathname === '/details.php',
+            getInfo: () => {
+                const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                const dts = Array.from(document.querySelectorAll('#outer dl.table > dt'));
+                const byLabel = label => dts.find(dt => dt.textContent.includes(label))?.nextElementSibling;
+                const title = BT_SITE_HELPERS.text('#page-title') || BT_SITE_HELPERS.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
+                const sub = byLabel('副标题')?.textContent || '';
+                const info = byLabel('基本信息')?.textContent || '';
+                const intro = byLabel('简介')?.textContent || '';
+                const target = byLabel('下载') || dl?.parentElement || document.querySelector('#outer dl.table');
+                return BT_SITE_HELPERS.info({ name: title, description: sub || intro || title, downloadLink: dl?.href || '', sizeText: info || document.body.innerText, mount: target ? Mount.definitionAfter(target) : Mount.prepend() });
             }
         },
         {
@@ -1094,9 +1382,9 @@
             getInfo: () => {
                 const tid = new URLSearchParams(window.location.search).get('torrentid');
                 const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
-                const row = dl?.closest('tr');
+                const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr');
                 const name = document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim();
-                return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? tableMount('greatposterwall', row, 'MoviePilot') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) });
+                return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? Mount.tableColspanAfter(row, 'MoviePilot') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) });
             }
         },
         {
@@ -1107,7 +1395,7 @@
                 const title = BT_SITE_HELPERS.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
                 const row = dl?.closest('tr');
                 const grid = dl?.closest('.grid');
-                const gridCell = grid ? [...grid.children].find(el => el.contains(dl)) : null;
+                const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? [...grid.children].find(el => el.contains(dl)) : null);
                 const target = row || gridCell || dl?.parentElement || dl || document.body;
                 return BT_SITE_HELPERS.info({ name: title, description: title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'MoviePilot') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) });
             }
@@ -1131,7 +1419,7 @@
                     downloadLink: nameLink?.href || '',
                     description: description,
                     size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                    mount: tableMount('generic-nexusphp', nameRow.parentElement, 'MoviePilot')
+                    mount: tableMount('generic-nexusphp', AutoFeedAnchors.domesticActionRow() || nameRow.parentElement, 'MoviePilot')
                 };
             }
         },
@@ -1143,22 +1431,41 @@
                 const isNewUI = !window.location.hostname.includes('ob.m-team.cc');
                 if (isNewUI) {
                     // --- 新版UI逻辑 ---
-                    const titleElement = document.querySelector('h2 span.align-middle, h2, h1');
+                    const headerBar = document.querySelector('div.flex.py-5.mb-5.sticky');
+                    const titleElement = headerBar?.querySelector('h2 span.align-middle') || document.querySelector('h2 span.align-middle, h2, h1');
                     const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
                     const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
-                    const descriptionElement = document.querySelector('p.text-mt-gray-4');
+                    const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
+                    if (!descriptionElement) return null;
                     const sizeElement = Array.from(document.querySelectorAll('.ant-space-item .ant-typography')).find(el => /[體体]積[:：]/.test(el.textContent || ''));
-                    const rows = Array.from(document.querySelectorAll('.ant-descriptions-view table tbody tr'));
-                    const targetRow = rows.find(tr => /下载|下載|download/i.test(tr.textContent || '')) || rows.find(tr => /[體体]積[:：]/.test(tr.textContent || '')) || rows[0];
-                    const contentRoot = document.querySelector('.app-content__inner') || document.querySelector('#app-content');
-                    const targetElement = targetRow || sizeElement?.closest('.ant-space-item') || titleElement || contentRoot;
-                    if (!targetElement) return null;
+                    let actionRow = document.querySelector('#mteam-script-action-row');
+                    if (!actionRow && descriptionElement) {
+                        actionRow = document.createElement('div');
+                        actionRow.id = 'mteam-script-action-row';
+                        actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px;';
+                        descriptionElement.after(actionRow);
+                    }
+                    let mpRow = document.querySelector('#mteam-script-action-line-mp');
+                    if (!mpRow) {
+                        mpRow = document.createElement('div');
+                        mpRow.id = 'mteam-script-action-line-mp';
+                        mpRow.className = 'mteam-script-action-line mteam-script-action-line-mp';
+                        mpRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+                        const label = document.createElement('span');
+                        label.className = 'mteam-script-action-label';
+                        label.style.cssText = 'min-width:72px;color:var(--mt-text-base,#263238);font-weight:700;font-size:12px;line-height:1.6;background:transparent;border:0;padding:0;';
+                        label.textContent = 'MoviePilot：';
+                        mpRow.appendChild(label);
+                    }
+                    mpRow.querySelectorAll('.mp-row-box').forEach(node => node.remove());
+                    if (actionRow && mpRow.parentElement !== actionRow) actionRow.insertBefore(mpRow, actionRow.firstChild);
+                    else if (!actionRow && mpRow.parentElement !== (titleElement?.parentElement || null)) (titleElement?.closest('h2,h1') || titleElement)?.after(mpRow);
                     return {
                         name: titleText,
                         description: descriptionElement ? descriptionElement.textContent.trim() : titleText,
                         size: sizeElement ? UTILS.parseSize(sizeElement.textContent) : 0,
                         downloadLink: '',
-                        mount: targetElement.tagName === 'TR' ? Mount.antRowAfter(targetElement, 'MoviePilot') : Mount.afterNode(targetElement)
+                        mount: Mount.append(mpRow)
                     };
                 } else {
                     // --- 旧版UI逻辑 ---
@@ -1182,7 +1489,17 @@
     const Site = {
         adapter: null,
         init() {
-            this.adapter = SITE_ADAPTERS.find(a => a.matches());
+            this.adapter = null;
+            for (const adapter of SITE_ADAPTERS) {
+                try {
+                    if (adapter.matches()) {
+                        this.adapter = adapter;
+                        break;
+                    }
+                } catch (error) {
+                    GM_log(`[${SCRIPT_NAME}] Adapter match failed: ${adapter.id}`, error?.stack || error?.message || error);
+                }
+            }
             if (this.adapter) {
                 GM_log(`[${SCRIPT_NAME}] Matched site: ${this.adapter.id}`);
             } else {
@@ -1191,14 +1508,19 @@
         },
         async getTorrentInfo() {
             if (!this.adapter) return null;
-            // 优先列表模式（多条）
-            if (this.adapter.getListInfo) {
-                const list = await this.adapter.getListInfo();
-                if (list && list.length > 0) return list;
+            try {
+                // 优先列表模式（多条）
+                if (this.adapter.getListInfo) {
+                    const list = await this.adapter.getListInfo();
+                    if (list && list.length > 0) return list;
+                }
+                // 回退到详情页单条模式
+                const single = await this.adapter.getInfo();
+                return single ? [single] : null;
+            } catch (error) {
+                GM_log(`[${SCRIPT_NAME}] Adapter getInfo failed: ${this.adapter.id}`, error?.stack || error?.message || error);
+                return null;
             }
-            // 回退到详情页单条模式
-            const single = await this.adapter.getInfo();
-            return single ? [single] : null;
         }
     };
 
@@ -1644,36 +1966,45 @@
 
     const Core = {
         async handlePage() {
-            const torrentInfoList = await Site.getTorrentInfo();
-            if (!torrentInfoList || torrentInfoList.length === 0) {
-                GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
+            try {
+                const torrentInfoList = await Site.getTorrentInfo();
+                if (!torrentInfoList || torrentInfoList.length === 0) {
+                    GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
+                    return false;
+                }
+                GM_log(`[${SCRIPT_NAME}] 匹配到 ${torrentInfoList.length} 条种子信息`);
+                for (const torrentInfo of torrentInfoList) {
+                    if (!torrentInfo || !torrentInfo.name) continue;
+                    this._processOneTorrent(torrentInfo);
+                }
+                return Boolean(document.querySelector('.mp-recognize-trigger'));
+            } catch (error) {
+                GM_log(`[${SCRIPT_NAME}] Core handlePage failed`, error?.stack || error?.message || error);
                 return false;
             }
-            GM_log(`[${SCRIPT_NAME}] 匹配到 ${torrentInfoList.length} 条种子信息`);
-            for (const torrentInfo of torrentInfoList) {
-                if (!torrentInfo || !torrentInfo.name) continue;
-                this._processOneTorrent(torrentInfo);
-            }
-            return Boolean(document.querySelector('.mp-recognize-trigger'));
         },
 
         _processOneTorrent(torrentInfo) {
-            const { name, description, downloadLink, size, extra = {} } = torrentInfo;
-            const container = document.createElement('div');
-            container.className = 'mp-row-box';
-            Mount.render(torrentInfo.mount || Mount.prepend(), container);
-            if (container.parentElement?.querySelectorAll?.('.mp-recognize-trigger').length > 1) { container.remove(); return; }
+            try {
+                const { name, description, downloadLink, size, extra = {} } = torrentInfo;
+                const container = document.createElement('div');
+                container.className = 'mp-row-box';
+                Mount.render(torrentInfo.mount || Mount.prepend(), container);
+                if (container.parentElement?.querySelectorAll?.('.mp-recognize-trigger').length > 1) { container.remove(); return; }
 
-            const torrentData = { name, description, downloadLink, size, _bangumiId: extra.bangumiId || torrentInfo._bangumiId };
+                const torrentData = { name, description, downloadLink, size, _bangumiId: extra.bangumiId || torrentInfo._bangumiId };
 
-            // 检查缓存：有则直接渲染成功结果，无则显示手动入口
-            const cached = Cache.get(name);
-            if (cached && cached.media_info) {
-                GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${name}`);
-                this.renderSuccess(container, cached, torrentData);
-            } else {
-                this.renderManualEntry(container, torrentData);
-                if (CONFIG.get('autoQuery')) setTimeout(() => this.startRecognition(container, torrentData), 300);
+                // 检查缓存：有则直接渲染成功结果，无则显示手动入口
+                const cached = Cache.get(name);
+                if (cached && cached.media_info) {
+                    GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${name}`);
+                    this.renderSuccess(container, cached, torrentData);
+                } else {
+                    this.renderManualEntry(container, torrentData);
+                    if (CONFIG.get('autoQuery')) setTimeout(() => this.startRecognition(container, torrentData), 300);
+                }
+            } catch (error) {
+                GM_log(`[${SCRIPT_NAME}] Process torrent failed: ${torrentInfo?.name || ''}`, error?.stack || error?.message || error);
             }
         },
 

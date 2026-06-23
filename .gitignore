@@ -10,3 +10,4 @@ memory-bank/
 .omc/
 .claude/
 .ace-tool/
+__pycache__/
