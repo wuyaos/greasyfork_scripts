@@ -1458,14 +1458,14 @@
                     const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
                     const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
                     const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                    if (!descriptionElement) return null;
+                    const anchor = descriptionElement || titleElement?.closest('h2,h1') || titleElement || document.querySelector('main') || document.body;
                     const sizeElement = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent || ''));
                     let actionRow = document.querySelector('#mteam-script-action-row');
-                    if (!actionRow && descriptionElement) {
+                    if (!actionRow && anchor) {
                         actionRow = document.createElement('div');
                         actionRow.id = 'mteam-script-action-row';
                         actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px;';
-                        descriptionElement.after(actionRow);
+                        anchor.after(actionRow);
                     }
                     let mpRow = document.querySelector('#mteam-script-action-line-mp');
                     if (!mpRow) {
@@ -1481,7 +1481,7 @@
                     }
                     mpRow.querySelectorAll('.mp-row-box').forEach(node => node.remove());
                     if (actionRow && mpRow.parentElement !== actionRow) actionRow.insertBefore(mpRow, actionRow.firstChild);
-                    else if (!actionRow && mpRow.parentElement !== (titleElement?.parentElement || null)) (titleElement?.closest('h2,h1') || titleElement)?.after(mpRow);
+                    else if (!actionRow && mpRow.parentElement !== (titleElement?.parentElement || null)) anchor.after(mpRow);
                     return {
                         name: titleText,
                         description: descriptionElement ? descriptionElement.textContent.trim() : titleText,
