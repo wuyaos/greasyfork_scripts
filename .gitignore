@@ -5,9 +5,10 @@ memory-bank/
 ~syncthing~*
 *.sync-conflict*
 .rooignore
-.codex/
+.ace-tool
+.claude
+.codex
 .spec-workflow/
-.omc/
-.claude/
-.ace-tool/
-__pycache__/
+.omc
+.omx
+__pycache__
