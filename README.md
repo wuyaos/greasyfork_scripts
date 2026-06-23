@@ -11,6 +11,13 @@
 *   **[Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js)**: Bangumi增强脚本：显示中文标题，优化放送日历(仿B站番剧时间表)
 *   **[AI_WebSummary](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js)**: 使用AI总结网页内容
 *   **[NicePT_ReplaceIcon](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js)**: 替换NicePT分类中的图标
+*   **[Local_Debug_Loader](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Local_Debug_Loader.user.js)**: 本地调试入口，通过本地 HTTP 文件服务器 `@require` 当前仓库脚本，便于外部编辑器实时修改
+
+## 本地调试
+
+1. 运行 `./serve-debug.sh` 启动 `http://127.0.0.1:8787/` 文件服务器。
+2. 在 Tampermonkey 安装或更新 `Local_Debug_Loader.user.js`。
+3. 保持文件服务器运行，直接用外部编辑器修改 `IYUU_Reseed_Checker.user.js` / `Moviepilot_NameTest.user.js`，刷新目标站页面即可加载最新脚本。
 
 ## 问题
 *   IYUU_Reseed_Checker 下载馒头（M-Team）种子需要在配置页填写 M-Team API Key；未配置时会提示并阻止下载。

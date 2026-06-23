@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.0.8
+// @version      1.1.1
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @match        https://*/details.php?id=*
@@ -10,6 +10,8 @@
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
+// @match        https://hdsky.me/details.php?id=*
+// @match        https://pt.sjtu.edu.cn/details.php?id=*
 // @match        https://bangumi.moe/*
 // @match        https://mikanani.me/Home/*
 // @match        https://*.comicat.org/*
@@ -20,6 +22,10 @@
 // @match        https://*.m-team.io/detail/*
 // @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
+// @match        https://greatposterwall.com/torrents.php*
+// @match        https://iptorrents.com/torrent.php*
+// @match        https://beyond-hd.me/torrents/*
+// @match        https://filelist.io/details.php?id=*
 // @match        https://monikadesign.uk/torrents/*
 // @match        https://acg.rip/*
 // @match        https://nyaa.si/*
@@ -53,6 +59,8 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
+// - 1.1.1: 修复 HHClub grid 布局下 UI 插入到底部的问题，并加强查询结果同站去重。
+// - 1.0.9: 补充 HHClub、GPW、HDCity、IPT、BHD、FileList 详情页适配，并修正 M-Team 体积提取。
 // - 1.0.8: 为每个辅种站点详情页写入跨站页面缓存别名；馒头下载改为带 API Key 换取真实下载链接。
 // - 1.0.7: 保留配置保存后的查询结果缓存，新增当前页面快速缓存。
 // - 1.0.6: 增加默认关闭的自动查询开关，缓存命中时不重复请求。
@@ -139,14 +147,6 @@
         avatar(name) { const s = document.createElement('span'); s.className = 'iyuu-avatar'; s.textContent = String(name || '?').trim().slice(0, 1).toUpperCase(); return s; },
         toast(msg) { const t = document.createElement('div'); t.className = 'iyuu-toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); },
         async safeRun(label, fn) { try { return await fn(); } catch (e) { log(`${label} 失败`, e?.message || e); this.toast(`${label}失败：${e?.message || '未知错误'}`); } },
-        renderRow(type, htmlNode) {
-            if (type === 'common' && /m-team\.(cc|io|vip)/.test(location.hostname)) {
-                const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = 'IYUU';
-                const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(htmlNode); return [th, td];
-            }
-            if (type === 'common') { const h = document.createElement('td'); h.className = 'rowhead nowrap'; h.textContent = 'IYUU'; const d = document.createElement('td'); d.className = 'rowfollow'; d.appendChild(htmlNode); return [h, d]; }
-            return [htmlNode];
-        },
         async showConfig() {
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
@@ -180,6 +180,42 @@
             modal.querySelector('.iyuu-save').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('配置已保存'); };
         }
     };
+
+    const Mount = {
+        afterNode(target) { return { type: 'div-after', target }; },
+        tableRowAfter(target, label = 'IYUU') { return { type: 'table-row-after', target, label }; },
+        tableColspanAfter(target, label = 'IYUU', colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
+        blockAfter(target, label = 'IYUU') { return { type: 'block-after', target, label }; },
+        antRowAfter(target, label = 'IYUU') { return { type: 'ant-row-after', target, label }; },
+        gridPairAfter(target, label = 'IYUU') { return { type: 'grid-pair-after', target, label }; },
+        prepend(target = document.body) { return { type: 'prepend', target }; },
+        render(mount, contentNode) {
+            const m = mount?.target ? mount : this.prepend();
+            if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
+            if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
+            if (m.type === 'block-after') return this.block(m, contentNode);
+            if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
+            if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
+            if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
+            return m.target.after(contentNode);
+        },
+        tableRow(m, contentNode) { const tr = document.createElement('tr'); const h = document.createElement('td'); h.className = 'rowhead nowrap'; h.textContent = m.label || 'IYUU'; const d = document.createElement('td'); d.className = 'rowfollow'; d.appendChild(contentNode); tr.append(h, d); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
+        tableColspan(m, contentNode) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.appendChild(contentNode); tr.appendChild(td); ref?.after ? ref.after(tr) : (m.target || document.body).after(tr); return tr; },
+        block(m, contentNode) { const block = document.createElement('div'); block.className = 'block'; const title = document.createElement('div'); title.className = 'blocktitle'; title.textContent = m.label || 'IYUU'; const body = document.createElement('div'); body.className = 'blockcontent'; body.appendChild(contentNode); block.append(title, body); m.target.after(block); return block; },
+        antRow(m, contentNode) { const tr = document.createElement('tr'); tr.className = 'ant-descriptions-row'; const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = m.label || 'IYUU'; const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(contentNode); tr.append(th, td); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
+        gridPair(m, contentNode) { const label = document.createElement('div'); label.className = 'iyuu-grid-label'; label.textContent = m.label || 'IYUU'; const value = document.createElement('div'); value.className = 'iyuu-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; }
+    };
+
+    const TABLE_MOUNT_POLICY = {
+        COLSPAN_ONLY_SITES: new Set(['monikadesign'])
+    };
+
+    function tableMount(siteId, row, label) {
+        if (!row) return null;
+        return TABLE_MOUNT_POLICY.COLSPAN_ONLY_SITES.has(siteId)
+            ? Mount.tableColspanAfter(row, label)
+            : Mount.tableRowAfter(row, label);
+    }
 
     const HTTP = {
         allowed(raw) { try { const u = new URL(raw, location.origin); const h = u.hostname; if (h === '2025.iyuu.cn' || h === 'zmpt.cc' || h === location.hostname || /(^|\.)m-team\.(cc|io|vip)$/.test(h) || h === 'halomt.com' || h === 'bangumi.moe' || h === 'totheglory.im') return true; const mp = MoviePilot.cfg().url; if (mp && h === new URL(mp).hostname.toLowerCase()) return true; return Store.json(KEYS.sites, []).some(s => { const host = SiteIndex.host(s); return host && (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }); } catch (_) { return false; } },
@@ -289,7 +325,40 @@
 
     const IYUU = {
         async sidSha1() { const sitesIndex = await SiteIndex.get(false); const currentSid = SiteIndex.currentSid(sitesIndex); const sortedSites = Array.from(new Set([...Config.owned, currentSid].map(Number).filter(Boolean))).sort((a, b) => a - b); log('sid list for reportExisting', { currentSid, owned: Config.owned, sortedSites }); const key = sortedSites.join(','); const oldKey = Store.get(KEYS.sidKey, ''); const old = Store.get(KEYS.sid, ''); const ts = Number(Store.get(KEYS.sidTime, 0)); if (old && key === oldKey && Date.now() - ts < 7 * 864e5) { log('reuse cached sid_sha1', { key }); return old; } if (!sortedSites.length) throw new Error('请先在菜单配置已拥有站点，或刷新站点索引以识别当前站'); const res = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/sites/reportExisting`, headers: { Token: Config.token, 'Content-Type': 'application/json' }, data: JSON.stringify({ sid_list: sortedSites }) }); log('reportExisting response', res); const val = res?.data?.sid_sha1 || ''; if (!val) throw new Error(res?.msg || '获取 sid_sha1 失败'); Store.set(KEYS.sid, val); Store.set(KEYS.sidKey, key); Store.set(KEYS.sidTime, Date.now()); return val; },
-        async query(hash) { if (!Config.token) return { ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] }; const sid_sha1 = await this.sidSha1(); const hashes = Array.from(new Set([hash.toLowerCase()])).sort(); const sha1 = await Crypto.sha1Hex(JSON.stringify(hashes)); const params = new URLSearchParams({ hash: JSON.stringify(hashes), sha1, sid_sha1, timestamp: String(Math.floor(Date.now() / 1000)), version: '8.2.0' }); log('IYUU query params', { hashes, sha1, sid_sha1: `${String(sid_sha1).slice(0, 8)}...` }); const raw = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/index/index`, headers: { Token: Config.token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: params.toString(), allowStatuses: [400, 404] }); log('IYUU query response', raw); if (raw?.msg === '未查询到可辅种数据') return { ok: true, source: 'iyuu', sites: [] }; if (raw?.code === 400 && raw?.msg === '站点缓存哈希值无效') { Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey); throw new Error('站点缓存失效，请重试'); } if (raw && raw.code !== undefined && raw.code !== 0) throw new Error(raw.msg || 'IYUU 查询失败'); return await this.normalize(raw); },
+        async query(hash, retried = false) {
+            if (!Config.token) return { ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] };
+            let sid_sha1 = '';
+            try {
+                sid_sha1 = await this.sidSha1();
+            } catch (e) {
+                const msg = String(e?.message || '');
+                if (!retried && /Server internal error|sid_sha1|获取 sid_sha1 失败|站点缓存/i.test(msg)) {
+                    Store.del(KEYS.sid);
+                    Store.del(KEYS.sidTime);
+                    Store.del(KEYS.sidKey);
+                    log('sid cache reset before retry', { reason: msg });
+                    return this.query(hash, true);
+                }
+                throw e;
+            }
+            const hashes = Array.from(new Set([hash.toLowerCase()])).sort();
+            const sha1 = await Crypto.sha1Hex(JSON.stringify(hashes));
+            const params = new URLSearchParams({ hash: JSON.stringify(hashes), sha1, sid_sha1, timestamp: String(Math.floor(Date.now() / 1000)), version: '8.2.0' });
+            log('IYUU query params', { hashes, sha1, sid_sha1: `${String(sid_sha1).slice(0, 8)}...` });
+            const raw = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/index/index`, headers: { Token: Config.token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: params.toString(), allowStatuses: [400, 404] });
+            log('IYUU query response', raw);
+            if (raw?.msg === '未查询到可辅种数据') return { ok: true, source: 'iyuu', sites: [] };
+            const retriableServerError = raw?.code === 400 && /站点缓存哈希值无效|Server internal error/i.test(String(raw?.msg || ''));
+            if (retriableServerError && !retried) {
+                Store.del(KEYS.sid);
+                Store.del(KEYS.sidTime);
+                Store.del(KEYS.sidKey);
+                log('sid cache reset and retry query', { reason: raw?.msg || '' });
+                return this.query(hash, true);
+            }
+            if (raw && raw.code !== undefined && raw.code !== 0) throw new Error(raw.msg || 'IYUU 查询失败');
+            return await this.normalize(raw);
+        },
         async normalize(raw) { const index = SiteIndex.bySid(await SiteIndex.get(false)); const dataObj = raw?.data || {}; const groups = Array.isArray(dataObj) ? dataObj : Object.values(dataObj); const list = groups.flatMap(g => Array.isArray(g?.torrent) ? g.torrent : (Array.isArray(g) ? g : [])); const m = new Map(); list.forEach(x => { const sid = String(x.sid || x.site_id || x.site || x.site_id_str || ''); if (!sid) return; const meta = index.get(sid) || {}; const name = x.site_name || x.site_alias || x.nickname || x.name || SiteIndex.name(meta) || `站点${sid}`; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.zmpt_data?.url || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || x.zmpt_data?.download_url || ''); const item = m.get(sid) || { source: 'iyuu', sid, name, host: SiteIndex.host(meta), torrentId, icon: x.icon || SiteIndex.icon(meta), count: 0, url, downloadUrl }; item.count++; if (!item.url) item.url = url; if (!item.downloadUrl) item.downloadUrl = downloadUrl; if (!item.torrentId) item.torrentId = torrentId; m.set(sid, item); }); return { ok: true, source: 'iyuu', sites: [...m.values()] }; }
     };
 
@@ -307,7 +376,7 @@
     };
 
     const ResultCache = {
-        _data: null, version: 'mteam-web-auto-v1', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 500,
+        _data: null, version: 'site-dedupe-v2', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 500,
         _load() { if (this._data) return this._data; try { const raw = Store.get(KEYS.result, '{}'); this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch (_) { this._data = {}; } return this._data; },
         _persist() { try { Store.set(KEYS.result, JSON.stringify(this._data || {})); } catch (e) { log('result cache write failed', e.message); } },
         sidKey() { return Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); },
@@ -328,29 +397,41 @@
         text(sel, root = document) { return root.querySelector(sel)?.textContent?.trim() || ''; },
         abs(raw) { try { return raw ? new URL(raw, location.origin).href : ''; } catch (_) { return ''; } },
         size(t) { const m = String(t || '').replace(/iB/gi, 'B').toUpperCase().match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)/); if (!m) return 0; return Number(m[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024 }[m[2]] || 1); },
-        simple({ name, downloadLink, sizeText, insertPoint }) { return name && insertPoint ? { name, downloadLink: downloadLink || '', size: this.size(sizeText), insertPoint, rowType: 'div', insertAction: (p, e) => p.after(e) } : null; }
+        findDownload(selectors) { for (const sel of selectors) { const el = document.querySelector(sel); if (el?.href || el?.value) return el.href || el.value; } return ''; },
+        titleFromDownload(link) { return String(link?.textContent || link?.href?.split('/').pop() || '').replace(/\.torrent$/i, '').trim(); },
+        info({ id, name, description = '', downloadLink = '', sizeText = '', mount, extra = {} }) { return name && mount?.target ? { id, name: String(name).trim(), description, downloadLink, size: this.size(sizeText), mount, extra } : null; }
     };
 
     const ADAPTERS = [
-        { id: 'bangumi', matches: () => location.hostname === 'bangumi.moe', getInfo: () => { const modal = document.querySelector('.torrent-details-content'); const root = modal || document; const title = root.querySelector('a.title-link b, a[href*="/torrent/"]')?.textContent?.trim() || document.title.split(/[-|_]/)[0].trim(); const link = root.querySelector('a[href^="magnet:"]')?.href || ''; const id = root.querySelector('a[href*="/torrent/"]')?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || location.pathname.match(/\/torrent\/([a-f0-9]+)/i)?.[1]; const info = Helpers.simple({ name: title, downloadLink: link, sizeText: root.textContent, insertPoint: root.querySelector('.torrent-info,.torrent-title') || document.body }); if (info) info._bangumiId = id; return info; } },
-        { id: 'm-team', matches: () => /m-team\.(cc|io|vip)\/detail\//.test(location.href), getInfo: () => Helpers.simple({ name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, downloadLink: '', sizeText: document.body.innerText, insertPoint: document.querySelector('h2')?.parentElement || document.body }) },
-        { id: 'nyaa', matches: () => location.hostname === 'nyaa.si', getInfo: () => Helpers.simple({ name: Helpers.text('h3.panel-title') || document.title.replace(/::.*$/, '').trim(), downloadLink: document.querySelector('a[href^="magnet:"],a[href*="/download/"]')?.href || '', sizeText: document.body.innerText, insertPoint: document.querySelector('.panel-heading') || document.body }) },
-        { id: 'acg-rip', matches: () => location.hostname === 'acg.rip', getInfo: () => Helpers.simple({ name: Helpers.text('.panel-heading') || document.title.replace(/-\s*ACG\.RIP.*/i, '').trim(), downloadLink: document.querySelector('a[href^="magnet:"],a[href*=".torrent"]')?.href || '', sizeText: document.body.innerText, insertPoint: document.querySelector('.panel-heading') || document.body }) },
-        { id: 'comicat-kisssub', matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(location.hostname), getInfo: () => { const hash = location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || ''; return Helpers.simple({ name: document.title.replace(/\s*-\s*.*/, '').trim(), downloadLink: document.querySelector('a[href^="magnet:"]')?.href || (hash ? `magnet:?xt=urn:btih:${hash}` : ''), sizeText: document.body.innerText, insertPoint: document.querySelector('.intro,.basic_info') || document.body }); } },
-        { id: 'generic', matches: () => true, getInfo: () => { const rows = document.querySelectorAll('.rowhead,.heading'); const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a') || document.querySelector('a[href^="magnet:"],a[href*="download"],a[href*=".torrent"]'); return { name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', size: Helpers.size(document.body.innerText), insertPoint: nameRow?.parentElement?.parentElement || document.body, rowType: nameRow ? 'common' : 'div', insertAction: (p, e) => nameRow ? p.insertBefore(e, p.children[2] || null) : p.prepend(e) }; } }
+        { id: 'totheglory', matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'), getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const sizeRow = rows.find(r => /尺寸|大小/.test(r.textContent)); const row = rows[1]?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount: row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend() }); } },
+        { id: 'hdsky', matches: () => location.hostname === 'hdsky.me' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead')]; const nameRow = rows[0], dlRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const row = dlRow?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'hdsky', name: nameRow?.parentElement?.querySelector('.rowfollow input[type="submit"]')?.value?.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '', description: descRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', downloadLink: dlRow?.parentElement?.querySelector('.rowfollow a')?.href || '', sizeText: sizeRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', mount: row ? tableMount('hdsky', row, 'IYUU') : Mount.prepend() }); } },
+        { id: 'sjtu', matches: () => location.hostname === 'pt.sjtu.edu.cn' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const row = nameRow?.parentElement; return Helpers.info({ id: 'sjtu', name: nameLink?.textContent?.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '', description: descRow?.nextElementSibling?.textContent || '', downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.textContent || '', mount: row ? tableMount('sjtu', row, 'IYUU') : Mount.prepend() }); } },
+        { id: 'bangumi', matches: () => location.hostname === 'bangumi.moe', getInfo: () => { const modal = document.querySelector('.torrent-details-content'); const root = modal || document; const title = root.querySelector('a.title-link b, a[href*="/torrent/"]')?.textContent?.trim() || document.title.split(/[-|_]/)[0].trim(); const link = root.querySelector('a[href^="magnet:"]')?.href || ''; const bangumiId = root.querySelector('a[href*="/torrent/"]')?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || location.pathname.match(/\/torrent\/([a-f0-9]+)/i)?.[1]; const info = Helpers.info({ id: 'bangumi', name: title, description: title, downloadLink: link, sizeText: root.textContent, mount: Mount.afterNode(root.querySelector('.torrent-info,.torrent-title') || document.body), extra: { bangumiId } }); if (info) info._bangumiId = bangumiId; return info; } },
+        { id: 'mikanani', matches: () => location.hostname === 'mikanani.me' && location.pathname.includes('/Home/Episode/'), getInfo: () => { const raw = Helpers.text('.episode-title, h1, h2, .an-text') || document.title; const name = raw.replace(/\s*\[\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB)\]\s*$/i, '').trim(); return Helpers.info({ id: 'mikanani', name, description: Helpers.text('.episode-desc,.bangumi-desc,.content,.panel-body') || name, downloadLink: Helpers.findDownload(['a[href^="magnet:"]', 'a[href*="/Download/"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']), sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.episode-title, h1, h2, .an-text') || document.body) }); } },
+        { id: 'm-team', matches: () => /m-team\.(cc|io|vip)\/detail\//.test(location.href), getInfo: () => { const sizeEl = [...document.querySelectorAll('.ant-space-item .ant-typography')].find(el => /[體体]積[:：]/.test(el.textContent)); const rows = [...document.querySelectorAll('.ant-descriptions-view table tbody tr')]; const targetRow = rows.find(tr => /下载|下載|download/i.test(tr.textContent || '')) || rows.find(tr => /[體体]積[:：]/.test(tr.textContent || '')) || rows[0]; return Helpers.info({ id: 'm-team', name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, description: Helpers.text('p.text-mt-gray-4'), downloadLink: '', sizeText: sizeEl?.textContent || '', mount: targetRow ? Mount.antRowAfter(targetRow, 'IYUU') : Mount.afterNode(document.querySelector('h2 span.align-middle, h2') || document.querySelector('.app-content__inner') || document.querySelector('#app-content') || document.body) }); } },
+        { id: 'hdcity', matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname), getInfo: () => { const blocks = [...document.querySelectorAll('.blocktitle')]; const info = blocks.find(b => b.textContent.includes('基本信息')); const op = blocks.find(b => b.textContent.includes('种子操作')); return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount: Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body) }); } },
+        { id: 'monikadesign', matches: () => location.hostname === 'monikadesign.uk' && location.pathname.startsWith('/torrents/'), getInfo: () => { const title = document.querySelector('h1.text-center'); const sub = document.querySelector('h2.text-center'); const dl = document.querySelector('a.down[href*="/download/"]'); const row = document.querySelector('.meta-general tr.torrent-subhead'); return Helpers.info({ id: 'monikadesign', name: title?.textContent || document.title, description: sub?.textContent || '', downloadLink: dl?.href || '', sizeText: document.querySelector('.torrent-size td:nth-child(2)')?.textContent || '', mount: tableMount('monikadesign', row, 'IYUU') }); } },
+        { id: 'beyond-hd', matches: () => location.hostname === 'beyond-hd.me' && location.pathname.startsWith('/torrents/'), getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const target = dl?.closest('.text-center') || dl?.parentElement || document.querySelector('table.table-details') || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return Helpers.info({ id: 'beyond-hd', name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(), description: Helpers.text('.panel-body'), downloadLink: dl?.href || '', sizeText: Helpers.text('.panel-body'), mount: Mount.afterNode(target) }); } },
+        { id: 'iptorrents', matches: () => location.hostname === 'iptorrents.com' && location.pathname === '/torrent.php', getInfo: () => { const id = new URLSearchParams(location.search).get('id') || ''; const dl = [...document.querySelectorAll('a[href*="download.php"]')].find(a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]'); const row = dl?.closest('tr'); const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body; return Helpers.info({ id: 'iptorrents', name: Helpers.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('iptorrents', row, 'IYUU') : Mount.afterNode(target) }); } },
+        { id: 'filelist', matches: () => location.hostname === 'filelist.io' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const target = row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body; return Helpers.info({ id: 'filelist', name: Helpers.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(), description: document.title.split(' :: ')[0].trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('filelist', row, 'IYUU') : Mount.afterNode(target) }); } },
+        { id: 'greatposterwall', matches: () => location.hostname === 'greatposterwall.com' && location.pathname === '/torrents.php' && new URLSearchParams(location.search).get('torrentid'), getInfo: () => { const tid = new URLSearchParams(location.search).get('torrentid'); const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`); const row = dl?.closest('tr'); return Helpers.info({ id: 'greatposterwall', name: document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim(), description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? tableMount('greatposterwall', row, 'IYUU') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) }); } },
+        { id: 'hhclub', matches: () => location.hostname === 'hhanclub.net' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const grid = dl?.closest('.grid'); const gridCell = grid ? [...grid.children].find(el => el.contains(dl)) : null; const target = row || gridCell || dl?.parentElement || dl || document.body; return Helpers.info({ id: 'hhclub', name: Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title, description: document.title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'IYUU') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) }); } },
+        { id: 'nyaa', matches: () => location.hostname === 'nyaa.si', getInfo: () => Helpers.info({ id: 'nyaa', name: Helpers.text('h3.panel-title') || document.title.replace(/::.*$/, '').trim(), description: Helpers.text('#torrent-description') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*="/download/"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
+        { id: 'acg-rip', matches: () => location.hostname === 'acg.rip', getInfo: () => Helpers.info({ id: 'acg-rip', name: Helpers.text('.panel-heading') || document.title.replace(/-\s*ACG\.RIP.*/i, '').trim(), description: Helpers.text('.panel-body.post-content') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*=".torrent"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
+        { id: 'comicat-kisssub', matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(location.hostname), getInfo: () => { const hash = location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || ''; const title = document.title.replace(/\s*-\s*.*/, '').trim(); return Helpers.info({ id: 'comicat-kisssub', name: title, description: Helpers.text('.intro,.entry-content,.content,.description,.panel-body,article') || title, downloadLink: document.querySelector('a[href^="magnet:"]')?.href || (hash ? `magnet:?xt=urn:btih:${hash}` : ''), sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.intro,.basic_info') || document.body) }); } },
+        { id: 'generic', matches: () => true, getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a') || document.querySelector('a[href^="magnet:"],a[href*="download"],a[href*=".torrent"]'); const row = nameRow?.parentElement; return Helpers.info({ id: 'generic', name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', sizeText: document.body.innerText, mount: row ? tableMount('generic', row, 'IYUU') : Mount.prepend() }); } }
     ];
 
     const Core = {
         adapter: null,
-        init() { this.adapter = ADAPTERS.find(a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) this.inject(info); },
+        init() { this.adapter = ADAPTERS.find(a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) { this.inject(info); return true; } return false; },
         inject(info) {
-            const row = document.createElement(info.rowType === 'common' ? 'tr' : 'div');
             const box = document.createElement('div'); box.className = 'iyuu-row-box';
             const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; btn.textContent = '查辅种'; btn.title = '配置请从 Tampermonkey 菜单打开「配置 IYUU」'; btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
             const summary = UI.tag('IYUU 0站', COLORS.info); summary.classList.add('iyuu-summary');
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
-            box.append(btn, summary, multi); row.append(...UI.renderRow(info.rowType, box)); info.insertAction(info.insertPoint, row);
+            box.append(btn, summary, multi); Mount.render(info.mount, box);
             this.restore(box, btn, info, Config.autoQuery);
         },
         async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (auto && !btn.disabled) this.check(box, btn, info); } catch (_) {} },
@@ -381,8 +462,9 @@
                 urls.forEach((url, i) => setTimeout(() => this.openTab(url), i * 500)); UI.toast(`已分批打开 ${urls.length} 个站点下载链接`);
             } catch (e) { UI.toast(e?.message || '下载失败'); }
         },
-        async check(box, btn, info) { btn.disabled = true; btn.textContent = '查询中...'; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const pageCached = ResultCache.getPage(info); if (pageCached && btn.dataset.done !== '1') { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const force = btn.dataset.done === '1'; const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { btn.textContent = '重试'; const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查辅种失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
-        mergeSites(list) { const m = new Map(); (list || []).forEach(s => { const key = s.sid || s.name; if (!key) return; const old = m.get(key); if (!old) { m.set(key, s); return; } if (SiteIndex.isHomepageUrl(old.url) && !SiteIndex.isHomepageUrl(s.url)) old.url = s.url; if (!old.downloadUrl && s.downloadUrl) old.downloadUrl = s.downloadUrl; }); return [...m.values()]; },
+        async check(box, btn, info) { btn.disabled = true; btn.textContent = '查询中...'; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const pageCached = ResultCache.getPage(info); if (pageCached && btn.dataset.done !== '1') { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const force = btn.dataset.done === '1'; const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); if (!result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false)) ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { btn.textContent = '重试'; const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查辅种失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
+        siteKey(s) { const host = String(s.host || SiteIndex.host({ url: s.url }) || SiteIndex.host({ url: s.downloadUrl }) || '').toLowerCase(); if (host) return `host:${host}`; const name = String(s.name || '').toLowerCase().replace(/[\s._-]+/g, ''); if (name) return `name:${name}`; const sid = String(s.sid || '').toLowerCase(); return sid ? `sid:${sid}` : String(s.url || s.downloadUrl || '').toLowerCase(); },
+        mergeSites(list) { const m = new Map(); (list || []).forEach(s => { const key = this.siteKey(s); if (!key) return; const old = m.get(key); if (!old) { m.set(key, s); return; } old.count = Math.max(Number(old.count || 1), Number(s.count || 1)); if (!old.host && s.host) old.host = s.host; if ((!old.url || SiteIndex.isHomepageUrl(old.url)) && s.url && !SiteIndex.isHomepageUrl(s.url)) old.url = s.url; if (!old.downloadUrl && s.downloadUrl) old.downloadUrl = s.downloadUrl; if (!old.torrentId && s.torrentId) old.torrentId = s.torrentId; if (!old.icon && s.icon) old.icon = s.icon; }); return [...m.values()]; },
         async fetch(hash) { log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt }); const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })]; if (Config.zmpt) tasks.push(Fallback.query(hash)); const settled = await Promise.allSettled(tasks); const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] }); log('fetch result sources', sources); return { hash, sources, sites: this.mergeSites(sources.flatMap(s => s.sites || [])) }; },
         render(box, btn, result, info, cached = false) {
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
@@ -400,7 +482,7 @@
     function main() {
         Config.load(); UI.initStyle();
         if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('配置 IYUU', () => UI.showConfig());
-        const boot = () => { Core.init(); if (!Store.get(KEYS.configured, false) && !document.querySelector('.iyuu-modal-bg')) UI.showConfig(); };
+        const boot = () => { const ok = Core.init(); if (!ok && !document.querySelector('.iyuu-check-btn')) { let tries = 0; const retry = () => { if (document.querySelector('.iyuu-check-btn') || Core.init() || ++tries > 20) return; setTimeout(retry, 500); }; setTimeout(retry, 500); } if (!Store.get(KEYS.configured, false) && !document.querySelector('.iyuu-modal-bg')) UI.showConfig(); };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
         if (location.hostname === 'bangumi.moe') new MutationObserver(() => setTimeout(boot, 300)).observe(document.body, { childList: true, subtree: true });
     }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.4.1
+// @version      3.5.1
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
@@ -10,6 +10,8 @@
 // @match        https://*/details_tv.php?id=*
 // @match        https://*/details_animate.php?id=*
 // @match        https://totheglory.im/t/*
+// @match        https://hdsky.me/details.php?id=*
+// @match        https://pt.sjtu.edu.cn/details.php?id=*
 // @match        https://bangumi.moe/*
 // @match        https://mikanani.me/Home/*
 // @match        https://*.comicat.org/*
@@ -19,6 +21,10 @@
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://hdcity.city/t-*
+// @match        https://greatposterwall.com/torrents.php*
+// @match        https://iptorrents.com/torrent.php*
+// @match        https://beyond-hd.me/torrents/*
+// @match        https://filelist.io/details.php?id=*
 // @match        https://monikadesign.uk/torrents/*
 // @match        https://acg.rip/*
 // @match        https://nyaa.si/*
@@ -371,22 +377,6 @@
             return `<span style="background-color:${color};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;border-radius:0.375rem;font-size:12px;padding:0.25rem 0.75rem;font-weight:bold;">${UTILS.escapeHtml(text)}</span>`;
         },
 
-        renderRecognizeRow(type, html) {
-            if (type === "common" && window.location.href.includes("m-team")) {
-                return `<th class="ant-descriptions-item-label" colspan="1" style="width: 135px; text-align: right;"><span>MoviePilot</span></th><td class="ant-descriptions-item-content" colspan="1">${html}</td>`;
-            }
-            if (type === 'div') {
-                if (window.location.href.includes('hdcity.city')) {
-                    return `<div class="block"><div class="blocktitle">MoviePilot</div><div class="blockcontent">${html}</div></div>`;
-                }
-                return html;
-            }
-            if (type === "common") {
-                return `<td class="rowhead nowrap" valign="top" align="right">MoviePilot</td><td class="rowfollow" valign="top" align="left">${html}</td>`;
-            }
-            return html;
-        },
-
         showToast(message, duration = 3000) {
             const toastId = 'mp-toast-message';
             // 移除已存在的 toast
@@ -429,6 +419,42 @@
         }
     };
 
+
+    const Mount = {
+        afterNode(target) { return { type: 'div-after', target }; },
+        tableRowAfter(target, label = 'MoviePilot') { return { type: 'table-row-after', target, label }; },
+        tableColspanAfter(target, label = 'MoviePilot', colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
+        blockAfter(target, label = 'MoviePilot') { return { type: 'block-after', target, label }; },
+        antRowAfter(target, label = 'MoviePilot') { return { type: 'ant-row-after', target, label }; },
+        gridPairAfter(target, label = 'MoviePilot') { return { type: 'grid-pair-after', target, label }; },
+        prepend(target = document.body) { return { type: 'prepend', target }; },
+        render(mount, contentNode) {
+            const m = mount?.target ? mount : this.prepend();
+            if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
+            if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
+            if (m.type === 'block-after') return this.block(m, contentNode);
+            if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
+            if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
+            if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
+            return m.target.after(contentNode);
+        },
+        tableRow(m, contentNode) { const tr = document.createElement('tr'); const h = document.createElement('td'); h.className = 'rowhead nowrap'; h.textContent = m.label || 'MoviePilot'; const d = document.createElement('td'); d.className = 'rowfollow'; d.appendChild(contentNode); tr.append(h, d); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
+        tableColspan(m, contentNode) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.appendChild(contentNode); tr.appendChild(td); ref?.after ? ref.after(tr) : (m.target || document.body).after(tr); return tr; },
+        block(m, contentNode) { const block = document.createElement('div'); block.className = 'block'; const title = document.createElement('div'); title.className = 'blocktitle'; title.textContent = m.label || 'MoviePilot'; const body = document.createElement('div'); body.className = 'blockcontent'; body.appendChild(contentNode); block.append(title, body); m.target.after(block); return block; },
+        antRow(m, contentNode) { const tr = document.createElement('tr'); tr.className = 'ant-descriptions-row'; const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = m.label || 'MoviePilot'; const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(contentNode); tr.append(th, td); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
+        gridPair(m, contentNode) { const label = document.createElement('div'); label.className = 'mp-grid-label'; label.textContent = m.label || 'MoviePilot'; const value = document.createElement('div'); value.className = 'mp-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; }
+    };
+
+    const TABLE_MOUNT_POLICY = {
+        COLSPAN_ONLY_SITES: new Set(['monikadesign'])
+    };
+
+    function tableMount(siteId, row, label) {
+        if (!row) return null;
+        return TABLE_MOUNT_POLICY.COLSPAN_ONLY_SITES.has(siteId)
+            ? Mount.tableColspanAfter(row, label)
+            : Mount.tableRowAfter(row, label);
+    }
 
     // ——————————————————————————————————————
     // [3] API 模块 (API MODULE)
@@ -712,28 +738,23 @@
         findDownloadLink(selectors) {
             for (const selector of selectors) {
                 const el = document.querySelector(selector);
-                const href = el?.href || el?.getAttribute?.('href') || '';
+                const href = el?.href || el?.getAttribute?.('href') || el?.value || '';
                 const url = this.absoluteUrl(href);
                 if (url) return url;
             }
             return '';
         },
 
-        insertAfter(target, row) {
-            target.after(row);
+        info({ name, description = '', downloadLink = '', sizeText = '', mount, extra = {} }) {
+            return name && mount?.target ? { name, description, downloadLink, size: this.findSize(sizeText), mount, extra } : null;
         },
 
-        simpleDivInfo({ name, description, downloadLink, sizeText, insertPoint }) {
-            if (!name || !insertPoint) return null;
-            return {
-                name,
-                description: description || '',
-                downloadLink: downloadLink || '',
-                size: this.findSize(sizeText),
-                insertPoint,
-                rowType: 'div',
-                insertAction: (point, element) => this.insertAfter(point, element)
-            };
+        simpleDivInfo({ name, description, downloadLink, sizeText, target }) {
+            return this.info({ name, description, downloadLink, sizeText, mount: Mount.afterNode(target) });
+        },
+
+        titleFromDownload(link) {
+            return String(link?.textContent || link?.href?.split('/').pop() || '').replace(/\.torrent$/i, '').trim();
         }
     };
 
@@ -754,9 +775,7 @@
                     downloadLink: document.querySelector("td[valign='top'] a")?.getAttribute("href") || '',
                     description: description,
                     size: UTILS.parseSize(sizeString || ''),
-                    insertPoint: rows[1].parentElement.parentElement,
-                    rowType: 'common',
-                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                    mount: tableMount('totheglory', rows[1].parentElement, 'MoviePilot')
                 };
             }
         },
@@ -776,9 +795,7 @@
                     downloadLink: downloadLink,
                     description: description,
                     size: UTILS.parseSize(sizeString || ''),
-                    insertPoint: rows[1].parentElement.parentElement,
-                    rowType: 'common',
-                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                    mount: tableMount('hdsky', rows[1].parentElement, 'MoviePilot')
                 };
             }
         },
@@ -798,9 +815,7 @@
                     downloadLink: downloadLink,
                     description: description,
                     size: UTILS.parseSize(sizeString || ''),
-                    insertPoint: rows[1].parentElement.parentElement,
-                    rowType: 'common',
-                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                    mount: tableMount('sjtu', rows[1].parentElement, 'MoviePilot')
                 };
             }
         },
@@ -811,20 +826,17 @@
                 const rows = document.querySelectorAll('.blocktitle');
                 if (rows.length < 4) return null;
                 const nameLink = rows[0].textContent;
-                const sizeblock = rows[1].nextElementSibling?.textContent || '';
+                const infoBlock = Array.from(rows).find(row => row.textContent.includes('基本信息'))?.nextElementSibling;
+                const sizeblock = infoBlock?.textContent || rows[1].nextElementSibling?.textContent || '';
                 const description = rows[0].parentElement?.querySelector('.blockcontent')?.textContent.trim() || "";
-                const downloadLink = rows[3].nextElementSibling?.querySelector('input[type="text"][title="DirectLink"]')?.value || "";
+                const downloadLink = rows[3].nextElementSibling?.querySelector('input[type="text"][title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || "";
 
                 return {
                     name: nameLink,
                     downloadLink: downloadLink,
                     description: description,
                     size: UTILS.parseSize(sizeblock || ''),
-                    insertPoint: document.querySelector('div.block'),
-                    rowType: 'div',
-                    insertAction: (point, element) => {
-                        point.after(element);
-                    }
+                    mount: Mount.blockAfter(document.querySelector('div.block'))
                 };
             }
         },
@@ -836,19 +848,15 @@
                 const descriptionElement = document.querySelector('h2.text-center');
                 const downloadLinkElement = document.querySelector('a.down[href*="/download/"]');
                 const size = document.querySelector('.torrent-size td:nth-child(2)').textContent.trim();
-                const insertPoint = document.querySelector('.meta-general tr.torrent-subhead');
-                if (!nameElement || !insertPoint) return null;
+                const target = document.querySelector('.meta-general tr.torrent-subhead');
+                if (!nameElement || !target) return null;
 
                 return {
                     name: nameElement.textContent.trim(),
                     description: descriptionElement ? descriptionElement.textContent.trim() : '',
                     downloadLink: downloadLinkElement ? downloadLinkElement.href : '',
                     size: UTILS.parseSize(size.replace(/iB/gi, 'B') || ''),
-                    insertPoint: insertPoint,
-                    rowType: 'common',
-                    insertAction: (point, element) => {
-                        point.after(element);
-                    }
+                    mount: tableMount('monikadesign', target, 'MoviePilot')
                 };
             }
         },
@@ -868,8 +876,8 @@
                 const downloadLink = (root.querySelector('a[href^="magnet:"]')?.href)
                     || BT_SITE_HELPERS.findDownloadLink(['a[href^="magnet:"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']);
                 const sizeText = root.querySelector('.filesize')?.textContent || root.textContent || '';
-                const insertPoint = titleEl?.closest('.torrent-info') || root.querySelector('.torrent-info, .torrent-title') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description: title, downloadLink, sizeText, insertPoint });
+                const target = titleEl?.closest('.torrent-info') || root.querySelector('.torrent-info, .torrent-title') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description: title, downloadLink, sizeText, target });
             },
             getListInfo: () => {
                 if (/^\/torrent\/[a-f0-9]+$/i.test(window.location.pathname)) return null;
@@ -884,7 +892,7 @@
                         name, description: name,
                         downloadLink: '',
                         sizeText: '',
-                        insertPoint: item.closest('md-item, .torrent-row') || item.parentElement || item
+                        target: item.closest('md-item, .torrent-row') || item.parentElement || item
                     });
                     if (info && torrentId) info._bangumiId = torrentId;
                     return info;
@@ -907,8 +915,8 @@
                 ]);
                 const description = BT_SITE_HELPERS.text('.episode-desc, .bangumi-desc, .content, .panel-body') || title;
                 const sizeText = (document.querySelector('.episode-title, h1, h2, .an-text')?.parentElement?.innerText) || '';
-                const insertPoint = document.querySelector('.episode-title, h1, h2, .an-text') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+                const target = document.querySelector('.episode-title, h1, h2, .an-text') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, target });
             },
             getListInfo: () => {
                 if (!window.location.pathname.includes('/Home/Bangumi/')) return null;
@@ -924,7 +932,7 @@
                         name, description: name,
                         downloadLink: magnet,
                         sizeText,
-                        insertPoint: titleEl
+                        target: titleEl
                     });
                 }).filter(Boolean);
             }
@@ -945,8 +953,8 @@
                 ]) || (encodedMagnet ? decodeURIComponent(encodedMagnet) : '') || (hash ? `magnet:?xt=urn:btih:${hash}` : '');
                 const description = BT_SITE_HELPERS.text('.intro, .entry-content, .content, .description, .panel-body, article') || title;
                 const sizeText = (document.querySelector('.torrent_files, .basic_info, .c2')?.innerText) || '';
-                const insertPoint = document.querySelector('.c2 > .box > .intro') || document.querySelector('.intro, .basic_info') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+                const target = document.querySelector('.c2 > .box > .intro') || document.querySelector('.intro, .basic_info') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, target });
             },
             getListInfo: () => {
                 if (/\/show-[a-f0-9]{40}\.html$/i.test(window.location.pathname)) return null;
@@ -961,7 +969,7 @@
                         name, description: name,
                         downloadLink,
                         sizeText: row.textContent,
-                        insertPoint: titleEl
+                        target: titleEl
                     });
                 }).filter(Boolean);
             }
@@ -980,8 +988,8 @@
                 ]);
                 const description = BT_SITE_HELPERS.text('.panel-body.post-content') || title;
                 const sizeText = (panelContent?.innerText) || '';
-                const insertPoint = heading || panelContent || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+                const target = heading || panelContent || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, target });
             },
             getListInfo: () => {
                 const rows = document.querySelectorAll('table tbody tr');
@@ -996,7 +1004,7 @@
                         name, description: name,
                         downloadLink: torrent,
                         sizeText,
-                        insertPoint: titleEl
+                        target: titleEl
                     });
                 }).filter(Boolean);
             }
@@ -1015,8 +1023,8 @@
                 ]);
                 const description = BT_SITE_HELPERS.text('#torrent-description') || title;
                 const sizeText = (document.querySelector('.panel-body .row, .torrent-file-list')?.parentElement?.innerText) || '';
-                const insertPoint = document.querySelector('.panel-heading') || document.body;
-                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, insertPoint });
+                const target = document.querySelector('.panel-heading') || document.body;
+                return BT_SITE_HELPERS.simpleDivInfo({ name: title, description, downloadLink, sizeText, target });
             },
             getListInfo: () => {
                 const rows = document.querySelectorAll('table.torrent-list tbody tr');
@@ -1031,9 +1039,77 @@
                         name, description: name,
                         downloadLink: magnet || torrent,
                         sizeText: size,
-                        insertPoint: titleEl
+                        target: titleEl
                     });
                 }).filter(Boolean);
+            }
+        },
+        {
+            id: 'beyond-hd',
+            matches: () => window.location.hostname === 'beyond-hd.me' && window.location.pathname.startsWith('/torrents/'),
+            getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const target = dl?.closest('.text-center') || dl?.parentElement || document.querySelector('table.table-details') || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return BT_SITE_HELPERS.simpleDivInfo({
+                name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(),
+                description: BT_SITE_HELPERS.text('.panel-body'),
+                downloadLink: dl?.href || '',
+                sizeText: BT_SITE_HELPERS.text('.panel-body'),
+                target
+            }); }
+        },
+        {
+            id: 'iptorrents',
+            matches: () => window.location.hostname === 'iptorrents.com' && window.location.pathname === '/torrent.php',
+            getInfo: () => {
+                const id = new URLSearchParams(window.location.search).get('id') || '';
+                const dl = [...document.querySelectorAll('a[href*="download.php"]')].find(a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]');
+                const row = dl?.closest('tr');
+                const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body;
+                return BT_SITE_HELPERS.info({
+                    name: BT_SITE_HELPERS.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(),
+                    description: '',
+                    downloadLink: dl?.href || '',
+                    sizeText: target?.textContent || '',
+                    mount: row ? tableMount('iptorrents', row, 'MoviePilot') : Mount.afterNode(target)
+                });
+            }
+        },
+        {
+            id: 'filelist',
+            matches: () => window.location.hostname === 'filelist.io' && window.location.pathname === '/details.php',
+            getInfo: () => {
+                const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                const row = dl?.closest('tr');
+                const target = row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body;
+                return BT_SITE_HELPERS.info({
+                    name: BT_SITE_HELPERS.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(),
+                    description: document.title.split(' :: ')[0].trim(),
+                    downloadLink: dl?.href || '',
+                    sizeText: target?.textContent || '',
+                    mount: row ? tableMount('filelist', row, 'MoviePilot') : Mount.afterNode(target)
+                });
+            }
+        },
+        {
+            id: 'greatposterwall',
+            matches: () => window.location.hostname === 'greatposterwall.com' && window.location.pathname === '/torrents.php' && new URLSearchParams(window.location.search).get('torrentid'),
+            getInfo: () => {
+                const tid = new URLSearchParams(window.location.search).get('torrentid');
+                const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
+                const row = dl?.closest('tr');
+                const name = document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim();
+                return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? tableMount('greatposterwall', row, 'MoviePilot') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) });
+            }
+        },
+        {
+            id: 'hhclub',
+            matches: () => window.location.hostname === 'hhanclub.net' && window.location.pathname === '/details.php',
+            getInfo: () => {
+                const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                const title = BT_SITE_HELPERS.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
+                const row = dl?.closest('tr');
+                const grid = dl?.closest('.grid');
+                const gridCell = grid ? [...grid.children].find(el => el.contains(dl)) : null;
+                const target = row || gridCell || dl?.parentElement || dl || document.body;
+                return BT_SITE_HELPERS.info({ name: title, description: title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'MoviePilot') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) });
             }
         },
         {
@@ -1055,33 +1131,34 @@
                     downloadLink: nameLink?.href || '',
                     description: description,
                     size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                    insertPoint: nameRow.parentElement.parentElement,
-                    rowType: 'common',
-                    insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                    mount: tableMount('generic-nexusphp', nameRow.parentElement, 'MoviePilot')
                 };
             }
         },
         {
             id: 'm-team',
-            matches: () => /m-team\.(cc|io)\/detail\//.test(window.location.href),
+            matches: () => /m-team\.(cc|io|vip)\/detail\//.test(window.location.href),
             getInfo: () => {
                 // 检查旧版UI,域名是否为ob.m-team.cc
                 const isNewUI = !window.location.hostname.includes('ob.m-team.cc');
                 if (isNewUI) {
                     // --- 新版UI逻辑 ---
-                    const titleElement = document.querySelector('h2 > span.align-middle');
+                    const titleElement = document.querySelector('h2 span.align-middle, h2, h1');
+                    const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
+                    const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
                     const descriptionElement = document.querySelector('p.text-mt-gray-4');
-                    const sizeElement = Array.from(document.querySelectorAll('.ant-space-item .ant-typography')).find(el => el.textContent.includes('體積:'));
-                    const insertPointElement = document.querySelector('h2')?.parentElement;
-                    if (!titleElement || !insertPointElement) return null;
+                    const sizeElement = Array.from(document.querySelectorAll('.ant-space-item .ant-typography')).find(el => /[體体]積[:：]/.test(el.textContent || ''));
+                    const rows = Array.from(document.querySelectorAll('.ant-descriptions-view table tbody tr'));
+                    const targetRow = rows.find(tr => /下载|下載|download/i.test(tr.textContent || '')) || rows.find(tr => /[體体]積[:：]/.test(tr.textContent || '')) || rows[0];
+                    const contentRoot = document.querySelector('.app-content__inner') || document.querySelector('#app-content');
+                    const targetElement = targetRow || sizeElement?.closest('.ant-space-item') || titleElement || contentRoot;
+                    if (!targetElement) return null;
                     return {
-                        name: titleElement.textContent.trim(),
-                        description: descriptionElement ? descriptionElement.textContent.trim() : '',
+                        name: titleText,
+                        description: descriptionElement ? descriptionElement.textContent.trim() : titleText,
                         size: sizeElement ? UTILS.parseSize(sizeElement.textContent) : 0,
                         downloadLink: '',
-                        insertPoint: insertPointElement,
-                        insertAction: (point, element) => point.after(element),
-                        rowType: 'div'
+                        mount: targetElement.tagName === 'TR' ? Mount.antRowAfter(targetElement, 'MoviePilot') : Mount.afterNode(targetElement)
                     };
                 } else {
                     // --- 旧版UI逻辑 ---
@@ -1095,9 +1172,7 @@
                         downloadLink: '',
                         description: dlRow.nextElementSibling.innerText || '',
                         size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                        insertPoint: nameRow.parentElement.parentElement,
-                        rowType: 'common',
-                        insertAction: (point, element) => point.insertBefore(element, point.children[2])
+                        mount: Mount.antRowAfter(nameRow.parentElement)
                     };
                 }
             }
@@ -1572,72 +1647,61 @@
             const torrentInfoList = await Site.getTorrentInfo();
             if (!torrentInfoList || torrentInfoList.length === 0) {
                 GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
-                return;
+                return false;
             }
             GM_log(`[${SCRIPT_NAME}] 匹配到 ${torrentInfoList.length} 条种子信息`);
             for (const torrentInfo of torrentInfoList) {
                 if (!torrentInfo || !torrentInfo.name) continue;
                 this._processOneTorrent(torrentInfo);
             }
+            return Boolean(document.querySelector('.mp-recognize-trigger'));
         },
 
         _processOneTorrent(torrentInfo) {
-            const { name, description, downloadLink, size, insertPoint, insertAction, rowType } = torrentInfo;
+            const { name, description, downloadLink, size, extra = {} } = torrentInfo;
+            const container = document.createElement('div');
+            container.className = 'mp-row-box';
+            Mount.render(torrentInfo.mount || Mount.prepend(), container);
+            if (container.parentElement?.querySelectorAll?.('.mp-recognize-trigger').length > 1) { container.remove(); return; }
 
-            // 去重：insertPoint 附近已有识别按钮则跳过
-            if (insertPoint?.nextElementSibling?.querySelector?.('.mp-recognize-trigger')
-                || insertPoint?.querySelector?.('.mp-recognize-trigger')) return;
-
-            const row = document.createElement(rowType === 'common' ? 'tr' : 'div');
-            if (rowType === 'common' && window.location.href.includes("m-team")) {
-                row.className = "ant-descriptions-row";
-            }
-            if (insertAction) {
-                insertAction(insertPoint, row);
-            } else {
-                GM_log(`[${SCRIPT_NAME}] No valid insert point for UI.`);
-                return;
-            }
-
-            const torrentData = { name, description, downloadLink, size, _bangumiId: torrentInfo._bangumiId };
+            const torrentData = { name, description, downloadLink, size, _bangumiId: extra.bangumiId || torrentInfo._bangumiId };
 
             // 检查缓存：有则直接渲染成功结果，无则显示手动入口
             const cached = Cache.get(name);
             if (cached && cached.media_info) {
                 GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${name}`);
-                this.renderSuccess(row, rowType, cached, torrentData);
+                this.renderSuccess(container, cached, torrentData);
             } else {
-                this.renderManualEntry(row, rowType, torrentData);
-                if (CONFIG.get('autoQuery')) setTimeout(() => this.startRecognition(row, rowType, torrentData), 300);
+                this.renderManualEntry(container, torrentData);
+                if (CONFIG.get('autoQuery')) setTimeout(() => this.startRecognition(container, torrentData), 300);
             }
         },
 
-        renderManualEntry(row, rowType, torrentInfo, state = 'idle', message = '点击识别') {
+        renderManualEntry(container, torrentInfo, state = 'idle', message = '点击识别') {
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
             const isRunning = state === 'running';
             const tagColor = state === 'error' ? CONSTANTS.COLORS.WARNING : (isRunning ? CONSTANTS.COLORS.PRIMARY : CONSTANTS.COLORS.SECONDARY);
             const manualTag = `<span class="mp-recognize-trigger" data-state="${state}">${UI.renderTag(message, tagColor)}</span>`;
 
-            const html = `<div style="${containerStyle}">${manualTag}</div>`;
-            row.innerHTML = UI.renderRecognizeRow(rowType, html);
-            this.attachRecognizeTrigger(row, rowType, torrentInfo);
+            container.innerHTML = `<div style="${containerStyle}">${manualTag}</div>`;
+            this.attachRecognizeTrigger(container, torrentInfo);
         },
 
-        attachRecognizeTrigger(row, rowType, torrentInfo) {
-            const trigger = row.querySelector('.mp-recognize-trigger');
+        attachRecognizeTrigger(container, torrentInfo) {
+            const trigger = container.querySelector('.mp-recognize-trigger');
             if (!trigger) return;
             trigger.addEventListener('click', (e) => {
                 e.stopPropagation();
                 e.preventDefault();
                 const state = trigger.getAttribute('data-state');
                 if (state === 'running') return;
-                this.startRecognition(row, rowType, torrentInfo);
+                this.startRecognition(container, torrentInfo);
             });
         },
 
-        async startRecognition(row, rowType, torrentInfo) {
+        async startRecognition(container, torrentInfo) {
             const setRunning = (msg) => {
-                const trigger = row.querySelector('.mp-recognize-trigger');
+                const trigger = container.querySelector('.mp-recognize-trigger');
                 if (trigger) {
                     trigger.setAttribute('data-state', 'running');
                     trigger.innerHTML = UI.renderTag(msg, CONSTANTS.COLORS.PRIMARY);
@@ -1656,12 +1720,12 @@
                         const data = await API.recognize(candidates[i], subtitle);
                         if (data && data.media_info) {
                             Cache.set(torrentInfo.name, data);
-                            this.renderSuccess(row, rowType, data, torrentInfo);
+                            this.renderSuccess(container, data, torrentInfo);
                             return;
                         }
                     } catch (e) {
                         if ((e.message || '').includes('配置不完整') || (e.message || '').includes('API Key')) {
-                            this.renderManualEntry(row, rowType, torrentInfo, 'error', '配置异常，重试');
+                            this.renderManualEntry(container, torrentInfo, 'error', '配置异常，重试');
                             return;
                         }
                         GM_log(`[${SCRIPT_NAME}] 候选词识别失败: ${candidates[i]}`, e);
@@ -1674,16 +1738,16 @@
                     if (mediaInfo && mediaInfo.tmdb_id) {
                         const data = { media_info: mediaInfo, meta_info: {} };
                         Cache.set(torrentInfo.name, data);
-                        this.renderSuccess(row, rowType, data, torrentInfo);
+                        this.renderSuccess(container, data, torrentInfo);
                         return;
                     }
                 }
 
-                this.renderManualEntry(row, rowType, torrentInfo, 'error', '识别失败，重试');
+                this.renderManualEntry(container, torrentInfo, 'error', '识别失败，重试');
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Recognition failed:`, error);
                 const message = (error.message || '').includes('配置不完整') ? '配置异常，重试' : '识别失败，重试';
-                this.renderManualEntry(row, rowType, torrentInfo, 'error', message);
+                this.renderManualEntry(container, torrentInfo, 'error', message);
             }
         },
 
@@ -1732,7 +1796,7 @@
             }
         },
 
-        renderSuccess(row, rowType, data, torrentInfo) {
+        renderSuccess(container, data, torrentInfo) {
             const { media_info, meta_info } = data;
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
             let finalHtml = `<div style="${containerStyle}">`;
@@ -1759,11 +1823,11 @@
             finalHtml += meta_info.resource_team ? UI.renderTag(meta_info.resource_team, CONSTANTS.COLORS.PURPLE) : '';
 
             finalHtml += `</div>`;
-            row.innerHTML = UI.renderRecognizeRow(rowType, finalHtml);
+            container.innerHTML = finalHtml;
 
             // Add event listeners
-            this.addSuccessListeners(row, data, torrentInfo);
-            this.attachRecognizeTrigger(row, rowType, torrentInfo);
+            this.addSuccessListeners(container, data, torrentInfo);
+            this.attachRecognizeTrigger(container, torrentInfo);
         },
 
         addSuccessListeners(row, data, torrentInfo) {
@@ -2206,10 +2270,12 @@
         }
 
         let hasBooted = false;
-        const bootCore = () => {
-            if (hasBooted) return;
+        const bootCore = async () => {
+            if (hasBooted) return true;
             hasBooted = true;
-            Core.handlePage();
+            const ok = await Core.handlePage();
+            if (!ok) hasBooted = false;
+            return ok;
         };
 
         // 5. 处理 M-Team 的动态加载，等待详细信息出现后再渲染入口
@@ -2246,6 +2312,19 @@
                 }
                 originOpen.apply(this, args);
             };
+
+            let attempts = 0;
+            const tryBoot = async () => {
+                if (document.querySelector('.mp-recognize-trigger')) return;
+                Site.init();
+                const ok = Site.adapter ? await bootCore() : false;
+                if (ok) {
+                    MTeamLinkCapture._installNativeDownloadHook();
+                    return;
+                }
+                if (attempts++ < 30) setTimeout(tryBoot, 500);
+            };
+            setTimeout(tryBoot, 300);
         } else if (window.location.hostname === 'bangumi.moe') {
             // bangumi.moe 是 SPA，内容异步渲染，需要轮询等待 DOM 就绪
             const spaBoot = () => {
@@ -2302,7 +2381,14 @@
             });
             modalObserver.observe(document.body, { childList: true, subtree: false });
         } else {
-            bootCore();
+            let attempts = 0;
+            const tryBoot = async () => {
+                if (document.querySelector('.mp-recognize-trigger')) return;
+                Site.init();
+                const ok = Site.adapter ? await bootCore() : false;
+                if (!ok && attempts++ < 20) setTimeout(tryBoot, 500);
+            };
+            tryBoot();
         }
     }
 

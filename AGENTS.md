@@ -6,13 +6,16 @@ Input: 浏览器用户脚本运行环境、目标站点页面、用户本地 GM 
 ## Files
 
 - `README.md`: 脚本列表与安装入口说明。
-- `IYUU_Reseed_Checker.user.js`: 独立 IYUU 辅种检测脚本，支持手动/自动查询、站点选择、详情页跳转、多选打开和选中站点种子下载。
+- `IYUU_Reseed_Checker.user.js`: 独立 IYUU 辅种检测脚本，支持手动/自动查询、站点选择、详情页跳转、多选打开、选中站点种子下载和多类 PT/BT 详情页适配。
 - `PT_OneClickClaim.user.js`: PT 一键认领增强脚本，支持按标题表达式、体积、多选 IP、多选客户端筛选当前做种并预览后批量认领。
 - `Moviepilot_AutoLogin.user.js`: MoviePilot 自动登录脚本。
-- `Moviepilot_NameTest.user.js`: PT/BT 种子名称识别与 MoviePilot 推送脚本，支持默认关闭的自动查询与缓存复用。
+- `Moviepilot_NameTest.user.js`: PT/BT 种子名称识别与 MoviePilot 推送脚本，支持默认关闭的自动查询、识别缓存和多类 PT/BT 详情页适配。
 - `Bangumi_Enhanced.user.js`: Bangumi 中文标题与放送日历增强脚本。
 - `AI_WebSummary.user.js`: AI 网页内容总结脚本。
 - `NicePT_ReplaceIcon.user.js`: NicePT 分类图标替换脚本。
 - `.omc/skills/tampermonkey-dev/SKILL.md`: 项目本地 Tampermonkey 5.4.1 userscript 开发 skill。
+- `Local_Debug_Loader.user.js`: 本地 Tampermonkey 调试入口，通过 `@require http://127.0.0.1:8787/...` 加载仓库脚本。
+- `serve-debug.sh`: 启动本地无缓存 HTTP 文件服务器，供 `Local_Debug_Loader.user.js` 调试加载。
+- `serve_debug.py`: 本地调试 HTTP server 实现，设置 no-cache 与 CORS 响应头。
 - `icon/`: 脚本图标资源。
 - `class_icon/`: NicePT 分类图标资源。
