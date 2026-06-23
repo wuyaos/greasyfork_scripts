@@ -78,12 +78,14 @@
         sites: 'iyuu_reseed_sites_index', sitesTime: 'iyuu_reseed_sites_index_time', sid: 'iyuu_reseed_sid_sha1',
         sidTime: 'iyuu_reseed_sid_sha1_time', sidKey: 'iyuu_reseed_sid_sha1_key', result: 'iyuu_reseed_result_cache',
         mteamKey: 'iyuu_reseed_mteam_api_key', configured: 'iyuu_reseed_configured_once', autoQuery: 'iyuu_reseed_auto_query',
+        debug: 'iyuu_debug',
         mpUrl: 'moviepilotUrl', mpUser: 'moviepilotUser', mpPass: 'moviepilotPassword', mpAuthMode: 'moviepilotAuthMode', mpApiKey: 'moviepilotApiKey'
     };
     const COLORS = { primary: '#2775b6', secondary: '#e6702e', success: '#5bb053', warn: '#c54640', info: '#677489' };
-    const DEBUG = true;
+    const DEBUG = false;
     const safeJson = v => { try { return JSON.stringify(v, (k, val) => val instanceof ArrayBuffer ? `ArrayBuffer(${val.byteLength})` : val, 2); } catch (_) { return String(v); } };
-    const log = (label, value = '') => { if (DEBUG) console.log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
+    const debugEnabled = () => { try { return Boolean(GM_getValue(KEYS.debug, DEBUG)); } catch (_) { return DEBUG; } };
+    const log = (label, value = '') => { if (debugEnabled()) console.log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     let iyuuLastRequest = 0;
     const AUTO_FEED_SITE_URLS = {
@@ -152,6 +154,12 @@
         try { const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); return [host, url]; } catch (_) { return ['', url]; }
     }).filter(([host]) => host));
     const normalizeSiteKey = value => String(value || '').toLowerCase().replace(/[\s._-]+/g, '');
+    const firstOf = (items, predicate) => {
+        for (const item of items || []) {
+            if (predicate(item)) return item;
+        }
+        return undefined;
+    };
 
     const Store = {
         get(k, d = '') { try { return GM_getValue(k, d); } catch (_) { return d; } },
@@ -161,7 +169,7 @@
     };
 
     const Config = {
-        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false,
+        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false, debug: false,
         load() {
             this.token = Store.get(KEYS.token, '');
             this.owned = Store.json(KEYS.owned, []);
@@ -169,13 +177,15 @@
             Store.set(KEYS.zmpt, true);
             this.mteamKey = Store.get(KEYS.mteamKey, '');
             this.autoQuery = Boolean(Store.get(KEYS.autoQuery, false));
+            this.debug = debugEnabled();
         },
-        save({ token, owned, mteamKey, autoQuery }) {
+        save({ token, owned, mteamKey, autoQuery, debug }) {
             Store.set(KEYS.token, String(token || '').trim());
             Store.set(KEYS.owned, JSON.stringify((owned || []).map(String)));
             Store.set(KEYS.zmpt, true);
             Store.set(KEYS.mteamKey, String(mteamKey || '').trim());
             Store.set(KEYS.autoQuery, Boolean(autoQuery));
+            Store.set(KEYS.debug, Boolean(debug));
             Store.set(KEYS.configured, true);
             Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey);
             this.load();
@@ -190,8 +200,50 @@
     const UI = {
         initStyle() {
             GM_addStyle(`
-                .iyuu-row-box{display:inline-flex;align-items:center;gap:.45em;flex-wrap:wrap;font:inherit;line-height:inherit;vertical-align:middle}.iyuu-btn,.iyuu-body button{border:0;border-radius:4px;color:#fff;cursor:pointer;font:inherit;font-weight:600;padding:.12em .6em;background:${COLORS.secondary};line-height:1.45;min-height:1.8em}.iyuu-btn.primary,.iyuu-save,#iyuuSaveToken,#iyuuSaveMp{background:${COLORS.success}}.iyuu-btn.danger,.iyuu-cancel,#iyuuResetConfig{background:${COLORS.warn}}.iyuu-btn:not(:disabled):hover,.iyuu-body button:not(:disabled):hover{filter:brightness(.96)}.iyuu-btn:disabled,.iyuu-body button:disabled{opacity:.7;cursor:not-allowed}.iyuu-chip{display:inline-flex;align-items:center;gap:.35em;border-radius:4px;padding:.12em .5em;background:#eef3f8;color:#263238;text-decoration:none;border:1px solid #d6dde5;font:inherit;line-height:1.45;vertical-align:middle}.iyuu-chip.source{color:#fff;background:${COLORS.primary};border-color:${COLORS.primary}}.iyuu-chip.error{background:${COLORS.warn};border-color:${COLORS.warn};color:#fff}.iyuu-site-choice{display:inline-flex;align-items:center;gap:.35em}.iyuu-site-choice input{margin:0}.iyuu-site-link{display:inline-flex;align-items:center;gap:.35em;color:inherit;text-decoration:none}.iyuu-icon{width:16px;height:16px;border-radius:3px;object-fit:contain;background:#fff;flex:0 0 auto;display:block}.iyuu-avatar{width:16px;height:16px;border-radius:4px;background:${COLORS.info};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}.iyuu-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483646;display:flex;align-items:center;justify-content:center}.iyuu-modal{width:620px;max-height:86vh;overflow:auto;background:#f9f9f9;color:#333;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-family:Segoe UI,system-ui,sans-serif}.iyuu-modal h2{margin:0;padding:14px 20px;color:#fff;background:linear-gradient(135deg,#2775b6,#5bb053);font-size:16px}.iyuu-body{padding:18px 22px}.iyuu-body label{display:block;font-weight:600;margin:10px 0 4px}.iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{width:calc(100% - 18px);padding:8px;border:1px solid #ddd;border-radius:4px}.iyuu-more{margin:12px 0;border:1px solid #e5e5e5;border-radius:6px;background:#fff;padding:10px}.iyuu-more summary{cursor:pointer;font-weight:700;color:${COLORS.primary}}.iyuu-inline{display:flex;gap:8px;align-items:center}.iyuu-inline input{flex:1}.iyuu-actions{text-align:right;margin-top:14px;padding-top:12px;border-top:1px solid #e5e5e5}.iyuu-save{background:${COLORS.success};color:#fff}.iyuu-cancel{background:${COLORS.warn};color:#fff}.iyuu-site-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}.iyuu-site-grid{display:flex;gap:7px;flex-wrap:wrap;max-height:230px;overflow:auto;border:1px solid #ddd;border-radius:6px;background:#fff;padding:10px}.iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #d6dde5;border-radius:4px;background:#fff;color:#8a94a3;cursor:pointer;font-size:12px;opacity:.75}.iyuu-site-chip:hover{border-color:${COLORS.primary}}.iyuu-site-chip.selected{border-color:${COLORS.success};background:${COLORS.success};color:#fff;opacity:1;font-weight:600}.iyuu-toast{position:fixed;top:20px;right:20px;z-index:2147483647;background:${COLORS.success};color:#fff;padding:12px 16px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-                .iyuu-modal{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px);border-radius:8px;background:#f6f7f9;overflow:hidden}.iyuu-modal h2{position:sticky;top:0;z-index:1;padding:12px 18px;font-size:15px;letter-spacing:0;background:${COLORS.primary}}.iyuu-body{display:grid;gap:12px;padding:14px 16px 0;max-height:calc(100vh - 88px);overflow:auto}.iyuu-section,.iyuu-more{border:1px solid #dfe4ea;border-radius:6px;background:#fff;padding:12px}.iyuu-section-title{margin:0 0 10px;color:#1f2933;font-size:13px;font-weight:700}.iyuu-field{display:grid;gap:4px;margin-bottom:10px}.iyuu-field:last-child{margin-bottom:0}.iyuu-body label{margin:0;color:#4b5563;font-size:12px}.iyuu-check-line{display:flex!important;align-items:center;gap:6px;font-weight:600}.iyuu-check-line input{margin:0}.iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}.iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}.iyuu-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.iyuu-body button{height:32px;padding:0 10px;font-size:12px}.iyuu-more{margin:0}.iyuu-more summary{list-style:none;margin:-12px;padding:12px;cursor:pointer}.iyuu-more summary::-webkit-details-marker{display:none}.iyuu-more[open] summary{margin-bottom:10px;border-bottom:1px solid #edf0f3}.iyuu-site-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0}.iyuu-site-toolbar input{flex:1 1 180px;min-width:160px}.iyuu-site-toolbar button{flex:0 0 auto}.iyuu-site-grid{max-height:240px;border-color:#dfe4ea;border-radius:6px;padding:8px;background:#fff}.iyuu-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin:0 -16px;padding:10px 16px;background:#f6f7f9;border-top:1px solid #dfe4ea}.iyuu-actions button{margin:0}@media(max-width:720px){.iyuu-site-toolbar button{flex:1 1 calc(50% - 8px)}.iyuu-site-toolbar input{flex-basis:100%}.iyuu-inline{grid-template-columns:1fr}.iyuu-body{padding:12px 12px 0}.iyuu-actions{margin:0 -12px;padding:10px 12px}}
+                .iyuu-row-box{display:inline-flex;align-items:center;gap:.45em;flex-wrap:wrap;font:inherit;line-height:inherit;vertical-align:middle}
+                .iyuu-btn,.iyuu-body button{border:0;border-radius:4px;color:#fff;cursor:pointer;font:inherit;font-weight:600;padding:.12em .6em;background:${COLORS.secondary};line-height:1.45;min-height:1.8em}
+                .iyuu-btn.primary,.iyuu-save,#iyuuSaveToken,#iyuuSaveMp{background:${COLORS.success}}
+                .iyuu-btn.danger,.iyuu-cancel,#iyuuResetConfig{background:${COLORS.warn}}
+                .iyuu-btn:not(:disabled):hover,.iyuu-body button:not(:disabled):hover{filter:brightness(.96)}
+                .iyuu-btn:disabled,.iyuu-body button:disabled{opacity:.7;cursor:not-allowed}
+                .iyuu-chip{display:inline-flex;align-items:center;gap:.35em;border-radius:4px;padding:.12em .5em;background:#eef3f8;color:#263238;text-decoration:none;border:1px solid #d6dde5;font:inherit;line-height:1.45;vertical-align:middle}
+                .iyuu-chip.source{color:#fff;background:${COLORS.primary};border-color:${COLORS.primary}}
+                .iyuu-chip.error{background:${COLORS.warn};border-color:${COLORS.warn};color:#fff}
+                .iyuu-site-choice{display:inline-flex;align-items:center;gap:.35em}
+                .iyuu-site-choice input{margin:0}
+                .iyuu-site-link{display:inline-flex;align-items:center;gap:.35em;color:inherit;text-decoration:none}
+                .iyuu-icon{width:16px;height:16px;border-radius:3px;object-fit:contain;background:#fff;flex:0 0 auto;display:block}
+                .iyuu-avatar{width:16px;height:16px;border-radius:4px;background:${COLORS.info};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+                .iyuu-toast{position:fixed;top:20px;right:20px;z-index:2147483647;background:${COLORS.success};color:#fff;padding:12px 16px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+                .iyuu-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483646;display:flex;align-items:center;justify-content:center}
+                .iyuu-modal{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px);border-radius:8px;background:#f6f7f9;color:#333;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.28);font-family:Segoe UI,system-ui,sans-serif}
+                .iyuu-modal h2{position:sticky;top:0;z-index:1;margin:0;padding:12px 18px;color:#fff;font-size:15px;letter-spacing:0;background:${COLORS.primary}}
+                .iyuu-body{display:grid;gap:12px;padding:14px 16px 0;max-height:calc(100vh - 88px);overflow:auto}
+                .iyuu-section,.iyuu-more{border:1px solid #dfe4ea;border-radius:6px;background:#fff;padding:12px}
+                .iyuu-section-title{margin:0 0 10px;color:#1f2933;font-size:13px;font-weight:700}
+                .iyuu-field{display:grid;gap:4px;margin-bottom:10px}
+                .iyuu-field:last-child{margin-bottom:0}
+                .iyuu-body label{margin:0;color:#4b5563;font-size:12px}
+                .iyuu-check-line{display:flex!important;align-items:center;gap:6px;font-weight:600}
+                .iyuu-check-line input{margin:0}
+                .iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}
+                .iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}
+                .iyuu-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+                .iyuu-body button{height:32px;padding:0 10px;font-size:12px}
+                .iyuu-more{margin:0}
+                .iyuu-more summary{list-style:none;margin:-12px;padding:12px;cursor:pointer;font-weight:700;color:${COLORS.primary}}
+                .iyuu-more summary::-webkit-details-marker{display:none}
+                .iyuu-more[open] summary{margin-bottom:10px;border-bottom:1px solid #edf0f3}
+                .iyuu-site-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0}
+                .iyuu-site-toolbar input{flex:1 1 180px;min-width:160px}
+                .iyuu-site-toolbar button{flex:0 0 auto}
+                .iyuu-site-grid{display:flex;gap:7px;flex-wrap:wrap;max-height:240px;overflow:auto;border:1px solid #dfe4ea;border-radius:6px;background:#fff;padding:8px}
+                .iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #d6dde5;border-radius:4px;background:#fff;color:#8a94a3;cursor:pointer;font-size:12px;opacity:.75}
+                .iyuu-site-chip:hover{border-color:${COLORS.primary}}
+                .iyuu-site-chip.selected{border-color:${COLORS.success};background:${COLORS.success};color:#fff;opacity:1;font-weight:600}
+                .iyuu-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin:0 -16px;padding:10px 16px;background:#f6f7f9;border-top:1px solid #dfe4ea}
+                .iyuu-actions button{margin:0}
+                @media(max-width:720px){.iyuu-site-toolbar button{flex:1 1 calc(50% - 8px)}.iyuu-site-toolbar input{flex-basis:100%}.iyuu-inline{grid-template-columns:1fr}.iyuu-body{padding:12px 12px 0}.iyuu-actions{margin:0 -12px;padding:10px 12px}}
             `);
         },
         actionText(action, status) { return `${action}（${status}）`; },
@@ -231,11 +283,12 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password" autocomplete="off"><button id="iyuuSaveToken">保存 Token</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password" autocomplete="off"></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label></section><details class="iyuu-more"><summary>MoviePilot 联动</summary><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><input id="iyuuMpPass" type="password" autocomplete="off"></div><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><input id="iyuuMpApiKey" type="password" autocomplete="off"></div><button id="iyuuSaveMp">保存 MoviePilot</button></details><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password" autocomplete="off"><button id="iyuuSaveToken">保存 Token</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password" autocomplete="off"></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><details class="iyuu-more"><summary>MoviePilot 联动</summary><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><input id="iyuuMpPass" type="password" autocomplete="off"></div><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><input id="iyuuMpApiKey" type="password" autocomplete="off"></div><button id="iyuuSaveMp">保存 MoviePilot</button></details><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
             modal.querySelector('#iyuuAutoQuery').checked = Config.autoQuery;
+            modal.querySelector('#iyuuDebugLog').checked = Config.debug;
             modal.querySelector('#iyuuMpUrl').value = Store.get(KEYS.mpUrl, 'http://127.0.0.1:3000');
             modal.querySelector('#iyuuMpAuth').value = Store.get(KEYS.mpAuthMode, 'password');
             modal.querySelector('#iyuuMpUser').value = Store.get(KEYS.mpUser, 'admin');
@@ -250,14 +303,21 @@
             modal.querySelector('#iyuuAllSites').onclick = () => { sites.forEach(s => selected.add(String(s.id || s.sid))); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已全选 ${selected.size} 个站点`); };
             modal.querySelector('#iyuuClearSites').onclick = () => { selected.clear(); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast('已清空站点选择'); };
             modal.querySelector('#iyuuRefreshSites').onclick = async () => { const token = tokenInput.value.trim(); if (!token) { this.toast('请先填写 IYUU Token'); return; } try { const first = !Store.get(KEYS.configured, false); sites = await SiteIndex.get(true, token); if (first) { selected.clear(); sites.forEach(s => selected.add(String(s.id || s.sid))); } renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`站点索引已刷新：${sites.length} 个`); } catch (e) { this.toast(`刷新失败：${e.message}`); } };
-            modal.querySelector('#iyuuSaveToken').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('Token 已保存，可继续刷新索引'); };
+            const saveConfig = () => Config.save({
+                token: tokenInput.value,
+                mteamKey: modal.querySelector('#iyuuMteamKey').value,
+                autoQuery: modal.querySelector('#iyuuAutoQuery').checked,
+                debug: modal.querySelector('#iyuuDebugLog').checked,
+                owned: [...selected]
+            });
+            modal.querySelector('#iyuuSaveToken').onclick = () => { saveConfig(); this.toast('Token 已保存，可继续刷新索引'); };
             modal.querySelector('#iyuuDetectSites').onclick = async () => { try { MoviePilot.save(modal); const detected = SiteIndex.matchMoviePilot(await MoviePilot.sites(), sites); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已按 MoviePilot 选择站点：${detected.length} 个`); } catch (e) { this.toast(`MoviePilot 获取失败：${e.message}`); } };
             modal.querySelector('#iyuuDetectLogin').onclick = async ev => { const b = ev.currentTarget; if (b.disabled) return; if (!confirm('该方式会逐站访问首页检测登录，较慢且较重，确定继续？')) return; b.disabled = true; const detected = await SiteIndex.detectLoggedIn(sites, (done, total) => { b.textContent = `检测中 ${done}/${total}`; }); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); b.disabled = false; b.textContent = '选择已登录'; this.toast(`已选择疑似登录站点：${detected.length} 个`); };
             modal.querySelector('#iyuuSaveMp').onclick = () => { MoviePilot.save(modal); this.toast('MoviePilot 配置已保存'); };
             modal.querySelector('#iyuuClearCache').onclick = () => ResultCache.clear();
             modal.querySelector('#iyuuResetConfig').onclick = () => Config.reset();
             modal.querySelector('.iyuu-cancel').onclick = () => bg.remove(); bg.onclick = e => { if (e.target === bg) bg.remove(); };
-            modal.querySelector('.iyuu-save').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('配置已保存'); };
+            modal.querySelector('.iyuu-save').onclick = () => { saveConfig(); this.toast('配置已保存'); };
         }
     };
 
@@ -454,8 +514,7 @@
         },
         unit3dActionHolder(id, labelText, anchor) {
             const tableId = 'userscript-unit3d-actions';
-            const ref = [...document.querySelectorAll('tr')].reverse()
-                .find(tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
+            const ref = firstOf([...document.querySelectorAll('tr')].reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
             let table = ref?.closest('table');
             if (!table) {
                 const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
@@ -581,7 +640,7 @@
         autoFeedUrl(s) {
             const host = this.host(s);
             if (host) {
-                const hit = Object.entries(AUTO_FEED_HOST_URLS).find(([known]) => host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`));
+                const hit = firstOf(Object.entries(AUTO_FEED_HOST_URLS), ([known]) => host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`));
                 if (hit) return hit[1];
             }
             const fields = [this.name(s), s?.site, s?.name, s?.nickname, s?.name_cn, s?.domain, s?.host];
@@ -592,15 +651,40 @@
             return '';
         },
         icon(s) {
-            const candidates = [s?.icon, s?.logo, s?.favicon].filter(Boolean);
-            const host = s?.domain || s?.base_url || s?.url || s?.host || this.autoFeedUrl(s);
-            if (host) {
+            const candidates = [];
+            const seen = new Set();
+            const origin = firstOf([s?.base_url, s?.url, s?.domain, s?.host, this.autoFeedUrl(s)], raw => {
                 try {
-                    const u = /^https?:\/\//i.test(String(host)) ? new URL(host) : new URL(`https://${host}`);
-                    candidates.push(`${u.origin}/favicon.ico`, `${u.origin}/favicon.png`, `${u.origin}/favicon.svg`, `${u.origin}/apple-touch-icon.png`);
-                } catch (_) {}
+                    const u = /^https?:\/\//i.test(String(raw || '')) ? new URL(raw) : new URL(`https://${raw}`);
+                    return u.hostname.includes('.');
+                } catch (_) {
+                    return false;
+                }
+            });
+            const siteOrigin = origin ? (/^https?:\/\//i.test(String(origin)) ? new URL(origin).origin : new URL(`https://${origin}`).origin) : '';
+            const addCandidate = raw => {
+                if (!raw) return false;
+                try {
+                    const text = String(raw);
+                    const url = /^https?:\/\//i.test(text) ? new URL(text) : (siteOrigin ? new URL(text, siteOrigin) : null);
+                    if (!url || seen.has(url.href)) return false;
+                    seen.add(url.href);
+                    candidates.push(url.href);
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            };
+            for (const raw of [s?.icon, s?.logo, s?.favicon]) {
+                addCandidate(raw);
+                if (candidates.length >= 2) break;
             }
-            return [...new Set(candidates)];
+            if (siteOrigin) {
+                const u = new URL(siteOrigin);
+                addCandidate(`${u.origin}/favicon.ico`);
+                if (candidates.length === 1) addCandidate(`${u.origin}/apple-touch-icon.png`);
+            }
+            return candidates;
         },
         host(s) {
             const raws = [s?.domain, s?.base_url, s?.url, s?.site, s?.host, s?.details_page, s?.download_page];
@@ -627,13 +711,13 @@
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
         isMTeam(s) { const text = `${s?.host || ''} ${s?.url || ''} ${s?.downloadUrl || ''} ${s?.name || ''}`; return /m-team\.(cc|io|vip)|馒头|饅頭|M[- ]?Team/i.test(text); },
         mTeamApi(s) { const host = String(s?.host || s?.downloadUrl || s?.url || '').match(/m-team\.(cc|io|vip)/i)?.[0] || 'm-team.cc'; return `https://api.${host.replace(/^api\./, '')}/api/torrent/genDlToken`; },
+        sameHost(a, b) { return Boolean(a && b && (a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`))); },
         currentSid(list) {
             const current = location.hostname.replace(/^www\./, '').toLowerCase();
-            const match = (list || []).find(s => {
-                const host = this.host(s);
+            const match = firstOf(list || [], s => {
+                const hosts = [this.host(s), this.host({ url: this.autoFeedUrl(s) })].filter(Boolean);
                 const text = [s?.domain, s?.base_url, s?.url, s?.site, s?.host, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' ').toLowerCase();
-                return (host && (current === host || current.endsWith(`.${host}`) || host.endsWith(`.${current}`)))
-                    || text.includes(current);
+                return hosts.some(host => this.sameHost(current, host)) || text.includes(current);
             });
             return match ? String(match.id || match.sid || '') : '';
         },
@@ -650,6 +734,46 @@
 
     const Crypto = { async sha1Hex(input) { const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : input; const buf = await crypto.subtle.digest('SHA-1', bytes); return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(''); } };
 
+    const ReseedSite = {
+        sid(raw = {}, fallback = '') {
+            return String(raw.sid || raw.site_id || raw.site || raw.site_id_str || fallback || '');
+        },
+        torrentId(raw = {}) {
+            return raw.torrent_id || raw.tid || raw.id;
+        },
+        name(raw = {}, meta = {}, sid = '', source = 'iyuu') {
+            return raw.site_name || raw.site_alias || raw.name || raw.site || raw.nickname || raw.name_cn
+                || SiteIndex.name(meta) || (source === 'iyuu' ? `站点${sid}` : 'IYUU');
+        },
+        count(raw = {}, source = 'iyuu') {
+            return source === 'iyuu' ? 1 : Number(raw.count || raw.num || 1);
+        },
+        build({ source, raw = {}, index, fallbackSid = '' }) {
+            const sid = this.sid(raw, fallbackSid);
+            if (!sid) return null;
+            const meta = index.get(sid) || {};
+            const torrentId = this.torrentId(raw);
+            return {
+                source,
+                sid,
+                name: this.name(raw, meta, sid, source),
+                host: SiteIndex.host(meta),
+                torrentId,
+                icon: raw.icon || raw.logo || raw.favicon || SiteIndex.icon(meta),
+                count: this.count(raw, source),
+                url: SiteIndex.detailUrl(meta, torrentId, raw.url || raw.page_url || raw.link || raw.zmpt_data?.url || ''),
+                downloadUrl: SiteIndex.downloadUrl(meta, torrentId, raw.download_url || raw.downloadUrl || raw.down_url || raw.zmpt_data?.download_url || '')
+            };
+        },
+        mergeBySid(target, next) {
+            target.count = Number(target.count || 0) + Number(next.count || 1);
+            if (!target.url) target.url = next.url;
+            if (!target.downloadUrl) target.downloadUrl = next.downloadUrl;
+            if (!target.torrentId) target.torrentId = next.torrentId;
+            if (!target.icon && next.icon) target.icon = next.icon;
+        }
+    };
+
     const InfoHash = {
         async extract(info) {
             const magnetHash = this.fromMagnet(info.downloadLink);
@@ -665,13 +789,13 @@
             return pageHash;
         },
         fromMagnet(v) { const m = String(v || '').match(/xt=urn:btih:([a-z2-7]{32}|[a-f0-9]{40})/i); if (!m) return ''; return m[1].length === 40 ? m[1].toLowerCase() : this.base32ToHex(m[1]); },
-        fromPage() { const text = `${location.href}\n${document.body?.innerText || ''}`; const all = text.match(/\b[a-fA-F0-9]{40}\b/g) || []; return all.find(this.valid) || ''; },
+        fromPage() { const text = `${location.href}\n${document.body?.innerText || ''}`; const all = text.match(/\b[a-fA-F0-9]{40}\b/g) || []; return firstOf(all, this.valid) || ''; },
         valid(h) { return /^[a-f0-9]{40}$/i.test(h) && !/^(.)\1{39}$/.test(h) && !/^\d{40}$/.test(h); },
         base32ToHex(s) { const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = ''; String(s).toUpperCase().replace(/=+$/, '').split('').forEach(c => { const v = alpha.indexOf(c); if (v >= 0) bits += v.toString(2).padStart(5, '0'); }); let out = ''; for (let i = 0; i + 4 < bits.length; i += 4) out += parseInt(bits.slice(i, i + 4), 2).toString(16); return out.slice(0, 40).toLowerCase(); },
         async fromSpecial(info) { if (info._bangumiId) { const r = await HTTP.request({ url: `https://bangumi.moe/api/v2/torrent/${info._bangumiId}` }); if (r?.magnet) { info.downloadLink = r.magnet; return this.fromMagnet(r.magnet); } } if (/m-team\.(cc|io|vip)/.test(location.hostname)) { const link = await this.mteamLink() || this.mteamCapturedLink(); if (link) { info.downloadLink = link; return await this.fromTorrent(link); } } return ''; },
         async mteamLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1]; if (!id) return ''; const local = await this.mteamLocalLink(id); if (local) return local; if (!Config.mteamKey) return ''; const api = `https://api.${location.hostname.replace(/^.*?m-team\./, 'm-team.')}/api/torrent/genDlToken`; const res = await HTTP.request({ method: 'POST', url: api, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' }); return res?.data || ''; },
         async mteamLocalLink(id) { const apiHost = String(localStorage.getItem('apiHost') || '').replace(/\/$/, ''); const auth = localStorage.getItem('auth') || ''; if (!apiHost || !auth) return ''; const res = await HTTP.request({ method: 'POST', url: `${apiHost}/torrent/genDlToken`, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', TS: String(Math.floor(Date.now() / 1000)), Authorization: auth }, responseType: 'json' }); return res?.data || ''; },
-        mteamCapturedLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1] || ''; const urls = performance.getEntriesByType('resource').map(e => e.name).reverse(); return urls.find(url => /\/api\/rss\/dlv2\?|\/api\/torrent\/download\?|\.torrent(?:\?|$)/i.test(url) && (!id || !/[?&](?:tid|id)=\d+/.test(url) || new RegExp(`[?&](?:tid|id)=${id}(?:&|$)`).test(url))) || ''; },
+        mteamCapturedLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1] || ''; const urls = performance.getEntriesByType('resource').map(e => e.name).reverse(); return firstOf(urls, url => /\/api\/rss\/dlv2\?|\/api\/torrent\/download\?|\.torrent(?:\?|$)/i.test(url) && (!id || !/[?&](?:tid|id)=\d+/.test(url) || new RegExp(`[?&](?:tid|id)=${id}(?:&|$)`).test(url))) || ''; },
         async fromTorrent(url) { if (!url || url.startsWith('magnet:')) return ''; const buf = await HTTP.request({ url, responseType: 'arraybuffer' }); const bytes = new Uint8Array(buf); const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160)); if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } } const range = this.infoRange(bytes); return range ? await Crypto.sha1Hex(bytes.slice(range[0], range[1])) : ''; },
         findTorrentUrl() {
             const selectors = [
@@ -682,10 +806,10 @@
                 'a[href*="download?id="]'
             ];
             for (const sel of selectors) {
-                const link = [...document.querySelectorAll(sel)].find(a => !String(a.href || '').startsWith('magnet:'));
+                const link = firstOf(document.querySelectorAll(sel), a => !String(a.href || '').startsWith('magnet:'));
                 if (link?.href) return link.href;
             }
-            const byText = [...document.querySelectorAll('a[href]')].find(a => /下载|torrent|种子|download/i.test(a.textContent || ''));
+            const byText = firstOf(document.querySelectorAll('a[href]'), a => /下载|torrent|种子|download/i.test(a.textContent || ''));
             return byText?.href || '';
         },
         infoRange(bytes) { const dec = new TextDecoder('latin1'); const str = dec.decode(bytes); const key = str.indexOf('4:info'); if (key < 0) return null; const start = key + 6; let i = start; const walk = () => { const begin = i; const c = str[i]; if (c === 'i') { i = str.indexOf('e', i) + 1; return [begin, i]; } if (c === 'l' || c === 'd') { i++; while (str[i] !== 'e' && i < str.length) walk(); i++; return [begin, i]; } if (/\d/.test(c)) { const colon = str.indexOf(':', i); const len = Number(str.slice(i, colon)); i = colon + 1 + len; return [begin, i]; } throw new Error('bad bencode'); }; try { return walk(); } catch (_) { return null; } }
@@ -765,7 +889,29 @@
             if (raw && raw.code !== undefined && raw.code !== 0) throw new Error(raw.msg || 'IYUU 查询失败');
             return await this.normalize(raw);
         },
-        async normalize(raw) { const index = SiteIndex.bySid(await SiteIndex.get(false)); const dataObj = raw?.data || {}; const groups = Array.isArray(dataObj) ? dataObj : Object.values(dataObj); const list = groups.flatMap(g => Array.isArray(g?.torrent) ? g.torrent : (Array.isArray(g) ? g : [])); const m = new Map(); list.forEach(x => { const sid = String(x.sid || x.site_id || x.site || x.site_id_str || ''); if (!sid) return; const meta = index.get(sid) || {}; const name = x.site_name || x.site_alias || x.nickname || x.name || SiteIndex.name(meta) || `站点${sid}`; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.zmpt_data?.url || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || x.zmpt_data?.download_url || ''); const item = m.get(sid) || { source: 'iyuu', sid, name, host: SiteIndex.host(meta), torrentId, icon: x.icon || SiteIndex.icon(meta), count: 0, url, downloadUrl }; item.count++; if (!item.url) item.url = url; if (!item.downloadUrl) item.downloadUrl = downloadUrl; if (!item.torrentId) item.torrentId = torrentId; m.set(sid, item); }); return { ok: true, source: 'iyuu', sites: [...m.values()] }; }
+        rawTorrents(raw) {
+            const dataObj = raw?.data || {};
+            const groups = Array.isArray(dataObj) ? dataObj : Object.values(dataObj);
+            return groups.flatMap(group => {
+                if (Array.isArray(group?.torrent)) return group.torrent;
+                return Array.isArray(group) ? group : [];
+            });
+        },
+        async normalize(raw) {
+            const index = SiteIndex.bySid(await SiteIndex.get(false));
+            const sites = new Map();
+            this.rawTorrents(raw).forEach(rawItem => {
+                const next = ReseedSite.build({ source: 'iyuu', raw: rawItem, index });
+                if (!next) return;
+                const old = sites.get(next.sid);
+                if (!old) {
+                    sites.set(next.sid, next);
+                    return;
+                }
+                ReseedSite.mergeBySid(old, next);
+            });
+            return { ok: true, source: 'iyuu', sites: [...sites.values()] };
+        }
     };
 
     const Fallback = {
@@ -778,7 +924,15 @@
             if (Array.isArray(raw?.list)) return raw.list;
             return Object.values(data || {}).flatMap(v => Array.isArray(v) ? v : (Array.isArray(v?.torrent) ? v.torrent : []));
         },
-        async query(hash) { if (!Config.zmpt) return { ok: false, source: 'fallback', sites: [] }; const raw = await HTTP.request({ url: `${ZMPT_API}?hash=${encodeURIComponent(hash)}` }); log('IYUU fallback query response', raw); const data = this.items(raw); log('IYUU fallback parsed items', data); const index = SiteIndex.bySid(await SiteIndex.get(false)); return { ok: true, source: 'fallback', sites: data.map((x, i) => { const sid = String(x.sid || x.site_id || x.site || `fallback-${i}`); const meta = index.get(sid) || {}; const torrentId = x.torrent_id || x.tid || x.id; const url = SiteIndex.detailUrl(meta, torrentId, x.url || x.page_url || x.link || ''); const downloadUrl = SiteIndex.downloadUrl(meta, torrentId, x.download_url || x.downloadUrl || x.down_url || ''); return { source: 'fallback', sid, name: x.site_name || x.name || x.site || x.nickname || x.name_cn || SiteIndex.name(meta) || 'IYUU', host: SiteIndex.host(meta), torrentId, icon: x.icon || x.logo || SiteIndex.icon(meta), count: Number(x.count || x.num || 1), url, downloadUrl }; }) }; }
+        async query(hash) {
+            if (!Config.zmpt) return { ok: false, source: 'fallback', sites: [] };
+            const raw = await HTTP.request({ url: `${ZMPT_API}?hash=${encodeURIComponent(hash)}` });
+            log('IYUU fallback query response', raw);
+            const data = this.items(raw);
+            log('IYUU fallback parsed items', data);
+            const index = SiteIndex.bySid(await SiteIndex.get(false));
+            return { ok: true, source: 'fallback', sites: data.map((item, idx) => ReseedSite.build({ source: 'fallback', raw: item, index, fallbackSid: `fallback-${idx}` })).filter(Boolean) };
+        }
     };
 
     const ResultCache = {
@@ -817,7 +971,7 @@
     };
 
     const ADAPTERS = [
-        { id: 'totheglory', matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'), getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const sizeRow = rows.find(r => /尺寸|大小/.test(r.textContent)); const row = rows[1]?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount: row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend() }); } },
+        { id: 'totheglory', matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'), getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const sizeRow = firstOf(rows, r => /尺寸|大小/.test(r.textContent)); const row = rows[1]?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount: row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend() }); } },
         { id: 'hdsky', matches: () => location.hostname === 'hdsky.me' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead')]; const nameRow = rows[0], dlRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const row = dlRow?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'hdsky', name: nameRow?.parentElement?.querySelector('.rowfollow input[type="submit"]')?.value?.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '', description: descRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', downloadLink: dlRow?.parentElement?.querySelector('.rowfollow a')?.href || '', sizeText: sizeRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', mount: row ? tableMount('hdsky', row, 'IYUU') : Mount.prepend() }); } },
         { id: 'sjtu', matches: () => location.hostname === 'pt.sjtu.edu.cn' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const row = nameRow?.parentElement; return Helpers.info({ id: 'sjtu', name: nameLink?.textContent?.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '', description: descRow?.nextElementSibling?.textContent || '', downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.textContent || '', mount: row ? tableMount('sjtu', row, 'IYUU') : Mount.prepend() }); } },
         { id: 'bangumi', matches: () => location.hostname === 'bangumi.moe', getInfo: () => { const modal = document.querySelector('.torrent-details-content'); const root = modal || document; const title = root.querySelector('a.title-link b, a[href*="/torrent/"]')?.textContent?.trim() || document.title.split(/[-|_]/)[0].trim(); const link = root.querySelector('a[href^="magnet:"]')?.href || ''; const bangumiId = root.querySelector('a[href*="/torrent/"]')?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || location.pathname.match(/\/torrent\/([a-f0-9]+)/i)?.[1]; const info = Helpers.info({ id: 'bangumi', name: title, description: title, downloadLink: link, sizeText: root.textContent, mount: Mount.afterNode(root.querySelector('.torrent-info,.torrent-title') || document.body), extra: { bangumiId } }); if (info) info._bangumiId = bangumiId; return info; } },
@@ -828,14 +982,14 @@
             getInfo: () => {
                 const titleEl = document.querySelector('h2 span.align-middle, h2');
                 const descriptionEl = document.querySelector('div.flex.py-5.mb-5.sticky p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                if (!descriptionEl) return null;
-                const sizeEl = [...document.querySelectorAll('.ant-space-item .ant-typography')].find(el => /[體体]積[:：]/.test(el.textContent));
+                const anchor = descriptionEl || titleEl?.closest('h2') || titleEl || document.querySelector('main') || document.body;
+                const sizeEl = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent));
                 let actionRow = document.querySelector('#mteam-script-action-row');
-                if (!actionRow && descriptionEl) {
+                if (!actionRow && anchor) {
                     actionRow = document.createElement('div');
                     actionRow.id = 'mteam-script-action-row';
                     actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:6px;';
-                    descriptionEl.after(actionRow);
+                    anchor.after(actionRow);
                 }
                 let iyuuRow = document.querySelector('#mteam-script-action-line-iyuu');
                 if (!iyuuRow) {
@@ -852,20 +1006,20 @@
                 iyuuRow.querySelectorAll('.iyuu-row-box').forEach(node => node.remove());
                 const mount = Mount.append(iyuuRow);
                 if (actionRow && iyuuRow.parentElement !== actionRow) actionRow.appendChild(iyuuRow);
-                else if (!actionRow && iyuuRow.parentElement !== (titleEl?.parentElement || null)) (titleEl?.closest('h2') || titleEl)?.after(iyuuRow);
-                return Helpers.info({ id: 'm-team', name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, description: Helpers.text('p.text-mt-gray-4'), downloadLink: '', sizeText: sizeEl?.textContent || '', mount });
+                else if (!actionRow && iyuuRow.parentElement !== (titleEl?.parentElement || null)) anchor.after(iyuuRow);
+                return Helpers.info({ id: 'm-team', name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, description: descriptionEl?.textContent || document.title, downloadLink: '', sizeText: sizeEl?.textContent || '', mount });
             }
         },
-        { id: 'hdcity', matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname), getInfo: () => { const blocks = [...document.querySelectorAll('.blocktitle')]; const info = blocks.find(b => b.textContent.includes('基本信息')); const op = blocks.find(b => b.textContent.includes('种子操作')); return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount: Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body) }); } },
+        { id: 'hdcity', matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname), getInfo: () => { const blocks = [...document.querySelectorAll('.blocktitle')]; const info = firstOf(blocks, b => b.textContent.includes('基本信息')); const op = firstOf(blocks, b => b.textContent.includes('种子操作')); return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount: Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body) }); } },
         { id: 'monikadesign', matches: () => location.hostname === 'monikadesign.uk' && location.pathname.startsWith('/torrents/'), getInfo: () => { const title = document.querySelector('h1.text-center'); const sub = document.querySelector('h2.text-center'); const dl = document.querySelector('a.down[href*="/download/"]'); const row = AutoFeedAnchors.monikaNameRow(); return Helpers.info({ id: 'monikadesign', name: title?.textContent || document.title, description: sub?.textContent || '', downloadLink: dl?.href || '', sizeText: document.querySelector('.torrent-size td:nth-child(2)')?.textContent || '', mount: row ? tableMount('monikadesign', row, 'IYUU') : Mount.prepend() }); } },
         { id: 'beyond-hd', matches: () => location.hostname === 'beyond-hd.me' && location.pathname.startsWith('/torrents/'), getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const row = AutoFeedAnchors.bhdNameRow(); const target = row || document.querySelector('table.table-details') || dl?.closest('.text-center') || dl?.parentElement || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return Helpers.info({ id: 'beyond-hd', name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(), description: Helpers.text('.panel-body'), downloadLink: dl?.href || '', sizeText: Helpers.text('.panel-body'), mount: row ? tableMount('beyond-hd', row, 'IYUU') : Mount.afterNode(target) }); } },
         { id: 'eiga', matches: () => location.hostname === 'eiga.moi' && location.pathname.startsWith('/torrents/'), getInfo: () => { const dl = document.querySelector('a[href*="/torrents/download/"]'); const holder = AutoFeedAnchors.unit3dActionHolder('iyuu', 'IYUU', document.querySelector('menu.torrent__buttons') || document.querySelector('article')); return Helpers.info({ id: 'eiga', name: Helpers.text('h1.meta__title') || document.title.replace(/\s+-\s+Torrents.*/i, '').trim(), description: Helpers.text('.meta__description,.bbcode-rendered'), downloadLink: dl?.href || '', sizeText: document.body.innerText, mount: holder ? Mount.append(holder) : Mount.afterNode(document.querySelector('menu.torrent__buttons') || document.body) }); } },
         { id: 'hd-space', matches: () => location.hostname === 'hd-space.org' && location.search.includes('page=torrent-details'), getInfo: () => { const row = AutoFeedAnchors.hdSpaceTorrentRow() || AutoFeedAnchors.hdSpaceInfoHashRow(); const dl = document.querySelector('a[href*="download.php"]'); const nameRow = AutoFeedAnchors.rowAfterName(document.querySelector('#mcol')); return Helpers.info({ id: 'hd-space', name: nameRow?.cells?.[1]?.textContent?.trim() || document.title, description: document.body.innerText, downloadLink: dl?.href || '', sizeText: document.body.innerText, mount: row ? tableMount('hd-space', row, 'IYUU') : Mount.afterNode(document.querySelector('#mcol') || document.body) }); } },
-        { id: 'iptorrents', matches: () => location.hostname === 'iptorrents.com' && location.pathname === '/torrent.php', getInfo: () => { const id = new URLSearchParams(location.search).get('id') || ''; const dl = [...document.querySelectorAll('a[href*="download.php"]')].find(a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]'); const row = AutoFeedAnchors.iptMovieInfoRow(); const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body; return Helpers.info({ id: 'iptorrents', name: Helpers.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('iptorrents', row, 'IYUU') : Mount.afterNode(target) }); } },
+        { id: 'iptorrents', matches: () => location.hostname === 'iptorrents.com' && location.pathname === '/torrent.php', getInfo: () => { const id = new URLSearchParams(location.search).get('id') || ''; const dl = firstOf(document.querySelectorAll('a[href*="download.php"]'), a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]'); const row = AutoFeedAnchors.iptMovieInfoRow(); const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body; return Helpers.info({ id: 'iptorrents', name: Helpers.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('iptorrents', row, 'IYUU') : Mount.afterNode(target) }); } },
         { id: 'filelist', matches: () => location.hostname === 'filelist.io' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const target = AutoFeedAnchors.fileListAnchor('iyuu', 'IYUU') || row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body; return Helpers.info({ id: 'filelist', name: Helpers.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(), description: document.title.split(' :: ')[0].trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: Mount.append(target) }); } },
-        { id: 'hudbt', matches: () => location.hostname === 'hudbt.hust.edu.cn' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const table = document.querySelector('#outer dl.table'); const dts = [...document.querySelectorAll('#outer dl.table > dt')]; const byLabel = label => dts.find(dt => dt.textContent.includes(label))?.nextElementSibling; const title = Helpers.text('#page-title') || Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title; const sub = byLabel('副标题')?.textContent || ''; const info = byLabel('基本信息')?.textContent || ''; const intro = byLabel('简介')?.textContent || ''; const target = byLabel('下载') || dl?.parentElement || table; return Helpers.info({ id: 'hudbt', name: title, description: sub || intro || title, downloadLink: dl?.href || '', sizeText: info || document.body.innerText, mount: target ? Mount.definitionAfter(target) : Mount.prepend() }); } },
+        { id: 'hudbt', matches: () => location.hostname === 'hudbt.hust.edu.cn' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const table = document.querySelector('#outer dl.table'); const dts = [...document.querySelectorAll('#outer dl.table > dt')]; const byLabel = label => firstOf(dts, dt => dt.textContent.includes(label))?.nextElementSibling; const title = Helpers.text('#page-title') || Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title; const sub = byLabel('副标题')?.textContent || ''; const info = byLabel('基本信息')?.textContent || ''; const intro = byLabel('简介')?.textContent || ''; const target = byLabel('下载') || dl?.parentElement || table; return Helpers.info({ id: 'hudbt', name: title, description: sub || intro || title, downloadLink: dl?.href || '', sizeText: info || document.body.innerText, mount: target ? Mount.definitionAfter(target) : Mount.prepend() }); } },
         { id: 'greatposterwall', matches: () => location.hostname === 'greatposterwall.com' && location.pathname === '/torrents.php' && new URLSearchParams(location.search).get('torrentid'), getInfo: () => { const tid = new URLSearchParams(location.search).get('torrentid'); const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`); const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr'); return Helpers.info({ id: 'greatposterwall', name: document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim(), description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? Mount.tableColspanAfter(row, 'IYUU') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) }); } },
-        { id: 'hhclub', matches: () => location.hostname === 'hhanclub.net' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const grid = dl?.closest('.grid'); const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? [...grid.children].find(el => el.contains(dl)) : null); const target = row || gridCell || dl?.parentElement || dl || document.body; return Helpers.info({ id: 'hhclub', name: Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title, description: document.title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'IYUU') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) }); } },
+        { id: 'hhclub', matches: () => location.hostname === 'hhanclub.net' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const grid = dl?.closest('.grid'); const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? firstOf(grid.children, el => el.contains(dl)) : null); const target = row || gridCell || dl?.parentElement || dl || document.body; return Helpers.info({ id: 'hhclub', name: Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title, description: document.title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'IYUU') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) }); } },
         { id: 'nyaa', matches: () => location.hostname === 'nyaa.si', getInfo: () => Helpers.info({ id: 'nyaa', name: Helpers.text('h3.panel-title') || document.title.replace(/::.*$/, '').trim(), description: Helpers.text('#torrent-description') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*="/download/"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
         { id: 'acg-rip', matches: () => location.hostname === 'acg.rip', getInfo: () => Helpers.info({ id: 'acg-rip', name: Helpers.text('.panel-heading') || document.title.replace(/-\s*ACG\.RIP.*/i, '').trim(), description: Helpers.text('.panel-body.post-content') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*=".torrent"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
         { id: 'comicat-kisssub', matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(location.hostname), getInfo: () => { const hash = location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || ''; const title = document.title.replace(/\s*-\s*.*/, '').trim(); return Helpers.info({ id: 'comicat-kisssub', name: title, description: Helpers.text('.intro,.entry-content,.content,.description,.panel-body,article') || title, downloadLink: document.querySelector('a[href^="magnet:"]')?.href || (hash ? `magnet:?xt=urn:btih:${hash}` : ''), sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.intro,.basic_info') || document.body) }); } },
@@ -874,7 +1028,7 @@
 
     const Core = {
         adapter: null,
-        init() { this.adapter = ADAPTERS.find(a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) { this.inject(info); return true; } return false; },
+        init() { this.adapter = firstOf(ADAPTERS, a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) { this.inject(info); return true; } return false; },
         setQueryButton(btn, status, title = '') {
             btn.textContent = UI.actionText('查询', status);
             if (title) btn.title = title;
@@ -940,7 +1094,7 @@
             (list || []).forEach(s => {
                 const keys = this.siteKeys(s);
                 if (!keys.length) return;
-                const index = keys.map(k => keyToIndex.get(k)).find(i => i !== undefined);
+                const index = firstOf(keys.map(k => keyToIndex.get(k)), i => i !== undefined);
                 if (index === undefined) {
                     const nextIndex = items.length;
                     items.push(s);
@@ -963,7 +1117,7 @@
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
             box._iyuuResult = result; box._iyuuCached = cached;
             const wrap = document.createElement('span'); wrap.className = 'iyuu-result iyuu-row-box';
-            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = result.sources.find(s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const error = !hasSites && primary?.ok === false && primary.error ? primary.error : '';
+            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = firstOf(result.sources, s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const error = !hasSites && primary?.ok === false && primary.error ? primary.error : '';
             this.setQueryButton(btn, error ? '失败' : `${result.sites.length}站${cached ? ' 缓存' : ''}`, error || '重新查询');
             if (!result.sites.length) wrap.append(UI.tag('暂无辅种', COLORS.info));
             result.sites.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));

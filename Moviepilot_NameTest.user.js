@@ -165,6 +165,13 @@
         }
     };
 
+    const firstOf = (items, predicate) => {
+        for (const item of items || []) {
+            if (predicate(item)) return item;
+        }
+        return undefined;
+    };
+
 
     // ——————————————————————————————————————
     // [2] UI 模块 (UI MODULE)
@@ -633,8 +640,7 @@
         },
         unit3dActionHolder(id, labelText, anchor) {
             const tableId = 'userscript-unit3d-actions';
-            const ref = Array.from(document.querySelectorAll('tr')).reverse()
-                .find(tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
+            const ref = firstOf(Array.from(document.querySelectorAll('tr')).reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
             let table = ref?.closest('table');
             if (!table) {
                 const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
@@ -1025,8 +1031,7 @@
                 const rows = document.querySelectorAll('.rowhead, .heading');
                 if (rows.length < 2) return null;
                 const nameLink = rows[0].nextElementSibling?.querySelector('a');
-                const sizeString = Array.from(rows)
-                    .find(row => row.textContent.includes('尺寸'))
+                const sizeString = firstOf(rows, row => row.textContent.includes('尺寸'))
                     ?.nextElementSibling?.innerText || '';
                 const description = document.querySelector("h1")?.textContent.replace(/.*?\[/, '[').trim() || '';
                 return {
@@ -1085,7 +1090,7 @@
                 const rows = document.querySelectorAll('.blocktitle');
                 if (rows.length < 4) return null;
                 const nameLink = rows[0].textContent;
-                const infoBlock = Array.from(rows).find(row => row.textContent.includes('基本信息'))?.nextElementSibling;
+                const infoBlock = firstOf(rows, row => row.textContent.includes('基本信息'))?.nextElementSibling;
                 const sizeblock = infoBlock?.textContent || rows[1].nextElementSibling?.textContent || '';
                 const description = rows[0].parentElement?.querySelector('.blockcontent')?.textContent.trim() || "";
                 const downloadLink = rows[3].nextElementSibling?.querySelector('input[type="text"][title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || "";
@@ -1205,7 +1210,7 @@
                 const hash = window.location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || '';
                 const encodedMagnet = Array.from(document.querySelectorAll('a[href*="magnet%3A"], a[href*="magnet%3a"]'))
                     .map(el => el.href.match(/magnet%3A.*$/i)?.[0])
-                    .find(Boolean);
+                    .filter(Boolean)[0];
                 const downloadLink = BT_SITE_HELPERS.findDownloadLink([
                     'a[href^="magnet:"]',
                     'a[href*=".torrent"]'
@@ -1350,7 +1355,7 @@
             matches: () => window.location.hostname === 'iptorrents.com' && window.location.pathname === '/torrent.php',
             getInfo: () => {
                 const id = new URLSearchParams(window.location.search).get('id') || '';
-                const dl = [...document.querySelectorAll('a[href*="download.php"]')].find(a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]');
+                const dl = firstOf(document.querySelectorAll('a[href*="download.php"]'), a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]');
                 const row = AutoFeedAnchors.iptMovieInfoRow();
                 const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body;
                 return BT_SITE_HELPERS.info({
@@ -1384,7 +1389,7 @@
             getInfo: () => {
                 const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
                 const dts = Array.from(document.querySelectorAll('#outer dl.table > dt'));
-                const byLabel = label => dts.find(dt => dt.textContent.includes(label))?.nextElementSibling;
+                const byLabel = label => firstOf(dts, dt => dt.textContent.includes(label))?.nextElementSibling;
                 const title = BT_SITE_HELPERS.text('#page-title') || BT_SITE_HELPERS.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
                 const sub = byLabel('副标题')?.textContent || '';
                 const info = byLabel('基本信息')?.textContent || '';
@@ -1412,7 +1417,7 @@
                 const title = BT_SITE_HELPERS.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
                 const row = dl?.closest('tr');
                 const grid = dl?.closest('.grid');
-                const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? [...grid.children].find(el => el.contains(dl)) : null);
+                const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? firstOf(grid.children, el => el.contains(dl)) : null);
                 const target = row || gridCell || dl?.parentElement || dl || document.body;
                 return BT_SITE_HELPERS.info({ name: title, description: title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'MoviePilot') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) });
             }
@@ -1454,7 +1459,7 @@
                     const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
                     const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
                     if (!descriptionElement) return null;
-                    const sizeElement = Array.from(document.querySelectorAll('.ant-space-item .ant-typography')).find(el => /[體体]積[:：]/.test(el.textContent || ''));
+                    const sizeElement = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent || ''));
                     let actionRow = document.querySelector('#mteam-script-action-row');
                     if (!actionRow && descriptionElement) {
                         actionRow = document.createElement('div');
