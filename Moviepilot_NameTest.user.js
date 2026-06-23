@@ -266,12 +266,12 @@
                     const headers = {};
                     if (authMode === 'apikey') {
                         const key = document.getElementById('mpApiKey').value.trim();
-                        if (!key) { alert('请填写 API Key'); btn.disabled = false; btn.textContent = '测试 MoviePilot'; return; }
+                        if (!key) { alert('请填写 API Key'); btn.disabled = false; btn.textContent = '测试连接'; return; }
                         headers['X-API-KEY'] = key;
                     } else {
                         const user = document.getElementById('mpUser').value.trim();
                         const pass = document.getElementById('mpPass').value;
-                        if (!user || !pass) { alert('请填写用户名密码'); btn.disabled = false; btn.textContent = '测试 MoviePilot'; return; }
+                        if (!user || !pass) { alert('请填写用户名密码'); btn.disabled = false; btn.textContent = '测试连接'; return; }
                         const loginRes = await new Promise((resolve, reject) => GM_xmlhttpRequest({
                             method: 'POST', url: `${mpUrl}/api/v1/login/access-token`,
                             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -292,7 +292,7 @@
                 } catch (err) {
                     btn.textContent = '连接失败'; btn.style.color = '#e74c3c';
                 }
-                setTimeout(() => { btn.disabled = false; btn.textContent = '测试 MoviePilot'; btn.style.color = ''; }, 3000);
+                setTimeout(() => { btn.disabled = false; btn.textContent = '测试连接'; btn.style.color = ''; }, 3000);
             });
         },
 
@@ -301,48 +301,52 @@
             const showPass = currentMode === 'password';
             const showApiKey = currentMode === 'apikey';
             return `
-                <h2>⚙️ MoviePilot 配置</h2>
+                <h2>MoviePilot 配置</h2>
                 <div class="mp-modal-body">
-                <div>
-                    <label for="mpUrl">Moviepilot服务器 URL:</label>
-                    <input type="text" id="mpUrl" placeholder="例如：http://192.168.1.100:3000" value="${CONFIG.get('url') || ''}">
-                </div>
-                <div>
-                    <label for="mpAuthMode">认证方式:</label>
-                    <select id="mpAuthMode">
-                        <option value="password" ${showPass ? 'selected' : ''}>用户名密码登录</option>
-                        <option value="apikey" ${showApiKey ? 'selected' : ''}>API Key 令牌</option>
-                    </select>
-                </div>
-                <div id="mpPasswordFields" style="${showPass ? '' : 'display:none;'}">
-                    <div>
-                        <label for="mpUser">用户名:</label>
-                        <input type="text" id="mpUser" value="${CONFIG.get('user') || ''}">
+                    <section class="mp-config-section">
+                        <h3>连接设置</h3>
+                        <div class="mp-field">
+                            <label for="mpUrl">MoviePilot 地址</label>
+                            <input type="text" id="mpUrl" placeholder="例如：http://192.168.1.100:3000" value="${CONFIG.get('url') || ''}">
+                        </div>
+                        <div class="mp-field">
+                            <label for="mpAuthMode">认证方式</label>
+                            <select id="mpAuthMode">
+                                <option value="password" ${showPass ? 'selected' : ''}>用户名密码</option>
+                                <option value="apikey" ${showApiKey ? 'selected' : ''}>API Key</option>
+                            </select>
+                        </div>
+                        <div id="mpPasswordFields" style="${showPass ? '' : 'display:none;'}">
+                            <div class="mp-field">
+                                <label for="mpUser">用户名</label>
+                                <input type="text" id="mpUser" value="${CONFIG.get('user') || ''}">
+                            </div>
+                            <div class="mp-field">
+                                <label for="mpPass">密码</label>
+                                <input type="password" id="mpPass" value="${CONFIG.get('pass') || ''}">
+                            </div>
+                        </div>
+                        <div id="mpApiKeyFields" style="${showApiKey ? '' : 'display:none;'}">
+                            <div class="mp-field">
+                                <label for="mpApiKey">API Key</label>
+                                <input type="password" id="mpApiKey" value="${CONFIG.get('apiKey') || ''}">
+                                <p class="mp-help">可在 MoviePilot 设置的 API 令牌中获取。</p>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="mp-config-section">
+                        <h3>识别设置</h3>
+                        <div class="mp-field">
+                            <label for="mpTmdbKey">TMDB API Key（可选）</label>
+                            <input type="text" id="mpTmdbKey" placeholder="用于识别失败时的智能匹配" value="${CONFIG.get('tmdbKey') || ''}">
+                        </div>
+                        <label class="mp-check-line"><input type="checkbox" id="mpAutoQuery" ${CONFIG.get('autoQuery') ? 'checked' : ''}> 自动查询（默认关闭，命中缓存时不会重复请求）</label>
+                    </section>
+                    <div class="mp-modal-buttons">
+                        <button class="mp-test-mp-btn">测试连接</button>
+                        <button class="mp-cancel-btn">取消</button>
+                        <button class="mp-save-btn">保存</button>
                     </div>
-                    <div>
-                        <label for="mpPass">密码:</label>
-                        <input type="password" id="mpPass" value="${CONFIG.get('pass') || ''}">
-                    </div>
-                </div>
-                <div id="mpApiKeyFields" style="${showApiKey ? '' : 'display:none;'}">
-                    <div>
-                        <label for="mpApiKey">API Key (令牌):</label>
-                        <input type="password" id="mpApiKey" value="${CONFIG.get('apiKey') || ''}">
-                        <p style="margin:4px 0 0;color:#888;font-size:12px;">可在 MoviePilot 设置 → 系统设定 → 基础设置 → API 令牌中获取。</p>
-                    </div>
-                </div>
-                <div>
-                    <label for="mpTmdbKey">TMDB API Key (可选，用于识别失败时的智能匹配):</label>
-                    <input type="text" id="mpTmdbKey" placeholder="可在 TMDB 账户设置里申请 v3 API Key" value="${CONFIG.get('tmdbKey') || ''}">
-                </div>
-                <div>
-                    <label><input type="checkbox" id="mpAutoQuery" ${CONFIG.get('autoQuery') ? 'checked' : ''}> 自动查询（默认关闭，命中缓存时不会重复请求）</label>
-                </div>
-                <div class="mp-modal-buttons">
-                    <button class="mp-test-mp-btn" style="float:left;">测试 MoviePilot</button>
-                    <button class="mp-cancel-btn">取消</button>
-                    <button class="mp-save-btn">保存</button>
-                </div>
                 </div>
             `;
         },
@@ -351,23 +355,30 @@
             const styleId = 'mp-config-modal-style';
             if (document.getElementById(styleId)) return;
             const css = `
-                #mpConfigModalBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 2147483646; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
-                #mpConfigModal { background-color: #f9f9f9; padding: 0; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); z-index: 2147483647; width: 440px; max-height: calc(100vh - 40px); overflow-y: auto; font-family: "Segoe UI", system-ui, sans-serif; color: #333; }
-                #mpConfigModal .mp-modal-body { padding: 20px 25px 25px; }
-                #mpConfigModal h2 { margin: 0; font-size: 16px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #2775b6, #5bb053); padding: 14px 20px; letter-spacing: 0.5px; position: sticky; top: 0; z-index: 1; }
-                #mpConfigModal h2.mp-section-title { font-size: 14px; margin: 12px -25px 10px; padding: 8px 20px; border-radius: 0; background: linear-gradient(135deg, #8e44ad, #3498db); }
-                #mpConfigModal label { display: block; margin-bottom: 4px; font-weight: 600; color: #555; font-size: 13px; }
-                #mpConfigModal input[type="text"], #mpConfigModal input[type="password"] { width: calc(100% - 20px); padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
-                #mpConfigModal select { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; background: #fff; }
-                #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: #3498db; outline: none; }
-                #mpConfigModal .mp-modal-buttons { text-align: right; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; overflow: hidden; }
-                #mpConfigModal .mp-test-mp-btn { background-color: #3498db; color: white; font-size: 12px; padding: 7px 10px; }
-                #mpConfigModal .mp-test-mp-btn:hover { background-color: #2980b9; }
-                #mpConfigModal button { padding: 10px 18px; margin-left: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background-color 0.2s; }
+                #mpConfigModalBackdrop { position: fixed; inset: 0; background-color: rgba(0,0,0,0.55); z-index: 2147483646; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+                #mpConfigModal { background-color: #f6f7f9; padding: 0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); z-index: 2147483647; width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; color: #333; }
+                #mpConfigModal .mp-modal-body { display: grid; gap: 12px; padding: 14px 16px 0; max-height: calc(100vh - 88px); overflow-y: auto; }
+                #mpConfigModal h2 { margin: 0; font-size: 15px; font-weight: 700; color: #fff; background: ${CONSTANTS.COLORS.PRIMARY}; padding: 12px 18px; letter-spacing: 0; position: sticky; top: 0; z-index: 1; }
+                #mpConfigModal .mp-config-section { border: 1px solid #dfe4ea; border-radius: 6px; background: #fff; padding: 12px; }
+                #mpConfigModal .mp-config-section h3 { margin: 0 0 10px; color: #1f2933; font-size: 13px; font-weight: 700; }
+                #mpConfigModal .mp-field { display: grid; gap: 4px; margin-bottom: 10px; }
+                #mpConfigModal .mp-field:last-child { margin-bottom: 0; }
+                #mpConfigModal label { display: block; margin: 0; font-weight: 600; color: #4b5563; font-size: 12px; }
+                #mpConfigModal .mp-check-line { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+                #mpConfigModal .mp-check-line input { margin: 0; }
+                #mpConfigModal input[type="text"], #mpConfigModal input[type="password"], #mpConfigModal select { box-sizing: border-box; width: 100%; height: 32px; padding: 6px 8px; margin: 0; border: 1px solid #cfd6df; border-radius: 4px; font-size: 13px; background: #fff; color: #222; }
+                #mpConfigModal input[type="text"]:focus, #mpConfigModal input[type="password"]:focus, #mpConfigModal select:focus { border-color: ${CONSTANTS.COLORS.PRIMARY}; outline: none; box-shadow: 0 0 0 2px rgba(39,117,182,.14); }
+                #mpConfigModal .mp-help { margin: 2px 0 0; color: #777; font-size: 12px; line-height: 1.45; }
+                #mpConfigModal .mp-modal-buttons { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; margin: 0 -16px; padding: 10px 16px; background: #f6f7f9; border-top: 1px solid #dfe4ea; }
+                #mpConfigModal .mp-test-mp-btn { margin-right: auto; background-color: ${CONSTANTS.COLORS.PRIMARY}; color: white; }
+                #mpConfigModal .mp-test-mp-btn:hover { filter: brightness(.96); }
+                #mpConfigModal button { height: 32px; padding: 0 12px; margin: 0; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; transition: background-color 0.2s, filter 0.2s; }
+                #mpConfigModal button:disabled { opacity: .7; cursor: not-allowed; }
                 #mpConfigModal button.mp-save-btn { background-color: ${CONSTANTS.COLORS.BTN_SAVE}; color: white; }
                 #mpConfigModal button.mp-save-btn:hover { background-color: ${CONSTANTS.COLORS.BTN_SAVE_HOVER}; }
                 #mpConfigModal button.mp-cancel-btn { background-color: ${CONSTANTS.COLORS.BTN_CANCEL}; color: white; }
                 #mpConfigModal button.mp-cancel-btn:hover { background-color: ${CONSTANTS.COLORS.BTN_CANCEL_HOVER}; }
+                @media(max-width:520px){#mpConfigModalBackdrop{padding:10px}#mpConfigModal{width:calc(100vw - 20px);max-height:calc(100vh - 20px)}#mpConfigModal .mp-modal-body{padding:12px 12px 0}#mpConfigModal .mp-modal-buttons{margin:0 -12px;padding:10px 12px;flex-wrap:wrap}#mpConfigModal .mp-test-mp-btn{margin-right:0}}
             `;
             const style = document.createElement('style');
             style.id = styleId;
@@ -376,7 +387,13 @@
         },
 
         renderTag(text, color) {
-            return `<span style="background-color:${color};border:1px solid ${color};color:#ffffff;display:inline-flex;align-items:center;gap:4px;border-radius:0.375rem;font-size:12px;line-height:1.6;padding:2px 7px;font-weight:600;text-decoration:none;">${UTILS.escapeHtml(text)}</span>`;
+            return `<span style="background-color:${color};border:1px solid ${color};color:#ffffff;display:inline-flex;align-items:center;gap:.35em;border-radius:4px;font:inherit;line-height:1.45;padding:.12em .5em;font-weight:600;text-decoration:none;vertical-align:middle;">${UTILS.escapeHtml(text)}</span>`;
+        },
+
+        renderActionButton(action, status, color, state = 'idle', title = '') {
+            const label = `${action}（${status}）`;
+            const safeTitle = title ? ` title="${UTILS.escapeHtml(title)}"` : '';
+            return `<button type="button" class="mp-recognize-trigger mp-action-button" data-state="${UTILS.escapeHtml(state)}"${safeTitle} style="background-color:${color};border:1px solid ${color};color:#ffffff;display:inline-flex;align-items:center;gap:.35em;border-radius:4px;font:inherit;line-height:1.45;padding:.12em .6em;font-weight:600;text-decoration:none;vertical-align:middle;cursor:pointer;">${UTILS.escapeHtml(label)}</button>`;
         },
 
         showToast(message, duration = 3000) {
@@ -2008,11 +2025,13 @@
             }
         },
 
-        renderManualEntry(container, torrentInfo, state = 'idle', message = '点击识别') {
+        renderManualEntry(container, torrentInfo, state = 'idle', message = '待识别') {
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
             const isRunning = state === 'running';
             const tagColor = state === 'error' ? CONSTANTS.COLORS.WARNING : (isRunning ? CONSTANTS.COLORS.PRIMARY : CONSTANTS.COLORS.SECONDARY);
-            const manualTag = `<span class="mp-recognize-trigger" data-state="${state}">${UI.renderTag(message, tagColor)}</span>`;
+            const status = state === 'error' ? '失败' : (isRunning ? '识别中' : message);
+            const title = state === 'error' ? message : '';
+            const manualTag = UI.renderActionButton('识别', status, tagColor, state, title);
 
             container.innerHTML = `<div style="${containerStyle}">${manualTag}</div>`;
             this.attachRecognizeTrigger(container, torrentInfo);
@@ -2035,17 +2054,21 @@
                 const trigger = container.querySelector('.mp-recognize-trigger');
                 if (trigger) {
                     trigger.setAttribute('data-state', 'running');
-                    trigger.innerHTML = UI.renderTag(msg, CONSTANTS.COLORS.PRIMARY);
+                    trigger.textContent = `识别（${msg}）`;
+                    trigger.disabled = true;
+                    trigger.style.backgroundColor = CONSTANTS.COLORS.PRIMARY;
+                    trigger.style.borderColor = CONSTANTS.COLORS.PRIMARY;
+                    trigger.style.cursor = 'not-allowed';
                 }
             };
-            setRunning('识别中...');
+            setRunning('识别中');
 
             try {
                 const candidates = UTILS.getRecognitionCandidates(torrentInfo.name, torrentInfo.description);
                 GM_log(`[${SCRIPT_NAME}] 识别候选词:`, candidates);
 
                 for (let i = 0; i < candidates.length; i++) {
-                    if (i > 0) setRunning(`识别重试 (${i + 1}/${candidates.length})...`);
+                    if (i > 0) setRunning(`重试${i + 1}/${candidates.length}`);
                     const subtitle = i === 0 ? torrentInfo.description : '';
                     try {
                         const data = await API.recognize(candidates[i], subtitle);
@@ -2064,7 +2087,7 @@
                 }
 
                 if (CONFIG.get('tmdbKey')) {
-                    setRunning('TMDB 智能匹配中...');
+                    setRunning('匹配中');
                     const mediaInfo = await this.tmdbFallback(candidates, torrentInfo.description);
                     if (mediaInfo && mediaInfo.tmdb_id) {
                         const data = { media_info: mediaInfo, meta_info: {} };
@@ -2133,9 +2156,9 @@
             let finalHtml = `<div style="${containerStyle}">`;
 
             // Manual trigger + Download Button
-            finalHtml += `<span class="mp-recognize-trigger" data-state="idle">${UI.renderTag('重新识别', CONSTANTS.COLORS.SECONDARY)}</span>`;
-            const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; padding: 0.25rem 0.75rem;`;
-            finalHtml += `<button class="mp-download-button" style="${buttonStyle}">下载种子</button>`;
+            finalHtml += UI.renderActionButton('识别', '成功', CONSTANTS.COLORS.SECONDARY, 'idle', '重新识别');
+            const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;`;
+            finalHtml += `<button class="mp-download-button" style="${buttonStyle}">推送到MP</button>`;
 
             // Tags
             finalHtml += media_info.type ? UI.renderTag(media_info.type, CONSTANTS.COLORS.PRIMARY) : '';
@@ -2184,7 +2207,7 @@
 
         async handleDownload(button, media_info, torrentInfo) {
             button.disabled = true;
-            const originalText = "下载种子";
+            const originalText = "推送到MP";
             const log = (msg, ...args) => GM_log(`[${SCRIPT_NAME}] [Download] ${msg}`, ...args);
             const setStatus = (text) => { button.textContent = text; UI.showToast(text, 2000); log(text); };
 
@@ -2632,7 +2655,7 @@
                                         // 启动后再 hook 一次原生按钮（此时 DOM 才齐全）
                                         MTeamLinkCapture._installNativeDownloadHook();
                                         // 不在初始化时自动预取（合成点击可能导致跳转），
-                                        // 链接获取延迟到用户点击"下载种子"时按需触发
+                                        // 链接获取延迟到用户点击"推送到MP"时按需触发
                                     }, 200);
                                 }
                             } catch (e) {

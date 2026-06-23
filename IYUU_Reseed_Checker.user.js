@@ -86,6 +86,72 @@
     const log = (label, value = '') => { if (DEBUG) console.log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     let iyuuLastRequest = 0;
+    const AUTO_FEED_SITE_URLS = {
+        '1ptba': 'https://1ptba.com/',
+        'audiences': 'https://audiences.me/',
+        'bhd': 'https://beyond-hd.me/',
+        'beyondhd': 'https://beyond-hd.me/',
+        'btn': 'https://broadcasthe.net/',
+        'byr': 'https://byr.pt/',
+        'btschool': 'https://pt.btschool.club/',
+        'carpt': 'https://carpt.net/',
+        'cmct': 'https://springsunday.net/',
+        'chdbits': 'https://ptchdbits.co/',
+        'cspt': 'https://cspt.top/',
+        '财神': 'https://cspt.top/',
+        'discfan': 'https://discfan.net/',
+        'eiga': 'https://eiga.moi/',
+        'acm': 'https://eiga.moi/',
+        'filelist': 'https://filelist.io/',
+        'freefarm': 'https://pt.0ff.cc/',
+        'gpw': 'https://greatposterwall.com/',
+        'greatposterwall': 'https://greatposterwall.com/',
+        'haidan': 'https://www.haidan.video/',
+        'hdarea': 'https://hdarea.club/',
+        'hdb': 'https://hdbits.org/',
+        'hdbits': 'https://hdbits.org/',
+        'hdcity': 'https://hdcity.city/',
+        'hddolby': 'https://www.hddolby.com/',
+        'hdfans': 'http://hdfans.org/',
+        'hdhome': 'https://hdhome.org/',
+        'hdsky': 'https://hdsky.me/',
+        'hdspace': 'https://hd-space.org/',
+        'hd-space': 'https://hd-space.org/',
+        'hdtime': 'https://hdtime.org/',
+        'hdu': 'https://pt.upxin.net/',
+        'hudbt': 'https://hudbt.hust.edu.cn/',
+        'ipt': 'https://iptorrents.com/',
+        'iptorrents': 'https://iptorrents.com/',
+        'monika': 'https://monikadesign.uk/',
+        'monikadesign': 'https://monikadesign.uk/',
+        'mteam': 'https://kp.m-team.cc/',
+        'm-team': 'https://kp.m-team.cc/',
+        '馒头': 'https://kp.m-team.cc/',
+        'mt': 'https://kp.m-team.cc/',
+        'nanyang': 'https://nanyangpt.com/',
+        'ourbits': 'https://ourbits.club/',
+        'pter': 'https://pterclub.net/',
+        'pterclub': 'https://pterclub.net/',
+        'pthome': 'https://www.pthome.net/',
+        'ptsbao': 'https://ptsbao.club/',
+        'ptt': 'https://www.pttime.org/',
+        'putao': 'https://pt.sjtu.edu.cn/',
+        'qingwa': 'https://qingwapt.com/',
+        'rousi': 'https://rousi.pro/',
+        'tccf': 'https://et8.org/',
+        'tjupt': 'https://www.tjupt.org/',
+        'tlfbits': 'http://pt.eastgame.org/',
+        'ttg': 'https://totheglory.im/',
+        'ubits': 'https://ubits.club/',
+        'yemapt': 'https://www.yemapt.org/',
+        'zmpt': 'https://zmpt.cc/',
+        'zhuque': 'https://zhuque.in/',
+        '朱雀': 'https://zhuque.in/'
+    };
+    const AUTO_FEED_HOST_URLS = Object.fromEntries(Object.values(AUTO_FEED_SITE_URLS).map(url => {
+        try { const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); return [host, url]; } catch (_) { return ['', url]; }
+    }).filter(([host]) => host));
+    const normalizeSiteKey = value => String(value || '').toLowerCase().replace(/[\s._-]+/g, '');
 
     const Store = {
         get(k, d = '') { try { return GM_getValue(k, d); } catch (_) { return d; } },
@@ -124,9 +190,11 @@
     const UI = {
         initStyle() {
             GM_addStyle(`
-                .iyuu-row-box{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:1.6}.iyuu-btn,.iyuu-body button{border:0;border-radius:4px;color:#fff;cursor:pointer;font-weight:600;padding:0.25rem 0.75rem;background:${COLORS.secondary};font-size:12px;line-height:1.6}.iyuu-btn.primary,.iyuu-save,#iyuuSaveToken,#iyuuSaveMp{background:${COLORS.success}}.iyuu-btn.danger,.iyuu-cancel,#iyuuResetConfig{background:${COLORS.warn}}.iyuu-btn:disabled,.iyuu-body button:disabled{opacity:.7;cursor:not-allowed}.iyuu-chip{display:inline-flex;align-items:center;gap:4px;border-radius:0.375rem;padding:2px 7px;background:#eef3f8;color:#263238;text-decoration:none;border:1px solid #d6dde5}.iyuu-chip.source{color:#fff;background:${COLORS.primary};border-color:${COLORS.primary}}.iyuu-chip.error{background:${COLORS.warn};border-color:${COLORS.warn};color:#fff}.iyuu-site-choice{display:inline-flex;align-items:center;gap:4px}.iyuu-site-choice input{margin:0}.iyuu-site-link{display:inline-flex;align-items:center;gap:4px;color:inherit;text-decoration:none}.iyuu-icon{width:16px;height:16px;border-radius:3px;object-fit:contain;background:#fff;flex:0 0 auto;display:block}.iyuu-avatar{width:16px;height:16px;border-radius:4px;background:${COLORS.info};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}.iyuu-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483646;display:flex;align-items:center;justify-content:center}.iyuu-modal{width:620px;max-height:86vh;overflow:auto;background:#f9f9f9;color:#333;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-family:Segoe UI,system-ui,sans-serif}.iyuu-modal h2{margin:0;padding:14px 20px;color:#fff;background:linear-gradient(135deg,#2775b6,#5bb053);font-size:16px}.iyuu-body{padding:18px 22px}.iyuu-body label{display:block;font-weight:600;margin:10px 0 4px}.iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{width:calc(100% - 18px);padding:8px;border:1px solid #ddd;border-radius:4px}.iyuu-more{margin:12px 0;border:1px solid #e5e5e5;border-radius:6px;background:#fff;padding:10px}.iyuu-more summary{cursor:pointer;font-weight:700;color:${COLORS.primary}}.iyuu-inline{display:flex;gap:8px;align-items:center}.iyuu-inline input{flex:1}.iyuu-actions{text-align:right;margin-top:14px;padding-top:12px;border-top:1px solid #e5e5e5}.iyuu-save{background:${COLORS.success};color:#fff}.iyuu-cancel{background:${COLORS.warn};color:#fff}.iyuu-site-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}.iyuu-site-grid{display:flex;gap:7px;flex-wrap:wrap;max-height:230px;overflow:auto;border:1px solid #ddd;border-radius:6px;background:#fff;padding:10px}.iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #d6dde5;border-radius:0.375rem;background:#fff;color:#8a94a3;cursor:pointer;font-size:12px;opacity:.75}.iyuu-site-chip:hover{border-color:${COLORS.primary}}.iyuu-site-chip.selected{border-color:${COLORS.success};background:${COLORS.success};color:#fff;opacity:1;font-weight:600}.iyuu-toast{position:fixed;top:20px;right:20px;z-index:2147483647;background:${COLORS.success};color:#fff;padding:12px 16px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+                .iyuu-row-box{display:inline-flex;align-items:center;gap:.45em;flex-wrap:wrap;font:inherit;line-height:inherit;vertical-align:middle}.iyuu-btn,.iyuu-body button{border:0;border-radius:4px;color:#fff;cursor:pointer;font:inherit;font-weight:600;padding:.12em .6em;background:${COLORS.secondary};line-height:1.45;min-height:1.8em}.iyuu-btn.primary,.iyuu-save,#iyuuSaveToken,#iyuuSaveMp{background:${COLORS.success}}.iyuu-btn.danger,.iyuu-cancel,#iyuuResetConfig{background:${COLORS.warn}}.iyuu-btn:not(:disabled):hover,.iyuu-body button:not(:disabled):hover{filter:brightness(.96)}.iyuu-btn:disabled,.iyuu-body button:disabled{opacity:.7;cursor:not-allowed}.iyuu-chip{display:inline-flex;align-items:center;gap:.35em;border-radius:4px;padding:.12em .5em;background:#eef3f8;color:#263238;text-decoration:none;border:1px solid #d6dde5;font:inherit;line-height:1.45;vertical-align:middle}.iyuu-chip.source{color:#fff;background:${COLORS.primary};border-color:${COLORS.primary}}.iyuu-chip.error{background:${COLORS.warn};border-color:${COLORS.warn};color:#fff}.iyuu-site-choice{display:inline-flex;align-items:center;gap:.35em}.iyuu-site-choice input{margin:0}.iyuu-site-link{display:inline-flex;align-items:center;gap:.35em;color:inherit;text-decoration:none}.iyuu-icon{width:16px;height:16px;border-radius:3px;object-fit:contain;background:#fff;flex:0 0 auto;display:block}.iyuu-avatar{width:16px;height:16px;border-radius:4px;background:${COLORS.info};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}.iyuu-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483646;display:flex;align-items:center;justify-content:center}.iyuu-modal{width:620px;max-height:86vh;overflow:auto;background:#f9f9f9;color:#333;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-family:Segoe UI,system-ui,sans-serif}.iyuu-modal h2{margin:0;padding:14px 20px;color:#fff;background:linear-gradient(135deg,#2775b6,#5bb053);font-size:16px}.iyuu-body{padding:18px 22px}.iyuu-body label{display:block;font-weight:600;margin:10px 0 4px}.iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{width:calc(100% - 18px);padding:8px;border:1px solid #ddd;border-radius:4px}.iyuu-more{margin:12px 0;border:1px solid #e5e5e5;border-radius:6px;background:#fff;padding:10px}.iyuu-more summary{cursor:pointer;font-weight:700;color:${COLORS.primary}}.iyuu-inline{display:flex;gap:8px;align-items:center}.iyuu-inline input{flex:1}.iyuu-actions{text-align:right;margin-top:14px;padding-top:12px;border-top:1px solid #e5e5e5}.iyuu-save{background:${COLORS.success};color:#fff}.iyuu-cancel{background:${COLORS.warn};color:#fff}.iyuu-site-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}.iyuu-site-grid{display:flex;gap:7px;flex-wrap:wrap;max-height:230px;overflow:auto;border:1px solid #ddd;border-radius:6px;background:#fff;padding:10px}.iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #d6dde5;border-radius:4px;background:#fff;color:#8a94a3;cursor:pointer;font-size:12px;opacity:.75}.iyuu-site-chip:hover{border-color:${COLORS.primary}}.iyuu-site-chip.selected{border-color:${COLORS.success};background:${COLORS.success};color:#fff;opacity:1;font-weight:600}.iyuu-toast{position:fixed;top:20px;right:20px;z-index:2147483647;background:${COLORS.success};color:#fff;padding:12px 16px;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+                .iyuu-modal{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 32px);border-radius:8px;background:#f6f7f9;overflow:hidden}.iyuu-modal h2{position:sticky;top:0;z-index:1;padding:12px 18px;font-size:15px;letter-spacing:0;background:${COLORS.primary}}.iyuu-body{display:grid;gap:12px;padding:14px 16px 0;max-height:calc(100vh - 88px);overflow:auto}.iyuu-section,.iyuu-more{border:1px solid #dfe4ea;border-radius:6px;background:#fff;padding:12px}.iyuu-section-title{margin:0 0 10px;color:#1f2933;font-size:13px;font-weight:700}.iyuu-field{display:grid;gap:4px;margin-bottom:10px}.iyuu-field:last-child{margin-bottom:0}.iyuu-body label{margin:0;color:#4b5563;font-size:12px}.iyuu-check-line{display:flex!important;align-items:center;gap:6px;font-weight:600}.iyuu-check-line input{margin:0}.iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}.iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}.iyuu-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}.iyuu-body button{height:32px;padding:0 10px;font-size:12px}.iyuu-more{margin:0}.iyuu-more summary{list-style:none;margin:-12px;padding:12px;cursor:pointer}.iyuu-more summary::-webkit-details-marker{display:none}.iyuu-more[open] summary{margin-bottom:10px;border-bottom:1px solid #edf0f3}.iyuu-site-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0}.iyuu-site-toolbar input{flex:1 1 180px;min-width:160px}.iyuu-site-toolbar button{flex:0 0 auto}.iyuu-site-grid{max-height:240px;border-color:#dfe4ea;border-radius:6px;padding:8px;background:#fff}.iyuu-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin:0 -16px;padding:10px 16px;background:#f6f7f9;border-top:1px solid #dfe4ea}.iyuu-actions button{margin:0}@media(max-width:720px){.iyuu-site-toolbar button{flex:1 1 calc(50% - 8px)}.iyuu-site-toolbar input{flex-basis:100%}.iyuu-inline{grid-template-columns:1fr}.iyuu-body{padding:12px 12px 0}.iyuu-actions{margin:0 -12px;padding:10px 12px}}
             `);
         },
+        actionText(action, status) { return `${action}（${status}）`; },
         tag(text, color = COLORS.info) {
             const el = document.createElement('span'); el.className = 'iyuu-chip source'; el.style.background = color; el.style.borderColor = color; el.textContent = text; return el;
         },
@@ -137,14 +205,24 @@
             const inner = document.createElement('span'); inner.className = 'iyuu-site-link'; inner.append(this.icon(site.name, site.icon), document.createTextNode(site.name)); wrap.appendChild(inner); return wrap;
         },
         icon(name, src) {
-            let safeSrc = '';
-            try {
-                const u = new URL(src || '', location.origin);
-                if (u.protocol === 'https:' || u.protocol === 'http:') safeSrc = u.href;
-            } catch (_) {}
-            if (!safeSrc) return this.avatar(name);
-            const img = document.createElement('img'); img.className = 'iyuu-icon'; img.src = safeSrc; img.alt = '';
-            img.onerror = () => img.replaceWith(this.avatar(name)); return img;
+            const candidates = Array.isArray(src) ? src : [src];
+            const urls = [];
+            candidates.forEach(item => {
+                try {
+                    const u = new URL(item || '', location.origin);
+                    if ((u.protocol === 'https:' || u.protocol === 'http:') && !urls.includes(u.href)) urls.push(u.href);
+                } catch (_) {}
+            });
+            if (!urls.length) return this.avatar(name);
+            const img = document.createElement('img'); img.className = 'iyuu-icon'; img.alt = '';
+            let idx = 0;
+            img.onerror = () => {
+                idx++;
+                if (idx < urls.length) img.src = urls[idx];
+                else img.replaceWith(this.avatar(name));
+            };
+            img.src = urls[idx];
+            return img;
         },
         avatar(name) { const s = document.createElement('span'); s.className = 'iyuu-avatar'; s.textContent = String(name || '?').trim().slice(0, 1).toUpperCase(); return s; },
         toast(msg) { const t = document.createElement('div'); t.className = 'iyuu-toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); },
@@ -153,7 +231,7 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 设置</h2><div class="iyuu-body"><label>IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password"><button id="iyuuSaveToken">保存</button></div><label>M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password"><label><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><details class="iyuu-more"><summary>更多 / MoviePilot</summary><label>MoviePilot 地址</label><input id="iyuuMpUrl" type="text"><label>认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select><label>用户名</label><input id="iyuuMpUser" type="text"><label>密码</label><input id="iyuuMpPass" type="password"><label>API Key</label><input id="iyuuMpApiKey" type="password"><button id="iyuuSaveMp">保存 MoviePilot</button></details><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MoviePilot 选择</button><button id="iyuuDetectLogin">选择已登录（不推荐）</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置配置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password" autocomplete="off"><button id="iyuuSaveToken">保存 Token</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password" autocomplete="off"></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label></section><details class="iyuu-more"><summary>MoviePilot 联动</summary><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><input id="iyuuMpPass" type="password" autocomplete="off"></div><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><input id="iyuuMpApiKey" type="password" autocomplete="off"></div><button id="iyuuSaveMp">保存 MoviePilot</button></details><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
@@ -174,7 +252,7 @@
             modal.querySelector('#iyuuRefreshSites').onclick = async () => { const token = tokenInput.value.trim(); if (!token) { this.toast('请先填写 IYUU Token'); return; } try { const first = !Store.get(KEYS.configured, false); sites = await SiteIndex.get(true, token); if (first) { selected.clear(); sites.forEach(s => selected.add(String(s.id || s.sid))); } renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`站点索引已刷新：${sites.length} 个`); } catch (e) { this.toast(`刷新失败：${e.message}`); } };
             modal.querySelector('#iyuuSaveToken').onclick = () => { Config.save({ token: tokenInput.value, mteamKey: modal.querySelector('#iyuuMteamKey').value, autoQuery: modal.querySelector('#iyuuAutoQuery').checked, owned: [...selected] }); this.toast('Token 已保存，可继续刷新索引'); };
             modal.querySelector('#iyuuDetectSites').onclick = async () => { try { MoviePilot.save(modal); const detected = SiteIndex.matchMoviePilot(await MoviePilot.sites(), sites); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已按 MoviePilot 选择站点：${detected.length} 个`); } catch (e) { this.toast(`MoviePilot 获取失败：${e.message}`); } };
-            modal.querySelector('#iyuuDetectLogin').onclick = async ev => { const b = ev.currentTarget; if (b.disabled) return; if (!confirm('该方式会逐站访问首页检测登录，较慢且较重，确定继续？')) return; b.disabled = true; const detected = await SiteIndex.detectLoggedIn(sites, (done, total) => { b.textContent = `检测中 ${done}/${total}`; }); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); b.disabled = false; b.textContent = '选择已登录（不推荐）'; this.toast(`已选择疑似登录站点：${detected.length} 个`); };
+            modal.querySelector('#iyuuDetectLogin').onclick = async ev => { const b = ev.currentTarget; if (b.disabled) return; if (!confirm('该方式会逐站访问首页检测登录，较慢且较重，确定继续？')) return; b.disabled = true; const detected = await SiteIndex.detectLoggedIn(sites, (done, total) => { b.textContent = `检测中 ${done}/${total}`; }); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); b.disabled = false; b.textContent = '选择已登录'; this.toast(`已选择疑似登录站点：${detected.length} 个`); };
             modal.querySelector('#iyuuSaveMp').onclick = () => { MoviePilot.save(modal); this.toast('MoviePilot 配置已保存'); };
             modal.querySelector('#iyuuClearCache').onclick = () => ResultCache.clear();
             modal.querySelector('#iyuuResetConfig').onclick = () => Config.reset();
@@ -500,7 +578,30 @@
             return [];
         },
         name(s) { return s?.nickname || s?.name_cn || s?.name || s?.site || s?.domain || `站点${s?.id || s?.sid || ''}`; },
-        icon(s) { const direct = s?.icon || s?.logo || s?.favicon; if (direct) return direct; const host = s?.domain || s?.base_url || s?.url; if (!host) return ''; try { const u = host.startsWith('http') ? new URL(host) : new URL(`https://${host}`); return `${u.origin}/favicon.ico`; } catch (_) { return ''; } },
+        autoFeedUrl(s) {
+            const host = this.host(s);
+            if (host) {
+                const hit = Object.entries(AUTO_FEED_HOST_URLS).find(([known]) => host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`));
+                if (hit) return hit[1];
+            }
+            const fields = [this.name(s), s?.site, s?.name, s?.nickname, s?.name_cn, s?.domain, s?.host];
+            for (const field of fields) {
+                const direct = AUTO_FEED_SITE_URLS[String(field || '').toLowerCase()] || AUTO_FEED_SITE_URLS[normalizeSiteKey(field)];
+                if (direct) return direct;
+            }
+            return '';
+        },
+        icon(s) {
+            const candidates = [s?.icon, s?.logo, s?.favicon].filter(Boolean);
+            const host = s?.domain || s?.base_url || s?.url || s?.host || this.autoFeedUrl(s);
+            if (host) {
+                try {
+                    const u = /^https?:\/\//i.test(String(host)) ? new URL(host) : new URL(`https://${host}`);
+                    candidates.push(`${u.origin}/favicon.ico`, `${u.origin}/favicon.png`, `${u.origin}/favicon.svg`, `${u.origin}/apple-touch-icon.png`);
+                } catch (_) {}
+            }
+            return [...new Set(candidates)];
+        },
         host(s) {
             const raws = [s?.domain, s?.base_url, s?.url, s?.site, s?.host, s?.details_page, s?.download_page];
             for (const raw of raws) {
@@ -774,13 +875,16 @@
     const Core = {
         adapter: null,
         init() { this.adapter = ADAPTERS.find(a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) { this.inject(info); return true; } return false; },
+        setQueryButton(btn, status, title = '') {
+            btn.textContent = UI.actionText('查询', status);
+            if (title) btn.title = title;
+        },
         inject(info) {
             const box = document.createElement('div'); box.className = 'iyuu-row-box';
-            const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; btn.textContent = '查辅种'; btn.title = '配置请从 Tampermonkey 菜单打开「配置 IYUU」'; btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
-            const summary = UI.tag('IYUU 0站', COLORS.info); summary.classList.add('iyuu-summary');
+            const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」'); btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
-            box.append(btn, summary, multi); Mount.render(info.mount, box);
+            box.append(btn, multi); Mount.render(info.mount, box);
             this.restore(box, btn, info, Config.autoQuery);
         },
         async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (_) {} },
@@ -811,16 +915,56 @@
                 urls.forEach((url, i) => setTimeout(() => this.openTab(url), i * 500)); UI.toast(`已分批打开 ${urls.length} 个站点下载链接`);
             } catch (e) { UI.toast(e?.message || '下载失败'); }
         },
-        async check(box, btn, info) { const force = btn.dataset.done === '1'; btn.disabled = true; btn.textContent = '查询中...'; btn.dataset.done = ''; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); const summary = box.querySelector('.iyuu-summary'); if (summary) { summary.textContent = 'IYUU 查询中'; summary.style.background = COLORS.primary; summary.style.borderColor = COLORS.primary; } try { const pageCached = force ? null : ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); if (result?.sites?.length || !result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false)) ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { btn.textContent = '重试'; const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); if (summary) { summary.textContent = 'IYUU 查询失败'; summary.style.background = COLORS.warn; summary.style.borderColor = COLORS.warn; } UI.toast(`查辅种失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
-        siteKey(s) { const host = String(s.host || SiteIndex.host({ url: s.url }) || SiteIndex.host({ url: s.downloadUrl }) || '').toLowerCase(); if (host) return `host:${host}`; const name = String(s.name || '').toLowerCase().replace(/[\s._-]+/g, ''); if (name) return `name:${name}`; const sid = String(s.sid || '').toLowerCase(); return sid ? `sid:${sid}` : String(s.url || s.downloadUrl || '').toLowerCase(); },
-        mergeSites(list) { const m = new Map(); (list || []).forEach(s => { const key = this.siteKey(s); if (!key) return; const old = m.get(key); if (!old) { m.set(key, s); return; } old.count = Math.max(Number(old.count || 1), Number(s.count || 1)); if (!old.host && s.host) old.host = s.host; if ((!old.url || SiteIndex.isHomepageUrl(old.url)) && s.url && !SiteIndex.isHomepageUrl(s.url)) old.url = s.url; if (!old.downloadUrl && s.downloadUrl) old.downloadUrl = s.downloadUrl; if (!old.torrentId && s.torrentId) old.torrentId = s.torrentId; if (!old.icon && s.icon) old.icon = s.icon; }); return [...m.values()]; },
+        async check(box, btn, info) { const force = btn.dataset.done === '1'; btn.disabled = true; this.setQueryButton(btn, '查询中'); btn.dataset.done = ''; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const pageCached = force ? null : ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); if (result?.sites?.length || !result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false)) ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { this.setQueryButton(btn, '失败', e.message || '查询失败'); const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查询失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
+        siteKeys(s) {
+            const keys = new Set();
+            const add = (type, value) => { const v = String(value || '').trim().toLowerCase(); if (v) keys.add(`${type}:${v}`); };
+            const sid = String(s.sid || '').trim();
+            if (sid && !sid.startsWith('fallback-')) add('sid', sid);
+            const hosts = [
+                s.host,
+                SiteIndex.host(s),
+                SiteIndex.host({ url: s.url }),
+                SiteIndex.host({ url: s.downloadUrl }),
+                SiteIndex.host({ url: SiteIndex.autoFeedUrl(s) })
+            ].filter(Boolean);
+            hosts.forEach(host => add('host', host));
+            const nameKey = normalizeSiteKey(s.name);
+            if (nameKey) add('name', nameKey);
+            if (!keys.size) add('url', s.url || s.downloadUrl);
+            return [...keys];
+        },
+        mergeSites(list) {
+            const items = [];
+            const keyToIndex = new Map();
+            (list || []).forEach(s => {
+                const keys = this.siteKeys(s);
+                if (!keys.length) return;
+                const index = keys.map(k => keyToIndex.get(k)).find(i => i !== undefined);
+                if (index === undefined) {
+                    const nextIndex = items.length;
+                    items.push(s);
+                    keys.forEach(k => keyToIndex.set(k, nextIndex));
+                    return;
+                }
+                const old = items[index];
+                old.count = Math.max(Number(old.count || 1), Number(s.count || 1));
+                if (!old.host && s.host) old.host = s.host;
+                if ((!old.url || SiteIndex.isHomepageUrl(old.url)) && s.url && !SiteIndex.isHomepageUrl(s.url)) old.url = s.url;
+                if (!old.downloadUrl && s.downloadUrl) old.downloadUrl = s.downloadUrl;
+                if (!old.torrentId && s.torrentId) old.torrentId = s.torrentId;
+                if (!old.icon && s.icon) old.icon = s.icon;
+                keys.forEach(k => keyToIndex.set(k, index));
+            });
+            return items;
+        },
         async fetch(hash) { log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt }); const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })]; if (Config.zmpt) tasks.push(Fallback.query(hash)); const settled = await Promise.allSettled(tasks); const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] }); log('fetch result sources', sources); return { hash, sources, sites: this.mergeSites(sources.flatMap(s => s.sites || [])) }; },
         render(box, btn, result, info, cached = false) {
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
             box._iyuuResult = result; box._iyuuCached = cached;
-            btn.textContent = '重新查询'; const wrap = document.createElement('span'); wrap.className = 'iyuu-result iyuu-row-box';
+            const wrap = document.createElement('span'); wrap.className = 'iyuu-result iyuu-row-box';
             const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = result.sources.find(s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const error = !hasSites && primary?.ok === false && primary.error ? primary.error : '';
-            const summary = box.querySelector('.iyuu-summary'); if (summary) { summary.textContent = error ? `IYUU失败: ${error}` : `IYUU ${result.sites.length}站${cached ? ' 缓存' : ''}`; summary.style.background = error ? COLORS.warn : (result.sites.length ? COLORS.success : COLORS.info); summary.style.borderColor = summary.style.background; }
+            this.setQueryButton(btn, error ? '失败' : `${result.sites.length}站${cached ? ' 缓存' : ''}`, error || '重新查询');
             if (!result.sites.length) wrap.append(UI.tag('暂无辅种', COLORS.info));
             result.sites.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
             if (multi && result.sites.length) { const all = document.createElement('button'); all.className = 'iyuu-btn'; all.textContent = '全选'; all.onclick = e => { e.preventDefault(); e.stopPropagation(); result.sites.forEach(s => selected.add(s)); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const none = document.createElement('button'); none.className = 'iyuu-btn'; none.textContent = '清空'; none.onclick = e => { e.preventDefault(); e.stopPropagation(); selected.clear(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const dl = document.createElement('button'); dl.className = 'iyuu-btn'; dl.textContent = '下载种子'; dl.onclick = e => { e.preventDefault(); e.stopPropagation(); this.downloadSelected(selected); }; const open = document.createElement('button'); open.className = 'iyuu-btn'; open.textContent = '打开选中'; open.onclick = e => { e.preventDefault(); e.stopPropagation(); const urls = [...selected].filter(s => s.url); if (!urls.length) { UI.toast('未勾选可跳转站点'); return; } urls.forEach(s => this.openTab(s.url)); UI.toast(`已打开 ${urls.length} 个站点`); }; wrap.append(all, none, dl, open); }
