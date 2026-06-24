@@ -31,12 +31,7 @@
 // @connect      zmpt.cc
 // @connect      bangumi.moe
 // @connect      api.m-team.cc
-// @connect      api.m-team.io
-// @connect      api.m-team.vip
 // @connect      *.m-team.cc
-// @connect      *.m-team.io
-// @connect      *.m-team.vip
-// @connect      halomt.com
 // @connect      *
 // @license      MIT
 // @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/IYUU_Reseed_Checker.user.js
@@ -59,6 +54,7 @@
     const SCRIPT_NAME = 'IYUU 辅种检测助手';
     const API_BASE = 'https://2025.iyuu.cn';
     const ZMPT_API = 'https://zmpt.cc/nodeapi/iyuu/getIyuuByInfoHash';
+    const MTEAM_API_BASE = 'https://api.m-team.cc/api';
     const KEYS = {
         token: 'iyuu_reseed_token', owned: 'iyuu_reseed_owned_sites', zmpt: 'iyuu_reseed_zmpt_enabled',
         sites: 'iyuu_reseed_sites_index', sitesTime: 'iyuu_reseed_sites_index_time', sid: 'iyuu_reseed_sid_sha1',
@@ -190,7 +186,7 @@
             GM_addStyle(`
                 .iyuu-row-box{display:inline-flex;align-items:center;gap:.45em;flex-wrap:wrap;font:inherit;line-height:inherit;vertical-align:middle}
                 .iyuu-btn,.iyuu-body button{border:0;border-radius:4px;color:#fff;cursor:pointer;font:inherit;font-weight:600;padding:.12em .6em;background:${COLORS.secondary};line-height:1.45;min-height:1.8em}
-                .iyuu-btn.primary,.iyuu-save,#iyuuSaveToken,#iyuuSaveMp{background:${COLORS.success}}
+                .iyuu-btn.primary,.iyuu-save{background:${COLORS.success}}
                 .iyuu-btn.danger,.iyuu-cancel,#iyuuResetConfig{background:${COLORS.warn}}
                 .iyuu-btn:not(:disabled):hover,.iyuu-body button:not(:disabled):hover{filter:brightness(.96)}
                 .iyuu-btn:disabled,.iyuu-body button:disabled{opacity:.7;cursor:not-allowed}
@@ -216,6 +212,8 @@
                 .iyuu-check-line input{margin:0}
                 .iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}
                 .iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}
+                .iyuu-secret{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center}
+                .iyuu-secret-toggle{padding:0!important;min-width:34px;font-size:14px!important;background:${COLORS.info}!important}
                 .iyuu-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
                 .iyuu-body button{height:32px;padding:0 10px;font-size:12px}
                 .iyuu-more{margin:0}
@@ -266,13 +264,27 @@
         },
         avatar(name) { const s = document.createElement('span'); s.className = 'iyuu-avatar'; s.textContent = String(name || '?').trim().slice(0, 1).toUpperCase(); return s; },
         toast(msg) { const t = document.createElement('div'); t.className = 'iyuu-toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); },
+        bindSecretToggles(modal) {
+            modal.querySelectorAll('.iyuu-secret-toggle').forEach(btn => {
+                const input = modal.querySelector(btn.dataset.target || '');
+                if (!input) return;
+                btn.onclick = e => {
+                    e.preventDefault();
+                    const visible = input.type === 'text';
+                    input.type = visible ? 'password' : 'text';
+                    btn.textContent = visible ? '◉' : '◎';
+                    btn.title = visible ? '显示' : '隐藏';
+                };
+            });
+        },
         async safeRun(label, fn) { try { return await fn(); } catch (e) { log(`${label} 失败`, e?.message || e); this.toast(`${label}失败：${e?.message || '未知错误'}`); } },
         async showConfig() {
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-inline"><input id="iyuuToken" type="password" autocomplete="off"><button id="iyuuSaveToken">保存 Token</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><input id="iyuuMteamKey" type="password" autocomplete="off"></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><details class="iyuu-more"><summary>MoviePilot 联动</summary><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><input id="iyuuMpPass" type="password" autocomplete="off"></div><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><input id="iyuuMpApiKey" type="password" autocomplete="off"></div><button id="iyuuSaveMp">保存 MoviePilot</button></details><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索站点"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存全部</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-secret"><input id="iyuuToken" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuToken" title="显示">◉</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><div class="iyuu-secret"><input id="iyuuMteamKey" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMteamKey" title="显示">◉</button></div></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><div class="iyuu-secret"><input id="iyuuMpPass" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMpPass" title="显示">◉</button></div></div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><div class="iyuu-secret"><input id="iyuuMpApiKey" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMpApiKey" title="显示">◉</button></div></div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
+            this.bindSecretToggles(modal);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
             modal.querySelector('#iyuuAutoQuery').checked = Config.autoQuery;
@@ -282,10 +294,17 @@
             modal.querySelector('#iyuuMpUser').value = Store.get(KEYS.mpUser, 'admin');
             modal.querySelector('#iyuuMpPass').value = Store.get(KEYS.mpPass, '');
             modal.querySelector('#iyuuMpApiKey').value = Store.get(KEYS.mpApiKey, '');
+            const updateMpAuthFields = () => {
+                const mode = modal.querySelector('#iyuuMpAuth').value;
+                modal.querySelector('#iyuuMpPasswordFields').style.display = mode === 'password' ? '' : 'none';
+                modal.querySelector('#iyuuMpApiKeyFields').style.display = mode === 'apikey' ? '' : 'none';
+            };
+            modal.querySelector('#iyuuMpAuth').addEventListener('change', updateMpAuthFields);
+            updateMpAuthFields();
             const selected = new Set(Config.owned.map(String));
             if (!Store.get(KEYS.configured, false) && !selected.size && sites.length) sites.forEach(s => selected.add(String(s.id || s.sid)));
             const grid = modal.querySelector('#iyuuSiteGrid');
-            const renderSites = (kw = '') => { grid.textContent = ''; sites.filter(s => SiteIndex.name(s).toLowerCase().includes(kw.toLowerCase())).forEach(s => { const sid = String(s.id || s.sid); if (!sid) return; const b = document.createElement('button'); b.type = 'button'; b.className = `iyuu-site-chip${selected.has(sid) ? ' selected' : ''}`; b.dataset.sid = sid; b.append(this.icon(SiteIndex.name(s), SiteIndex.icon(s)), document.createTextNode(SiteIndex.name(s))); b.onclick = () => { selected.has(sid) ? selected.delete(sid) : selected.add(sid); b.classList.toggle('selected'); }; grid.appendChild(b); }); };
+            const renderSites = (kw = '') => { const query = normalizeSiteKey(kw); grid.textContent = ''; sites.filter(s => !query || SiteIndex.searchText(s).includes(query)).forEach(s => { const sid = String(s.id || s.sid); if (!sid) return; const b = document.createElement('button'); b.type = 'button'; b.className = `iyuu-site-chip${selected.has(sid) ? ' selected' : ''}`; b.dataset.sid = sid; b.title = SiteIndex.searchTitle(s); b.append(this.icon(SiteIndex.name(s), SiteIndex.icon(s)), document.createTextNode(SiteIndex.name(s))); b.onclick = () => { selected.has(sid) ? selected.delete(sid) : selected.add(sid); b.classList.toggle('selected'); }; grid.appendChild(b); }); };
             const tokenInput = modal.querySelector('#iyuuToken');
             renderSites(); modal.querySelector('#iyuuSiteSearch').oninput = e => renderSites(e.target.value);
             modal.querySelector('#iyuuAllSites').onclick = () => { sites.forEach(s => selected.add(String(s.id || s.sid))); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已全选 ${selected.size} 个站点`); };
@@ -298,326 +317,534 @@
                 debug: modal.querySelector('#iyuuDebugLog').checked,
                 owned: [...selected]
             });
-            modal.querySelector('#iyuuSaveToken').onclick = () => { saveConfig(); this.toast('Token 已保存，可继续刷新索引'); };
             modal.querySelector('#iyuuDetectSites').onclick = async () => { try { MoviePilot.save(modal); const detected = SiteIndex.matchMoviePilot(await MoviePilot.sites(), sites); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已按 MoviePilot 选择站点：${detected.length} 个`); } catch (e) { this.toast(`MoviePilot 获取失败：${e.message}`); } };
             modal.querySelector('#iyuuDetectLogin').onclick = async ev => { const b = ev.currentTarget; if (b.disabled) return; if (!confirm('该方式会逐站访问首页检测登录，较慢且较重，确定继续？')) return; b.disabled = true; const detected = await SiteIndex.detectLoggedIn(sites, (done, total) => { b.textContent = `检测中 ${done}/${total}`; }); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); b.disabled = false; b.textContent = '选择已登录'; this.toast(`已选择疑似登录站点：${detected.length} 个`); };
-            modal.querySelector('#iyuuSaveMp').onclick = () => { MoviePilot.save(modal); this.toast('MoviePilot 配置已保存'); };
             modal.querySelector('#iyuuClearCache').onclick = () => ResultCache.clear();
             modal.querySelector('#iyuuResetConfig').onclick = () => Config.reset();
             modal.querySelector('.iyuu-cancel').onclick = () => bg.remove(); bg.onclick = e => { if (e.target === bg) bg.remove(); };
-            modal.querySelector('.iyuu-save').onclick = () => { saveConfig(); this.toast('配置已保存'); };
+            modal.querySelector('.iyuu-save').onclick = () => { saveConfig(); MoviePilot.save(modal); this.toast('配置已保存'); };
         }
     };
 
-    const Mount = {
-        afterNode(target) { return { type: 'div-after', target }; },
-        tableRowAfter(target, label = 'IYUU') { return { type: 'table-row-after', target, label }; },
-        tableColspanAfter(target, label = 'IYUU', colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
-        tableColspanBefore(target, label = 'IYUU', colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
-        blockAfter(target, label = 'IYUU') { return { type: 'block-after', target, label }; },
-        antRowAfter(target, label = 'IYUU') { return { type: 'ant-row-after', target, label }; },
-        gridPairAfter(target, label = 'IYUU') { return { type: 'grid-pair-after', target, label }; },
-        prepend(target = document.body) { return { type: 'prepend', target }; },
-        append(target) { return { type: 'append', target }; },
-        definitionAfter(target, label = 'IYUU') { return { type: 'definition-after', target, label }; },
-        render(mount, contentNode) {
-            const m = mount?.target ? mount : this.prepend();
-            if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
-            if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
-            if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
-            if (m.type === 'block-after') return this.block(m, contentNode);
-            if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
-            if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
-            if (m.type === 'definition-after') return this.definition(m, contentNode);
-            if (m.type === 'append') return m.target.appendChild(contentNode);
-            if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
-            return m.target.after(contentNode);
-        },
-        tableRow(m, contentNode) {
-            const ref = m.target?.closest?.('tr') || m.target;
-            const tr = document.createElement('tr');
-            const h = document.createElement('td');
-            const d = document.createElement('td');
-            const refHead = ref?.cells?.[0], refBody = ref?.cells?.[1];
-            if (ref?.className) tr.className = ref.className;
-            if (ref?.getAttribute?.('style')) tr.setAttribute('style', ref.getAttribute('style'));
-            h.className = refHead ? refHead.className : 'rowhead nowrap';
-            d.className = refBody ? refBody.className : 'rowfollow';
-            if (refHead?.getAttribute?.('style')) h.setAttribute('style', refHead.getAttribute('style'));
-            if (refBody?.getAttribute?.('style')) d.setAttribute('style', refBody.getAttribute('style'));
-            ['align', 'valign'].forEach(attr => { if (refHead?.getAttribute?.(attr)) h.setAttribute(attr, refHead.getAttribute(attr)); if (refBody?.getAttribute?.(attr)) d.setAttribute(attr, refBody.getAttribute(attr)); });
-            const refText = refHead?.querySelector?.('.td-text');
-            if (refText) {
-                const span = document.createElement('span');
-                span.className = refText.className;
-                span.textContent = m.label || 'IYUU';
-                h.appendChild(span);
-            } else if (refHead?.firstElementChild && refHead.firstElementChild.children.length === 0) {
-                const wrapper = refHead.firstElementChild.cloneNode(false);
-                wrapper.textContent = m.label || 'IYUU';
-                h.appendChild(wrapper);
-            } else {
-                h.textContent = m.label || 'IYUU';
+    // <pt-common:start>
+    const createPTCommon = ({
+        defaultLabel,
+        productId,
+        gridLabelClass,
+        gridContentClass
+    }) => {
+        const NS = 'pt-helper';
+        const Native = {
+            querySelector: Document.prototype.querySelector,
+            querySelectorAll: Document.prototype.querySelectorAll,
+            closest: Element.prototype.closest
+        };
+        const DOM = {
+            ns: NS,
+            productId,
+            qs(selector, root = document) {
+                try { return Native.querySelector.call(root, selector); } catch (_) { return null; }
+            },
+            qsa(selector, root = document) {
+                try { return Array.from(Native.querySelectorAll.call(root, selector)); } catch (_) { return []; }
+            },
+            closest(node, selector) {
+                try { return node ? Native.closest.call(node, selector) : null; } catch (_) { return null; }
+            },
+            productRootSelector(siteId = '') {
+                const site = siteId ? `[data-${NS}-site="${siteId}"]` : '';
+                return `[data-${NS}-root="1"][data-${NS}-product="${productId}"]${site}`;
+            },
+            markRoot(node, { siteId = '', family = '', anchorLevel = '', anchorReason = '', anchorKey = '' } = {}) {
+                if (!node?.setAttribute) return node;
+                node.setAttribute(`data-${NS}-root`, '1');
+                node.setAttribute(`data-${NS}-product`, productId);
+                if (siteId) node.setAttribute(`data-${NS}-site`, siteId);
+                if (family) node.setAttribute(`data-${NS}-family`, family);
+                if (anchorLevel) node.setAttribute(`data-${NS}-anchor-level`, String(anchorLevel));
+                if (anchorReason) node.setAttribute(`data-${NS}-anchor-reason`, anchorReason);
+                if (anchorKey) node.setAttribute(`data-${NS}-anchor-key`, anchorKey);
+                return node;
             }
-            d.appendChild(contentNode);
-            tr.append(h, d);
-            ref?.after ? ref.after(tr) : m.target.after(tr);
-            return tr;
-        },
-        tableColspan(m, contentNode, before = false) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); const label = document.createElement('span'); label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;'; label.textContent = `${m.label || 'IYUU'}：`; contentNode.style.display = 'inline-flex'; contentNode.style.alignItems = 'center'; contentNode.style.flexWrap = 'wrap'; contentNode.style.gap = contentNode.style.gap || '6px'; contentNode.style.verticalAlign = 'middle'; td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.style.paddingLeft = '12px'; td.style.paddingTop = '10px'; td.style.paddingBottom = '10px'; td.append(label, contentNode); tr.appendChild(td); if (before && ref?.before) ref.before(tr); else if (ref?.after) ref.after(tr); else (m.target || document.body).after(tr); return tr; },
-        block(m, contentNode) { const block = document.createElement('div'); block.className = 'block'; const title = document.createElement('div'); title.className = 'blocktitle'; title.textContent = m.label || 'IYUU'; const body = document.createElement('div'); body.className = 'blockcontent'; body.appendChild(contentNode); block.append(title, body); m.target.after(block); return block; },
-        antRow(m, contentNode) { const tr = document.createElement('tr'); tr.className = 'ant-descriptions-row'; const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = m.label || 'IYUU'; const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(contentNode); tr.append(th, td); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
-        definition(m, contentNode) { const dt = document.createElement('dt'); dt.textContent = m.label || 'IYUU'; const dd = document.createElement('dd'); dd.appendChild(contentNode); const ref = m.target?.closest?.('dd') || m.target; ref.after(dt, dd); return dd; },
-        gridPair(m, contentNode) { const refValue = m.target; const refLabel = refValue?.previousElementSibling; const label = document.createElement('div'); label.className = refLabel?.className || refValue?.className || 'iyuu-grid-label'; label.textContent = m.label || 'IYUU'; const value = document.createElement('div'); value.className = refValue?.className || refLabel?.className || 'iyuu-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; }
-    };
+        };
 
-    const TABLE_MOUNT_POLICY = {
-        COLSPAN_ONLY_SITES: new Set([])
-    };
-
-    function tableMount(siteId, row, label) {
-        if (!row) return null;
-        return TABLE_MOUNT_POLICY.COLSPAN_ONLY_SITES.has(siteId)
-            ? Mount.tableColspanAfter(row, label)
-            : Mount.tableRowAfter(row, label);
-    }
-
-    const AutoFeedAnchors = {
-        actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
-        nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
-        cellText(cell) { return String(cell?.textContent || '').replace(/\s+/g, ' ').trim(); },
-        rowByFirstCell(root, labels) {
-            for (const tr of (root || document).querySelectorAll('tr')) {
-                if (labels.has(this.cellText(tr.cells?.[0]))) return tr;
+        const labelOf = mount => mount?.label || defaultLabel;
+        const rootSelector = siteId => DOM.productRootSelector(siteId);
+        const stableNodeKey = node => {
+            if (!node) return '';
+            if (node.id) return `#${node.id}`;
+            const dataKey = node.getAttribute?.(`data-${NS}-anchor`) || node.getAttribute?.(`data-${NS}-key`);
+            if (dataKey) return `[data:${dataKey}]`;
+            const text = String(node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+            const tag = String(node.tagName || 'node').toLowerCase();
+            return text ? `${tag}:${text}` : tag;
+        };
+        const mountAnchorKey = mount => {
+            if (!mount?.target) return '';
+            const target = mount.target;
+            if (mount.type === 'append' || mount.type === 'prepend') return `${mount.type}:${stableNodeKey(target)}`;
+            if (mount.type === 'table-row-after' || mount.type === 'table-colspan-after' || mount.type === 'table-colspan-before' || mount.type === 'ant-row-after') {
+                const ref = DOM.closest(target, 'tr') || target;
+                const firstCell = ref?.cells?.[0] || ref;
+                return `${mount.type}:${stableNodeKey(ref)}:${stableNodeKey(firstCell)}`;
             }
-            return null;
-        },
-        domesticActionRow() {
-            const descr = document.getElementById('kdescr') || document.getElementById('kdescription');
-            const tbody = descr?.closest('tbody') || document.querySelector('#outer table tbody, table tbody');
-            return this.rowByFirstCell(tbody, this.actionLabels) || descr?.closest('tr') || null;
-        },
-        rowAfterName(root) { return this.rowByFirstCell(root, this.nameLabels); },
-        bhdNameRow() { return this.rowAfterName(document.querySelector('.table-details tbody')); },
-        monikaNameRow() {
-            const h4 = document.getElementsByTagName('h4')[0];
-            const box = h4?.parentNode?.parentNode?.getElementsByClassName?.('table-responsive')?.[1];
-            return this.rowAfterName(box?.getElementsByTagName('table')?.[0]) || null;
-        },
-        gpwTorrentRow() {
-            const tid = new URLSearchParams(location.search).get('torrentid');
-            if (!tid) return null;
-            return document.querySelector(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
-                || document.querySelector(`#torrent_details a[href*="id=${tid}"]`)?.closest('tr');
-        },
-        hhclubSubtitleValue() {
-            let label = null;
-            for (const el of document.querySelectorAll('div.font-bold.leading-6')) {
-                if (this.cellText(el) === '副标题') {
-                    label = el;
-                    break;
+            if (mount.type === 'definition-after') {
+                const ref = DOM.closest(target, 'dd') || target;
+                return `${mount.type}:${stableNodeKey(ref.previousElementSibling)}:${stableNodeKey(ref)}`;
+            }
+            if (mount.type === 'grid-pair-after') {
+                return `${mount.type}:${stableNodeKey(target.previousElementSibling)}:${stableNodeKey(target)}`;
+            }
+            return `${mount.type}:${stableNodeKey(target)}`;
+        };
+        const mountHost = mount => {
+            if (!mount?.target) return null;
+            if (mount.type === 'append' || mount.type === 'prepend') return mount.target || document.body;
+            if (mount.type === 'table-row-after' || mount.type === 'table-colspan-after' || mount.type === 'table-colspan-before' || mount.type === 'ant-row-after') {
+                return mount.target?.closest?.('table') || mount.target?.parentElement || mount.target;
+            }
+            if (mount.type === 'definition-after') return mount.target?.closest?.('dl') || mount.target?.parentElement || mount.target;
+            if (mount.type === 'grid-pair-after') return mount.target?.parentElement || mount.target;
+            return mount.target?.parentElement || mount.target;
+        };
+        const isEmptyElement = node => node?.nodeType === 1 && !String(node.textContent || '').trim() && !node.querySelector?.('img,button,a,input,select,textarea,svg,canvas,video,audio');
+        const cleanupEmptyMountShell = node => {
+            let current = node;
+            for (let depth = 0; depth < 3; depth += 1) {
+                if (!isEmptyElement(current)) return;
+                const next = current.parentElement;
+                current.remove();
+                current = next;
+            }
+        };
+
+        const Mount = {
+            afterNode(target) { return { type: 'div-after', target }; },
+            tableRowAfter(target, label = defaultLabel) { return { type: 'table-row-after', target, label }; },
+            tableColspanAfter(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
+            tableColspanBefore(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
+            blockAfter(target, label = defaultLabel) { return { type: 'block-after', target, label }; },
+            antRowAfter(target, label = defaultLabel) { return { type: 'ant-row-after', target, label }; },
+            gridPairAfter(target, label = defaultLabel) { return { type: 'grid-pair-after', target, label }; },
+            prepend(target = document.body) { return { type: 'prepend', target }; },
+            append(target) { return { type: 'append', target }; },
+            definitionAfter(target, label = defaultLabel) { return { type: 'definition-after', target, label }; },
+            mountRoot(mount, contentNode, meta = {}) {
+                const siteId = meta.siteId || '';
+                const existing = DOM.qs(rootSelector(siteId)) || DOM.qs(rootSelector(''));
+                const anchorKey = meta.anchorKey || mountAnchorKey(mount);
+                const targetHost = mountHost(mount);
+                if (existing && existing !== contentNode) {
+                    const sameHost = targetHost && targetHost.contains?.(existing);
+                    const sameAnchor = anchorKey && existing.getAttribute?.(`data-${NS}-anchor-key`) === anchorKey;
+                    const oldParent = existing.parentElement;
+                    DOM.markRoot(existing, { ...meta, anchorReason: meta.anchorReason || mount?.type || '', anchorKey });
+                    if ((!sameHost || !sameAnchor) && mount?.target) {
+                        this.render(mount, existing);
+                        cleanupEmptyMountShell(oldParent);
+                    }
+                    return existing;
                 }
+                DOM.markRoot(contentNode, { ...meta, anchorReason: meta.anchorReason || mount?.type || '', anchorKey });
+                this.render(mount, contentNode);
+                return contentNode;
+            },
+            render(mount, contentNode) {
+                const m = mount?.target ? mount : this.prepend();
+                if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
+                if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
+                if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
+                if (m.type === 'block-after') return this.block(m, contentNode);
+                if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
+                if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
+                if (m.type === 'definition-after') return this.definition(m, contentNode);
+                if (m.type === 'append') return m.target.appendChild(contentNode);
+                if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
+                return m.target.after(contentNode);
+            },
+            tableRow(m, contentNode) {
+                const ref = m.target?.closest?.('tr') || m.target;
+                const tr = document.createElement('tr');
+                const h = document.createElement('td');
+                const d = document.createElement('td');
+                const refHead = ref?.cells?.[0], refBody = ref?.cells?.[1];
+                if (ref?.className) tr.className = ref.className;
+                if (ref?.getAttribute?.('style')) tr.setAttribute('style', ref.getAttribute('style'));
+                h.className = refHead ? refHead.className : 'rowhead nowrap';
+                d.className = refBody ? refBody.className : 'rowfollow';
+                if (refHead?.getAttribute?.('style')) h.setAttribute('style', refHead.getAttribute('style'));
+                if (refBody?.getAttribute?.('style')) d.setAttribute('style', refBody.getAttribute('style'));
+                ['align', 'valign'].forEach(attr => { if (refHead?.getAttribute?.(attr)) h.setAttribute(attr, refHead.getAttribute(attr)); if (refBody?.getAttribute?.(attr)) d.setAttribute(attr, refBody.getAttribute(attr)); });
+                const refText = refHead?.querySelector?.('.td-text');
+                if (refText) {
+                    const span = document.createElement('span');
+                    span.className = refText.className;
+                    span.textContent = labelOf(m);
+                    h.appendChild(span);
+                } else if (refHead?.firstElementChild && refHead.firstElementChild.children.length === 0) {
+                    const wrapper = refHead.firstElementChild.cloneNode(false);
+                    wrapper.textContent = labelOf(m);
+                    h.appendChild(wrapper);
+                } else {
+                    h.textContent = labelOf(m);
+                }
+                d.appendChild(contentNode);
+                tr.append(h, d);
+                ref?.after ? ref.after(tr) : m.target.after(tr);
+                return tr;
+            },
+            tableColspan(m, contentNode, before = false) {
+                const ref = m.target?.closest?.('tr') || m.target;
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                const table = ref?.closest?.('table');
+                const label = document.createElement('span');
+                label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;';
+                label.textContent = `${labelOf(m)}：`;
+                contentNode.style.display = 'inline-flex';
+                contentNode.style.alignItems = 'center';
+                contentNode.style.flexWrap = 'wrap';
+                contentNode.style.gap = contentNode.style.gap || '6px';
+                contentNode.style.verticalAlign = 'middle';
+                td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length));
+                td.style.paddingLeft = '12px';
+                td.style.paddingTop = '10px';
+                td.style.paddingBottom = '10px';
+                td.append(label, contentNode);
+                tr.appendChild(td);
+                if (before && ref?.before) ref.before(tr);
+                else if (ref?.after) ref.after(tr);
+                else (m.target || document.body).after(tr);
+                return tr;
+            },
+            block(m, contentNode) {
+                const block = document.createElement('div');
+                block.className = 'block';
+                const title = document.createElement('div');
+                title.className = 'blocktitle';
+                title.textContent = labelOf(m);
+                const body = document.createElement('div');
+                body.className = 'blockcontent';
+                body.appendChild(contentNode);
+                block.append(title, body);
+                m.target.after(block);
+                return block;
+            },
+            antRow(m, contentNode) {
+                const tr = document.createElement('tr');
+                tr.className = 'ant-descriptions-row';
+                const th = document.createElement('th');
+                th.className = 'ant-descriptions-item-label';
+                th.style.cssText = 'width:135px;text-align:right';
+                th.textContent = labelOf(m);
+                const td = document.createElement('td');
+                td.className = 'ant-descriptions-item-content';
+                td.appendChild(contentNode);
+                tr.append(th, td);
+                (m.target?.closest?.('tr') || m.target).after(tr);
+                return tr;
+            },
+            definition(m, contentNode) {
+                const dt = document.createElement('dt');
+                dt.textContent = labelOf(m);
+                const dd = document.createElement('dd');
+                dd.appendChild(contentNode);
+                const ref = m.target?.closest?.('dd') || m.target;
+                ref.after(dt, dd);
+                return dd;
+            },
+            gridPair(m, contentNode) {
+                const refValue = m.target;
+                const refLabel = refValue?.previousElementSibling;
+                const label = document.createElement('div');
+                label.className = refLabel?.className || refValue?.className || gridLabelClass;
+                label.textContent = labelOf(m);
+                const value = document.createElement('div');
+                value.className = refValue?.className || refLabel?.className || gridContentClass;
+                value.appendChild(contentNode);
+                m.target.after(label, value);
+                return value;
             }
-            return label?.nextElementSibling || null;
-        },
-        fileListAnchor(id, labelText) {
-            const descr = document.getElementById('descr');
-            const parent = descr?.parentNode || document.querySelector('.cblock-innercontent,.cblock-content,#maincolumn');
-            if (!parent) return null;
-            const tableId = 'userscript-filelist-actions';
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = 'margin:10px 0;';
-                table = document.createElement('table');
-                table.id = tableId;
-                table.style.cssText = 'width:100%;border-collapse:collapse;';
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                const hr = document.createElement('hr');
-                hr.className = 'separator';
-                hr.style.marginTop = '15px';
-                hr.style.marginBottom = '15px';
-                wrap.appendChild(hr);
-                const before = descr ? (descr.previousElementSibling || descr) : parent.firstChild;
-                parent.insertBefore(wrap, before || null);
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-filelist-action-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = document.createElement('td');
-                label.textContent = labelText || id;
-                label.align = 'right';
-                label.style.cssText = 'width:80px;font-weight:bold;border:0px solid #0D8ED9;vertical-align:top;';
-                const holder = document.createElement('td');
-                holder.id = `${id}-filelist-action-holder`;
-                holder.align = 'left';
-                holder.style.cssText = 'padding-top:10px;padding-bottom:10px;padding-left:12px;border:0px solid #0D8ED9;vertical-align:top;';
-                row.append(label, holder);
-                tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-filelist-action-holder`) || row.cells[1];
-        },
-        actionTableHolder(tableId, id, labelText, anchor, mode = 'after', padding = '55px') {
-            if (!anchor?.parentNode) return null;
-            const wrapStyle = `display:block;text-align:left;width:auto;margin:0;padding-left:${padding};padding-right:${padding};`;
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = wrapStyle;
-                table = document.createElement('table');
-                table.id = tableId;
-                table.style.cssText = 'margin:0;text-align:left;width:auto;';
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                if (mode === 'prepend') anchor.prepend(wrap);
-                else if (mode === 'before') anchor.parentNode.insertBefore(wrap, anchor);
-                else anchor.after(wrap);
-            } else {
-                const wrap = document.getElementById(`${tableId}-wrap`);
-                if (wrap) wrap.style.cssText = wrapStyle;
-                table.style.cssText = 'margin:0;text-align:left;width:auto;';
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = row.insertCell(0);
-                label.textContent = labelText || id;
-                label.align = 'left';
-                label.style.fontWeight = 'bold';
-                const holder = row.insertCell(1);
-                holder.id = `${id}-${tableId}-holder`;
-                holder.align = 'left';
-                tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        unit3dActionHolder(id, labelText, anchor) {
-            const tableId = 'userscript-unit3d-actions';
-            const ref = firstOf([...document.querySelectorAll('tr')].reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
-            let table = ref?.closest('table');
-            if (!table) {
-                const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
-                const label = holder?.previousElementSibling;
-                if (label) {
+        };
+
+        const SITE_FAMILIES = Object.freeze({
+            'totheglory': 'custom-ttg',
+            'hdsky': 'nexusphp',
+            'sjtu': 'nexusphp',
+            'm-team': 'custom-mteam',
+            'hdcity': 'tbsource',
+            'monikadesign': 'unit3d',
+            'beyond-hd': 'custom-bhd',
+            'eiga': 'unit3d',
+            'hd-space': 'tbsource',
+            'iptorrents': 'custom-ipt',
+            'filelist': 'tbsource',
+            'hudbt': 'custom-hudbt',
+            'greatposterwall': 'custom-gpw',
+            'hhclub': 'custom-hhclub',
+            'bangumi': 'public-bt',
+            'bangumi-moe': 'public-bt',
+            'mikanani': 'public-bt',
+            'nyaa': 'public-bt',
+            'acg-rip': 'public-bt',
+            'comicat-kisssub': 'public-bt',
+            'generic': 'unknown',
+            'generic-nexusphp': 'nexusphp'
+        });
+
+        function tableMount(siteId, row, label) {
+            if (!row) return null;
+            return Mount.tableRowAfter(row, label);
+        }
+
+        const AutoFeedAnchors = {
+            actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
+            nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
+            cellText(cell) { return String(cell?.textContent || '').replace(/\s+/g, ' ').trim(); },
+            rowByFirstCell(root, labels) {
+                for (const tr of (root || document).querySelectorAll('tr')) {
+                    if (labels.has(this.cellText(tr.cells?.[0]))) return tr;
+                }
+                return null;
+            },
+            domesticActionRow() {
+                const descr = document.getElementById('kdescr') || document.getElementById('kdescription');
+                const tbody = descr?.closest('tbody') || document.querySelector('#outer table tbody, table tbody');
+                return this.rowByFirstCell(tbody, this.actionLabels) || descr?.closest('tr') || null;
+            },
+            rowAfterName(root) { return this.rowByFirstCell(root, this.nameLabels); },
+            bhdNameRow() { return this.rowAfterName(document.querySelector('.table-details tbody')); },
+            monikaNameRow() {
+                const h4 = document.getElementsByTagName('h4')[0];
+                const box = h4?.parentNode?.parentNode?.getElementsByClassName?.('table-responsive')?.[1];
+                return this.rowAfterName(box?.getElementsByTagName('table')?.[0]) || null;
+            },
+            gpwTorrentRow() {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                if (!tid) return null;
+                return document.querySelector(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
+                    || document.querySelector(`#torrent_details a[href*="id=${tid}"]`)?.closest('tr');
+            },
+            hhclubSubtitleValue() {
+                let label = null;
+                for (const el of document.querySelectorAll('div.font-bold.leading-6')) {
+                    if (this.cellText(el) === '副标题') {
+                        label = el;
+                        break;
+                    }
+                }
+                return label?.nextElementSibling || null;
+            },
+            fileListAnchor(id, labelText) {
+                const descr = document.getElementById('descr');
+                const parent = descr?.parentNode || document.querySelector('.cblock-innercontent,.cblock-content,#maincolumn');
+                if (!parent) return null;
+                const tableId = 'userscript-filelist-actions';
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = 'margin:10px 0;';
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.style.cssText = 'width:100%;border-collapse:collapse;';
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    const hr = document.createElement('hr');
+                    hr.className = 'separator';
+                    hr.style.marginTop = '15px';
+                    hr.style.marginBottom = '15px';
+                    wrap.appendChild(hr);
+                    const before = descr ? (descr.previousElementSibling || descr) : parent.firstChild;
+                    parent.insertBefore(wrap, before || null);
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-filelist-action-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = document.createElement('td');
+                    label.textContent = labelText || id;
+                    label.align = 'right';
+                    label.style.cssText = 'width:80px;font-weight:bold;border:0px solid #0D8ED9;vertical-align:top;';
+                    const holder = document.createElement('td');
+                    holder.id = `${id}-filelist-action-holder`;
+                    holder.align = 'left';
+                    holder.style.cssText = 'padding-top:10px;padding-bottom:10px;padding-left:12px;border:0px solid #0D8ED9;vertical-align:top;';
+                    row.append(label, holder);
+                    tbody.appendChild(row);
+                }
+                return document.getElementById(`${id}-filelist-action-holder`) || row.cells[1];
+            },
+            actionTableHolder(tableId, id, labelText, anchor, mode = 'after', padding = '55px') {
+                if (!anchor?.parentNode) return null;
+                const wrapStyle = `display:block;text-align:left;width:auto;margin:0;padding-left:${padding};padding-right:${padding};`;
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = wrapStyle;
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.style.cssText = 'margin:0;text-align:left;width:auto;';
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    if (mode === 'prepend') anchor.prepend(wrap);
+                    else if (mode === 'before') anchor.parentNode.insertBefore(wrap, anchor);
+                    else anchor.after(wrap);
+                } else {
+                    const wrap = document.getElementById(`${tableId}-wrap`);
+                    if (wrap) wrap.style.cssText = wrapStyle;
+                    table.style.cssText = 'margin:0;text-align:left;width:auto;';
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = row.insertCell(0);
+                    label.textContent = labelText || id;
                     label.align = 'left';
-                    label.style.cssText = 'font-weight: bold;';
+                    label.style.fontWeight = 'bold';
+                    const holder = row.insertCell(1);
+                    holder.id = `${id}-${tableId}-holder`;
+                    holder.align = 'left';
+                    tbody.appendChild(row);
                 }
-                return holder;
-            }
-            if (!table.id) table.id = `${tableId}-table`;
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = (ref?.cells?.[0] || document.createElement('td')).cloneNode(false);
-                label.textContent = labelText || id;
-                const holder = (ref?.cells?.[1] || document.createElement('td')).cloneNode(false);
-                holder.id = `${id}-${tableId}-holder`;
-                row.append(label, holder);
-                const rows = [...tbody.querySelectorAll(`tr[id$="-${tableId}-row"]`)];
-                (rows.at(-1) || ref || tbody.lastElementChild)?.after(row);
-                if (!row.parentNode) tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        mTeamActionHolder(id, labelText) {
-            const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
-            const anchorRow = subtitleLabel?.parentElement?.parentElement;
-            if (!anchorRow?.parentNode) return null;
-            const tableId = 'userscript-mteam-actions';
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = 'padding-right:55px;';
-                table = document.createElement('table');
-                table.id = tableId;
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                anchorRow.before(wrap);
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = tbody.insertRow(-1);
-                row.id = rowId;
-                row.className = 'ant-descriptions-row';
-                const label = row.insertCell(0);
-                label.className = 'ant-descriptions-item-label';
-                label.style.cssText = 'width:135px;text-align:right;';
-                label.textContent = labelText || id;
-                const holder = row.insertCell(1);
-                holder.id = `${id}-${tableId}-holder`;
-                holder.className = 'ant-descriptions-item-content';
-                holder.style.cssText = 'text-align:left;';
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        hdSpaceMediaInfoRow() {
-            const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
-            const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
-            for (const selector of scopes) {
-                const root = document.querySelector(selector);
-                if (!root) continue;
-                let lastDetail = null;
-                for (const tr of root.querySelectorAll('tr')) {
-                    const label = this.cellText(tr.cells?.[0]).replace(/[：:]$/, '');
-                    if (detailLabels.has(label)) lastDetail = tr;
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            unit3dActionHolder(id, labelText, anchor) {
+                const tableId = 'userscript-unit3d-actions';
+                const ref = firstOf(Array.from(document.querySelectorAll('tr')).reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
+                let table = ref?.closest('table');
+                if (!table) {
+                    const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
+                    const label = holder?.previousElementSibling;
+                    if (label) {
+                        label.align = 'left';
+                        label.style.cssText = 'font-weight: bold;';
+                    }
+                    return holder;
                 }
-                if (lastDetail) return root.closest('#mcol tr') || lastDetail;
-            }
-            return null;
-        },
-        hdSpaceTorrentRow() {
-            for (const tr of document.querySelectorAll('#mcol tr')) {
-                if (this.cellText(tr.cells?.[0]) === 'Torrent') return tr;
-            }
-            return null;
-        },
-        hdSpaceInfoHashRow() {
-            let infoHash = null;
-            let torrent = null;
-            for (const tr of document.querySelectorAll('#mcol tr')) {
-                const label = this.cellText(tr.cells?.[0]);
-                if (!infoHash && label === 'Info Hash') infoHash = tr;
-                if (!torrent && label === 'Torrent') torrent = tr;
-            }
-            return infoHash || torrent || this.rowAfterName(document.querySelector('#mcol'));
-        },
-        iptMovieInfoRow() {
-            const rows = [...document.querySelectorAll('tr')];
-            let plot = null;
-            let genre = null;
-            for (const tr of rows) {
-                const label = this.cellText(tr.cells?.[0]);
-                if (!plot && label === 'Plot') plot = tr;
-                if (!genre && label === 'Genre') genre = tr;
-            }
-            const table = plot?.closest('table');
-            let existing = null;
-            if (table) {
-                for (const tr of table.querySelectorAll('tr')) {
-                    if (['IYUU', 'MoviePilot'].includes(this.cellText(tr.cells?.[0]))) existing = tr;
+                if (!table.id) table.id = `${tableId}-table`;
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = (ref?.cells?.[0] || document.createElement('td')).cloneNode(false);
+                    label.textContent = labelText || id;
+                    const holder = (ref?.cells?.[1] || document.createElement('td')).cloneNode(false);
+                    holder.id = `${id}-${tableId}-holder`;
+                    row.append(label, holder);
+                    const rows = Array.from(tbody.querySelectorAll(`tr[id$="-${tableId}-row"]`));
+                    (rows.at(-1) || ref || tbody.lastElementChild)?.after(row);
+                    if (!row.parentNode) tbody.appendChild(row);
                 }
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            mTeamActionHolder(id, labelText) {
+                const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
+                const anchorRow = subtitleLabel?.parentElement?.parentElement;
+                if (!anchorRow?.parentNode) return null;
+                const tableId = 'userscript-mteam-actions';
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = 'padding-right:55px;';
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    anchorRow.before(wrap);
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = tbody.insertRow(-1);
+                    row.id = rowId;
+                    row.className = 'ant-descriptions-row';
+                    const label = row.insertCell(0);
+                    label.className = 'ant-descriptions-item-label';
+                    label.style.cssText = 'width:135px;text-align:right;';
+                    label.textContent = labelText || id;
+                    const holder = row.insertCell(1);
+                    holder.id = `${id}-${tableId}-holder`;
+                    holder.className = 'ant-descriptions-item-content';
+                    holder.style.cssText = 'text-align:left;';
+                }
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            hdSpaceMediaInfoRow() {
+                const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
+                const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
+                for (const selector of scopes) {
+                    const root = document.querySelector(selector);
+                    if (!root) continue;
+                    let lastDetail = null;
+                    for (const tr of root.querySelectorAll('tr')) {
+                        const label = this.cellText(tr.cells?.[0]).replace(/[：:]$/, '');
+                        if (detailLabels.has(label)) lastDetail = tr;
+                    }
+                    if (lastDetail) return root.closest('#mcol tr') || lastDetail;
+                }
+                return null;
+            },
+            hdSpaceTorrentRow() {
+                for (const tr of document.querySelectorAll('#mcol tr')) {
+                    if (this.cellText(tr.cells?.[0]) === 'Torrent') return tr;
+                }
+                return null;
+            },
+            hdSpaceInfoHashRow() {
+                const rows = Array.from(document.querySelectorAll('#mcol tr'));
+                let infoHash = null;
+                let torrent = null;
+                for (const tr of rows) {
+                    const label = this.cellText(tr.cells?.[0]);
+                    if (!infoHash && label === 'Info Hash') infoHash = tr;
+                    if (!torrent && label === 'Torrent') torrent = tr;
+                }
+                return infoHash || torrent || this.rowAfterName(document.querySelector('#mcol'));
+            },
+            iptMovieInfoRow() {
+                const rows = Array.from(document.querySelectorAll('tr'));
+                let plot = null;
+                let genre = null;
+                for (const tr of rows) {
+                    const label = this.cellText(tr.cells?.[0]);
+                    if (!plot && label === 'Plot') plot = tr;
+                    if (!genre && label === 'Genre') genre = tr;
+                }
+                const table = plot?.closest('table');
+                let existing = null;
+                if (table) {
+                    for (const tr of table.querySelectorAll('tr')) {
+                        if (['IYUU', 'MoviePilot'].includes(this.cellText(tr.cells?.[0]))) existing = tr;
+                    }
+                }
+                return existing || plot || genre;
             }
-            return existing || plot || genre;
-        }
+        };
+
+        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors };
     };
+    // <pt-common:end>
+
+    const { DOM: PTDOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors } = createPTCommon({
+        defaultLabel: 'IYUU',
+        productId: 'iyuu',
+        gridLabelClass: 'iyuu-grid-label',
+        gridContentClass: 'iyuu-grid-content'
+    });
 
     const HTTP = {
-        allowed(raw) { try { const u = new URL(raw, location.origin); const h = u.hostname; if (h === '2025.iyuu.cn' || h === 'zmpt.cc' || h === location.hostname || /(^|\.)m-team\.(cc|io|vip)$/.test(h) || h === 'halomt.com' || h === 'bangumi.moe' || h === 'totheglory.im') return true; const mp = MoviePilot.cfg().url; if (mp && h === new URL(mp).hostname.toLowerCase()) return true; return Store.json(KEYS.sites, []).some(s => { const host = SiteIndex.host(s); return host && (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }); } catch (_) { return false; } },
+        allowed(raw) { try { const u = new URL(raw, location.origin); const h = u.hostname; if (h === '2025.iyuu.cn' || h === 'zmpt.cc' || h === 'api.m-team.cc' || h === location.hostname || /(^|\.)m-team\.(cc|io|vip)$/.test(h) || h === 'bangumi.moe' || h === 'totheglory.im') return true; const mp = MoviePilot.cfg().url; if (mp && h === new URL(mp).hostname.toLowerCase()) return true; return Store.json(KEYS.sites, []).some(s => { const host = SiteIndex.host(s); return host && (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }); } catch (_) { return false; } },
         request({ method = 'GET', url, data, headers = {}, responseType = 'json', allowStatuses = [] }) {
             const full = new URL(url, location.origin).href;
             if (!this.allowed(full)) return Promise.reject(new Error('请求被白名单拦截'));
@@ -659,6 +886,30 @@
             return [];
         },
         name(s) { return s?.nickname || s?.name_cn || s?.name || s?.site || s?.domain || `站点${s?.id || s?.sid || ''}`; },
+        aliases(s) {
+            const autoFeed = this.autoFeedMeta(s);
+            return [
+                ...(Array.isArray(s?.aliases) ? s.aliases : []),
+                ...(Array.isArray(s?.alias) ? s.alias : [s?.alias]),
+                ...(autoFeed?.aliases || [])
+            ].filter(Boolean);
+        },
+        autoFeedMeta(s) {
+            const url = this.autoFeedUrl(s);
+            if (!url) return null;
+            return firstOf(AUTO_FEED_SITE_DEFS, def => def.url === url);
+        },
+        searchText(s) {
+            const fields = [
+                this.name(s), s?.nickname, s?.name_cn, s?.name, s?.site, s?.domain, s?.host, s?.base_url, s?.url,
+                this.host(s), this.host({ url: this.autoFeedUrl(s) }), ...this.aliases(s)
+            ];
+            return fields.map(normalizeSiteKey).filter(Boolean).join(' ');
+        },
+        searchTitle(s) {
+            const parts = [this.name(s), this.host(s), ...this.aliases(s)].filter(Boolean);
+            return [...new Set(parts)].join(' / ');
+        },
         autoFeedUrl(s) {
             const host = this.host(s);
             if (host) {
@@ -732,7 +983,7 @@
         detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl, true); },
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
         isMTeam(s) { const text = [s?.host, s?.url, s?.downloadUrl, s?.domain, s?.base_url, s?.site, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' '); return /m-team\.(cc|io|vip)|馒头|饅頭|\bM[-_ ]?Team\b|\bMT\b/i.test(text); },
-        mTeamApi(s) { const host = String(s?.host || s?.downloadUrl || s?.url || '').match(/m-team\.(cc|io|vip)/i)?.[0] || 'm-team.cc'; return `https://api.${host.replace(/^api\./, '')}/api/torrent/genDlToken`; },
+        mTeamApi() { return `${MTEAM_API_BASE}/torrent/genDlToken`; },
         canonicalHost(host) {
             const h = String(host || '').replace(/^www\./, '').toLowerCase();
             return AUTO_FEED_CANONICAL_HOSTS[h] || h;
@@ -823,10 +1074,8 @@
         fromPage() { const text = `${location.href}\n${document.body?.innerText || ''}`; const all = text.match(/\b[a-fA-F0-9]{40}\b/g) || []; return firstOf(all, this.valid) || ''; },
         valid(h) { return /^[a-f0-9]{40}$/i.test(h) && !/^(.)\1{39}$/.test(h) && !/^\d{40}$/.test(h); },
         base32ToHex(s) { const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = ''; String(s).toUpperCase().replace(/=+$/, '').split('').forEach(c => { const v = alpha.indexOf(c); if (v >= 0) bits += v.toString(2).padStart(5, '0'); }); let out = ''; for (let i = 0; i + 4 < bits.length; i += 4) out += parseInt(bits.slice(i, i + 4), 2).toString(16); return out.slice(0, 40).toLowerCase(); },
-        async fromSpecial(info) { if (info._bangumiId) { const r = await HTTP.request({ url: `https://bangumi.moe/api/v2/torrent/${info._bangumiId}` }); if (r?.magnet) { info.downloadLink = r.magnet; return this.fromMagnet(r.magnet); } } if (/m-team\.(cc|io|vip)/.test(location.hostname)) { const link = await this.mteamLink() || this.mteamCapturedLink(); if (link) { info.downloadLink = link; return await this.fromTorrent(link); } } return ''; },
-        async mteamLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1]; if (!id) return ''; const local = await this.mteamLocalLink(id); if (local) return local; if (!Config.mteamKey) return ''; const api = `https://api.${location.hostname.replace(/^.*?m-team\./, 'm-team.')}/api/torrent/genDlToken`; const res = await HTTP.request({ method: 'POST', url: api, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' }); return res?.data || ''; },
-        async mteamLocalLink(id) { const apiHost = String(localStorage.getItem('apiHost') || '').replace(/\/$/, ''); const auth = localStorage.getItem('auth') || ''; if (!apiHost || !auth) return ''; const res = await HTTP.request({ method: 'POST', url: `${apiHost}/torrent/genDlToken`, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', TS: String(Math.floor(Date.now() / 1000)), Authorization: auth }, responseType: 'json' }); return res?.data || ''; },
-        mteamCapturedLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1] || ''; const urls = performance.getEntriesByType('resource').map(e => e.name).reverse(); return firstOf(urls, url => /\/api\/rss\/dlv2\?|\/api\/torrent\/download\?|\.torrent(?:\?|$)/i.test(url) && (!id || !/[?&](?:tid|id)=\d+/.test(url) || new RegExp(`[?&](?:tid|id)=${id}(?:&|$)`).test(url))) || ''; },
+        async fromSpecial(info) { if (info._bangumiId) { const r = await HTTP.request({ url: `https://bangumi.moe/api/v2/torrent/${info._bangumiId}` }); if (r?.magnet) { info.downloadLink = r.magnet; return this.fromMagnet(r.magnet); } } if (/m-team\.(cc|io|vip)/.test(location.hostname)) { const link = await this.mteamLink(); if (link) { info.downloadLink = link; return await this.fromTorrent(link); } } return ''; },
+        async mteamLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1]; if (!id || !Config.mteamKey) return ''; const res = await HTTP.request({ method: 'POST', url: `${MTEAM_API_BASE}/torrent/genDlToken`, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' }); return res?.data || ''; },
         async fromTorrent(url) { if (!url || url.startsWith('magnet:')) return ''; const buf = await HTTP.request({ url, responseType: 'arraybuffer' }); const bytes = new Uint8Array(buf); const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160)); if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } } const range = this.infoRange(bytes); return range ? await Crypto.sha1Hex(bytes.slice(range[0], range[1])) : ''; },
         findTorrentUrl() {
             const selectors = [
@@ -990,7 +1239,7 @@
         size(t) { const m = String(t || '').replace(/iB/gi, 'B').toUpperCase().match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)/); if (!m) return 0; return Number(m[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024 }[m[2]] || 1); },
         findDownload(selectors) { for (const sel of selectors) { const el = document.querySelector(sel); if (el?.href || el?.value) return el.href || el.value; } return ''; },
         titleFromDownload(link) { return String(link?.textContent || link?.href?.split('/').pop() || '').replace(/\.torrent$/i, '').trim(); },
-        info({ id, name, description = '', downloadLink = '', sizeText = '', mount, extra = {} }) { return name && mount?.target ? { id, name: String(name).trim(), description, downloadLink, size: this.size(sizeText), mount, extra } : null; }
+        info({ id, name, description = '', downloadLink = '', sizeText = '', size = 0, mount, extra = {} }) { return name && mount?.target ? { id, name: String(name).trim(), description, downloadLink, size: Number(size) || this.size(sizeText), mount, extra } : null; }
     };
 
     const isCurrentHostInCachedIndex = () => {
@@ -1012,14 +1261,14 @@
         {
             id: 'm-team',
             matches: () => /m-team\.(cc|io|vip)\/detail\//.test(location.href),
-            getInfo: () => {
-                const titleSpan = document.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle');
-                const titleEl = titleSpan || document.querySelector('h2');
-                const descriptionEl = document.querySelector('div.flex.py-5.mb-5.sticky p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                const sizeEl = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent));
+            findMount: () => {
                 const holder = AutoFeedAnchors.mTeamActionHolder('iyuu', 'IYUU');
-                const mount = holder ? Mount.append(holder) : null;
-                return Helpers.info({ id: 'm-team', name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, description: descriptionEl?.textContent || document.title, downloadLink: '', sizeText: sizeEl?.textContent || '', mount });
+                return holder ? Mount.append(holder) : null;
+            },
+            getInfo: async () => {
+                const tid = location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
+                const name = tid ? `M-Team ${tid}` : 'M-Team';
+                return { id: 'm-team', name, description: name, downloadLink: '', size: 0, extra: { mteamTid: tid } };
             }
         },
         { id: 'hdcity', matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname), getInfo: () => { const blocks = [...document.querySelectorAll('.blocktitle')]; const info = firstOf(blocks, b => b.textContent.includes('基本信息')); const op = firstOf(blocks, b => b.textContent.includes('种子操作')); return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount: Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body) }); } },
@@ -1040,18 +1289,65 @@
 
     const Core = {
         adapter: null,
-        init() { this.adapter = firstOf(ADAPTERS, a => a.matches()); const info = this.adapter?.getInfo(); if (info?.name && !document.querySelector('.iyuu-check-btn')) { this.inject(info); return true; } return false; },
+        async init() {
+            this.adapter = firstOf(ADAPTERS, a => a.matches());
+            if (this.adapter?.id === 'm-team') return this.injectLazy(this.adapter);
+            const info = await this.adapter?.getInfo();
+            if (info?.name) return this.inject(info);
+            return false;
+        },
         setQueryButton(btn, status, title = '') {
             btn.textContent = UI.actionText('查询', status);
             if (title) btn.title = title;
         },
+        injectLazy(adapter) {
+            const mount = adapter?.findMount?.();
+            if (!mount?.target) return false;
+            const siteId = adapter.id || '';
+            const existing = PTDOM.qs(PTDOM.productRootSelector(siteId)) || PTDOM.qs(PTDOM.productRootSelector(''));
+            const box = existing || document.createElement('div');
+            box.className = box.className || 'iyuu-row-box pt-helper-root pt-helper-root-iyuu';
+            if (!box.classList.contains('pt-helper-root')) box.classList.add('pt-helper-root', 'pt-helper-root-iyuu');
+            Mount.mountRoot(mount, box, { siteId, family: SITE_FAMILIES[siteId] || '', anchorReason: 'lazy-button' });
+            let btn = box.querySelector('.iyuu-check-btn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.className = 'iyuu-btn iyuu-check-btn';
+                box.replaceChildren(btn);
+            }
+            this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」');
+            btn.onclick = async e => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (adapter.id === 'm-team' && !Config.mteamKey) {
+                    this.setQueryButton(btn, '需配置 M-Team API Key', '请在 IYUU 配置中填写 M-Team API Key');
+                    UI.toast('请先配置 M-Team API Key');
+                    UI.showConfig();
+                    return;
+                }
+                const info = await adapter.getInfo();
+                if (!info?.name) {
+                    this.setQueryButton(btn, '失败', '未能获取种子信息');
+                    UI.toast('未能获取种子信息');
+                    return;
+                }
+                await this.check(box, btn, { ...info, mount });
+            };
+            return true;
+        },
         inject(info) {
-            const box = document.createElement('div'); box.className = 'iyuu-row-box';
+            const existing = PTDOM.qs(PTDOM.productRootSelector(info.id || '')) || PTDOM.qs(PTDOM.productRootSelector(''));
+            if (existing) {
+                Mount.mountRoot(info.mount, existing, { siteId: info.id || '', family: SITE_FAMILIES[info.id] || '', anchorReason: info.mount?.type || '' });
+                return true;
+            }
+            const box = document.createElement('div'); box.className = 'iyuu-row-box pt-helper-root pt-helper-root-iyuu';
             const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」'); btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
-            box.append(btn, multi); Mount.render(info.mount, box);
+            box.append(btn, multi); Mount.mountRoot(info.mount, box, { siteId: info.id || '', family: SITE_FAMILIES[info.id] || '', anchorReason: info.mount?.type || '' });
             this.restore(box, btn, info, Config.autoQuery);
+            return true;
         },
         async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (_) {} },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
@@ -1065,7 +1361,7 @@
             if (!Config.mteamKey) throw new Error('未配置 M-Team API Key，无法下载馒头种子');
             const id = site.torrentId || String(site.url || '').match(/\/detail\/(\d+)/)?.[1] || String(site.downloadUrl || '').match(/[?&](?:id|tid)=(\d+)/)?.[1];
             if (!id) throw new Error(`${site.name || '馒头'} 缺少种子 ID`);
-            const res = await HTTP.request({ method: 'POST', url: SiteIndex.mTeamApi(site), data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' });
+            const res = await HTTP.request({ method: 'POST', url: SiteIndex.mTeamApi(), data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' });
             const link = res?.data || res?.url || res?.download_url || '';
             if (!link) throw new Error(res?.message || res?.msg || '获取馒头下载链接失败');
             return link;
@@ -1142,14 +1438,14 @@
         Config.load();
         UI.initStyle();
         if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('配置 IYUU', () => UI.showConfig());
-        const boot = () => {
+        const boot = async () => {
             if (isMTeamHost() && !isMTeamDetail()) return;
             if (!isCurrentHostInCachedIndex()) return;
-            const ok = Core.init();
+            const ok = await Core.init();
             if (!ok && !document.querySelector('.iyuu-check-btn')) {
                 let tries = 0;
-                const retry = () => {
-                    if (!isCurrentHostInCachedIndex() || document.querySelector('.iyuu-check-btn') || Core.init() || ++tries > 40) return;
+                const retry = async () => {
+                    if (!isCurrentHostInCachedIndex() || (!isMTeamHost() && document.querySelector('.iyuu-check-btn')) || await Core.init() || ++tries > 40) return;
                     setTimeout(retry, 500);
                 };
                 setTimeout(retry, 500);
@@ -1157,7 +1453,21 @@
             if (!Store.get(KEYS.configured, false) && !document.querySelector('.iyuu-modal-bg')) UI.showConfig();
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-        if (location.hostname === 'bangumi.moe' || isMTeamHost()) new MutationObserver(() => { if (!document.querySelector('.iyuu-check-btn')) setTimeout(boot, 300); }).observe(document.body, { childList: true, subtree: true });
+        if (location.hostname === 'bangumi.moe' || isMTeamHost()) {
+            let mteamBootedFor = '';
+            new MutationObserver(() => {
+                if (!isMTeamHost()) {
+                    if (!document.querySelector('.iyuu-check-btn')) setTimeout(boot, 300);
+                    return;
+                }
+                const tid = location.pathname.match(/\/detail\/(\d+)/)?.[1] || location.href;
+                if (mteamBootedFor === tid && document.querySelector('.iyuu-check-btn')) return;
+                if (!document.querySelector('label') || !document.querySelector('label')?.textContent) return;
+                if (!Array.from(document.querySelectorAll('label')).some(label => label.textContent.trim() === '字幕')) return;
+                mteamBootedFor = tid;
+                setTimeout(boot, 300);
+            }).observe(document.body, { childList: true, subtree: true });
+        }
         if (isMTeamHost()) {
             let lastUrl = location.href;
             setInterval(() => {

@@ -2,7 +2,7 @@
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
 // @version      3.5.2
-// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team多层捕获+识别缓存24h+BT站点适配
+// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @match        https://*/details.php?id=*
 // @match        http://*/details.php?id=*
@@ -58,6 +58,10 @@
     // ——————————————————————————————————————
 
     const SCRIPT_NAME = (GM_info && GM_info.script) ? GM_info.script.name : 'Moviepilot Script';
+    const MTEAM_API_BASE = 'https://api.m-team.cc/api';
+    const MTEAM_DETAIL_TTL = 5 * 60 * 1000;
+    const mteamDetailCache = new Map();
+    const mteamDetailPending = new Map();
 
     const CONSTANTS = {
         API_ENDPOINTS: {
@@ -69,7 +73,7 @@
             DOWNLOAD_ADD: '/api/v1/download/add',
             GET_CLIENTS: '/api/v1/download/clients',
         },
-        ALLOWED_HOSTS: ['api.themoviedb.org'],
+        ALLOWED_HOSTS: ['api.themoviedb.org', 'api.m-team.cc'],
         RECOGNIZE_CACHE: {
             KEY: 'mp_recognize_cache',
             TTL_MS: 24 * 60 * 60 * 1000,  // 24 小时
@@ -94,6 +98,7 @@
             moviepilotAuthMode: 'password',
             moviepilotApiKey: '',
             moviepilotTmdbKey: '',
+            moviepilotMteamApiKey: '',
             moviepilotAutoQuery: false
         }
     };
@@ -108,17 +113,19 @@
             this._values.authMode = GM_getValue('moviepilotAuthMode', CONSTANTS.DEFAULT_CONFIG.moviepilotAuthMode);
             this._values.apiKey = GM_getValue('moviepilotApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotApiKey);
             this._values.tmdbKey = GM_getValue('moviepilotTmdbKey', CONSTANTS.DEFAULT_CONFIG.moviepilotTmdbKey);
+            this._values.mteamApiKey = GM_getValue('moviepilotMteamApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotMteamApiKey);
             this._values.autoQuery = Boolean(GM_getValue('moviepilotAutoQuery', CONSTANTS.DEFAULT_CONFIG.moviepilotAutoQuery));
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
-        save({ url, user, pass, authMode, apiKey, tmdbKey, autoQuery }) {
+        save({ url, user, pass, authMode, apiKey, tmdbKey, mteamApiKey, autoQuery }) {
             GM_setValue('moviepilotUrl', url);
             GM_setValue('moviepilotUser', user);
             GM_setValue('moviepilotPassword', pass);
             GM_setValue('moviepilotAuthMode', authMode || 'password');
             GM_setValue('moviepilotApiKey', apiKey || '');
             GM_setValue('moviepilotTmdbKey', tmdbKey || '');
+            GM_setValue('moviepilotMteamApiKey', mteamApiKey || '');
             GM_setValue('moviepilotAutoQuery', Boolean(autoQuery));
             this.load();
             GM_log(`[${SCRIPT_NAME}] 配置已保存。`);
@@ -133,6 +140,7 @@
                 GM_deleteValue('moviepilotAuthMode');
                 GM_deleteValue('moviepilotApiKey');
                 GM_deleteValue('moviepilotTmdbKey');
+                GM_deleteValue('moviepilotMteamApiKey');
                 GM_deleteValue('moviepilotAutoQuery');
                 try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
@@ -229,6 +237,7 @@
                     authMode: modeSelect.value,
                     apiKey: document.getElementById('mpApiKey').value.trim(),
                     tmdbKey: document.getElementById('mpTmdbKey').value.trim(),
+                    mteamApiKey: document.getElementById('mpMteamApiKey').value.trim(),
                     autoQuery: document.getElementById('mpAutoQuery').checked
                 };
 
@@ -350,6 +359,14 @@
                         </div>
                         <label class="mp-check-line"><input type="checkbox" id="mpAutoQuery" ${CONFIG.get('autoQuery') ? 'checked' : ''}> 自动查询（默认关闭，命中缓存时不会重复请求）</label>
                     </section>
+                    <section class="mp-config-section">
+                        <h3>M-Team 设置</h3>
+                        <div class="mp-field">
+                            <label for="mpMteamApiKey">M-Team API Key（可选）</label>
+                            <input type="password" id="mpMteamApiKey" value="${CONFIG.get('mteamApiKey') || ''}">
+                            <p class="mp-help">用于 M-Team 详情页推送时调用 genDlToken 获取种子下载链接。</p>
+                        </div>
+                    </section>
                     <div class="mp-modal-buttons">
                         <button class="mp-test-mp-btn">测试连接</button>
                         <button class="mp-cancel-btn">取消</button>
@@ -447,320 +464,522 @@
     };
 
 
-    const Mount = {
-        afterNode(target) { return { type: 'div-after', target }; },
-        tableRowAfter(target, label = 'MoviePilot') { return { type: 'table-row-after', target, label }; },
-        tableColspanAfter(target, label = 'MoviePilot', colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
-        tableColspanBefore(target, label = 'MoviePilot', colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
-        blockAfter(target, label = 'MoviePilot') { return { type: 'block-after', target, label }; },
-        antRowAfter(target, label = 'MoviePilot') { return { type: 'ant-row-after', target, label }; },
-        gridPairAfter(target, label = 'MoviePilot') { return { type: 'grid-pair-after', target, label }; },
-        prepend(target = document.body) { return { type: 'prepend', target }; },
-        append(target) { return { type: 'append', target }; },
-        definitionAfter(target, label = 'MoviePilot') { return { type: 'definition-after', target, label }; },
-        render(mount, contentNode) {
-            const m = mount?.target ? mount : this.prepend();
-            if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
-            if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
-            if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
-            if (m.type === 'block-after') return this.block(m, contentNode);
-            if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
-            if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
-            if (m.type === 'definition-after') return this.definition(m, contentNode);
-            if (m.type === 'append') return m.target.appendChild(contentNode);
-            if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
-            return m.target.after(contentNode);
-        },
-        tableRow(m, contentNode) {
-            const ref = m.target?.closest?.('tr') || m.target;
-            const tr = document.createElement('tr');
-            const h = document.createElement('td');
-            const d = document.createElement('td');
-            const refHead = ref?.cells?.[0], refBody = ref?.cells?.[1];
-            if (ref?.className) tr.className = ref.className;
-            if (ref?.getAttribute?.('style')) tr.setAttribute('style', ref.getAttribute('style'));
-            h.className = refHead ? refHead.className : 'rowhead nowrap';
-            d.className = refBody ? refBody.className : 'rowfollow';
-            if (refHead?.getAttribute?.('style')) h.setAttribute('style', refHead.getAttribute('style'));
-            if (refBody?.getAttribute?.('style')) d.setAttribute('style', refBody.getAttribute('style'));
-            ['align', 'valign'].forEach(attr => { if (refHead?.getAttribute?.(attr)) h.setAttribute(attr, refHead.getAttribute(attr)); if (refBody?.getAttribute?.(attr)) d.setAttribute(attr, refBody.getAttribute(attr)); });
-            const refText = refHead?.querySelector?.('.td-text');
-            if (refText) {
-                const span = document.createElement('span');
-                span.className = refText.className;
-                span.textContent = m.label || 'MoviePilot';
-                h.appendChild(span);
-            } else if (refHead?.firstElementChild && refHead.firstElementChild.children.length === 0) {
-                const wrapper = refHead.firstElementChild.cloneNode(false);
-                wrapper.textContent = m.label || 'MoviePilot';
-                h.appendChild(wrapper);
-            } else {
-                h.textContent = m.label || 'MoviePilot';
+    // <pt-common:start>
+    const createPTCommon = ({
+        defaultLabel,
+        productId,
+        gridLabelClass,
+        gridContentClass
+    }) => {
+        const NS = 'pt-helper';
+        const Native = {
+            querySelector: Document.prototype.querySelector,
+            querySelectorAll: Document.prototype.querySelectorAll,
+            closest: Element.prototype.closest
+        };
+        const DOM = {
+            ns: NS,
+            productId,
+            qs(selector, root = document) {
+                try { return Native.querySelector.call(root, selector); } catch (_) { return null; }
+            },
+            qsa(selector, root = document) {
+                try { return Array.from(Native.querySelectorAll.call(root, selector)); } catch (_) { return []; }
+            },
+            closest(node, selector) {
+                try { return node ? Native.closest.call(node, selector) : null; } catch (_) { return null; }
+            },
+            productRootSelector(siteId = '') {
+                const site = siteId ? `[data-${NS}-site="${siteId}"]` : '';
+                return `[data-${NS}-root="1"][data-${NS}-product="${productId}"]${site}`;
+            },
+            markRoot(node, { siteId = '', family = '', anchorLevel = '', anchorReason = '', anchorKey = '' } = {}) {
+                if (!node?.setAttribute) return node;
+                node.setAttribute(`data-${NS}-root`, '1');
+                node.setAttribute(`data-${NS}-product`, productId);
+                if (siteId) node.setAttribute(`data-${NS}-site`, siteId);
+                if (family) node.setAttribute(`data-${NS}-family`, family);
+                if (anchorLevel) node.setAttribute(`data-${NS}-anchor-level`, String(anchorLevel));
+                if (anchorReason) node.setAttribute(`data-${NS}-anchor-reason`, anchorReason);
+                if (anchorKey) node.setAttribute(`data-${NS}-anchor-key`, anchorKey);
+                return node;
             }
-            d.appendChild(contentNode);
-            tr.append(h, d);
-            ref?.after ? ref.after(tr) : m.target.after(tr);
-            return tr;
-        },
-        tableColspan(m, contentNode, before = false) { const ref = m.target?.closest?.('tr') || m.target; const tr = document.createElement('tr'); const td = document.createElement('td'); const table = ref?.closest?.('table'); const label = document.createElement('span'); label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;'; label.textContent = `${m.label || 'MoviePilot'}：`; contentNode.style.display = 'inline-flex'; contentNode.style.alignItems = 'center'; contentNode.style.flexWrap = 'wrap'; contentNode.style.gap = contentNode.style.gap || '6px'; contentNode.style.verticalAlign = 'middle'; td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length)); td.style.paddingLeft = '12px'; td.style.paddingTop = '10px'; td.style.paddingBottom = '10px'; td.append(label, contentNode); tr.appendChild(td); if (before && ref?.before) ref.before(tr); else if (ref?.after) ref.after(tr); else (m.target || document.body).after(tr); return tr; },
-        block(m, contentNode) { const block = document.createElement('div'); block.className = 'block'; const title = document.createElement('div'); title.className = 'blocktitle'; title.textContent = m.label || 'MoviePilot'; const body = document.createElement('div'); body.className = 'blockcontent'; body.appendChild(contentNode); block.append(title, body); m.target.after(block); return block; },
-        antRow(m, contentNode) { const tr = document.createElement('tr'); tr.className = 'ant-descriptions-row'; const th = document.createElement('th'); th.className = 'ant-descriptions-item-label'; th.style.cssText = 'width:135px;text-align:right'; th.textContent = m.label || 'MoviePilot'; const td = document.createElement('td'); td.className = 'ant-descriptions-item-content'; td.appendChild(contentNode); tr.append(th, td); (m.target?.closest?.('tr') || m.target).after(tr); return tr; },
-        gridPair(m, contentNode) { const refValue = m.target; const refLabel = refValue?.previousElementSibling; const label = document.createElement('div'); label.className = refLabel?.className || refValue?.className || 'mp-grid-label'; label.textContent = m.label || 'MoviePilot'; const value = document.createElement('div'); value.className = refValue?.className || refLabel?.className || 'mp-grid-content'; value.appendChild(contentNode); m.target.after(label, value); return value; },
-        definition(m, contentNode) { const dt = document.createElement('dt'); dt.textContent = m.label || 'MoviePilot'; const dd = document.createElement('dd'); dd.appendChild(contentNode); const ref = m.target?.closest?.('dd') || m.target; ref.after(dt, dd); return dd; }
-    };
+        };
 
-    const TABLE_MOUNT_POLICY = {
-        COLSPAN_ONLY_SITES: new Set([])
-    };
+        const labelOf = mount => mount?.label || defaultLabel;
+        const rootSelector = siteId => DOM.productRootSelector(siteId);
+        const stableNodeKey = node => {
+            if (!node) return '';
+            if (node.id) return `#${node.id}`;
+            const dataKey = node.getAttribute?.(`data-${NS}-anchor`) || node.getAttribute?.(`data-${NS}-key`);
+            if (dataKey) return `[data:${dataKey}]`;
+            const text = String(node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+            const tag = String(node.tagName || 'node').toLowerCase();
+            return text ? `${tag}:${text}` : tag;
+        };
+        const mountAnchorKey = mount => {
+            if (!mount?.target) return '';
+            const target = mount.target;
+            if (mount.type === 'append' || mount.type === 'prepend') return `${mount.type}:${stableNodeKey(target)}`;
+            if (mount.type === 'table-row-after' || mount.type === 'table-colspan-after' || mount.type === 'table-colspan-before' || mount.type === 'ant-row-after') {
+                const ref = DOM.closest(target, 'tr') || target;
+                const firstCell = ref?.cells?.[0] || ref;
+                return `${mount.type}:${stableNodeKey(ref)}:${stableNodeKey(firstCell)}`;
+            }
+            if (mount.type === 'definition-after') {
+                const ref = DOM.closest(target, 'dd') || target;
+                return `${mount.type}:${stableNodeKey(ref.previousElementSibling)}:${stableNodeKey(ref)}`;
+            }
+            if (mount.type === 'grid-pair-after') {
+                return `${mount.type}:${stableNodeKey(target.previousElementSibling)}:${stableNodeKey(target)}`;
+            }
+            return `${mount.type}:${stableNodeKey(target)}`;
+        };
+        const mountHost = mount => {
+            if (!mount?.target) return null;
+            if (mount.type === 'append' || mount.type === 'prepend') return mount.target || document.body;
+            if (mount.type === 'table-row-after' || mount.type === 'table-colspan-after' || mount.type === 'table-colspan-before' || mount.type === 'ant-row-after') {
+                return mount.target?.closest?.('table') || mount.target?.parentElement || mount.target;
+            }
+            if (mount.type === 'definition-after') return mount.target?.closest?.('dl') || mount.target?.parentElement || mount.target;
+            if (mount.type === 'grid-pair-after') return mount.target?.parentElement || mount.target;
+            return mount.target?.parentElement || mount.target;
+        };
+        const isEmptyElement = node => node?.nodeType === 1 && !String(node.textContent || '').trim() && !node.querySelector?.('img,button,a,input,select,textarea,svg,canvas,video,audio');
+        const cleanupEmptyMountShell = node => {
+            let current = node;
+            for (let depth = 0; depth < 3; depth += 1) {
+                if (!isEmptyElement(current)) return;
+                const next = current.parentElement;
+                current.remove();
+                current = next;
+            }
+        };
 
-    function tableMount(siteId, row, label) {
-        if (!row) return null;
-        return TABLE_MOUNT_POLICY.COLSPAN_ONLY_SITES.has(siteId)
-            ? Mount.tableColspanAfter(row, label)
-            : Mount.tableRowAfter(row, label);
-    }
+        const Mount = {
+            afterNode(target) { return { type: 'div-after', target }; },
+            tableRowAfter(target, label = defaultLabel) { return { type: 'table-row-after', target, label }; },
+            tableColspanAfter(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
+            tableColspanBefore(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
+            blockAfter(target, label = defaultLabel) { return { type: 'block-after', target, label }; },
+            antRowAfter(target, label = defaultLabel) { return { type: 'ant-row-after', target, label }; },
+            gridPairAfter(target, label = defaultLabel) { return { type: 'grid-pair-after', target, label }; },
+            prepend(target = document.body) { return { type: 'prepend', target }; },
+            append(target) { return { type: 'append', target }; },
+            definitionAfter(target, label = defaultLabel) { return { type: 'definition-after', target, label }; },
+            mountRoot(mount, contentNode, meta = {}) {
+                const siteId = meta.siteId || '';
+                const existing = DOM.qs(rootSelector(siteId)) || DOM.qs(rootSelector(''));
+                const anchorKey = meta.anchorKey || mountAnchorKey(mount);
+                const targetHost = mountHost(mount);
+                if (existing && existing !== contentNode) {
+                    const sameHost = targetHost && targetHost.contains?.(existing);
+                    const sameAnchor = anchorKey && existing.getAttribute?.(`data-${NS}-anchor-key`) === anchorKey;
+                    const oldParent = existing.parentElement;
+                    DOM.markRoot(existing, { ...meta, anchorReason: meta.anchorReason || mount?.type || '', anchorKey });
+                    if ((!sameHost || !sameAnchor) && mount?.target) {
+                        this.render(mount, existing);
+                        cleanupEmptyMountShell(oldParent);
+                    }
+                    return existing;
+                }
+                DOM.markRoot(contentNode, { ...meta, anchorReason: meta.anchorReason || mount?.type || '', anchorKey });
+                this.render(mount, contentNode);
+                return contentNode;
+            },
+            render(mount, contentNode) {
+                const m = mount?.target ? mount : this.prepend();
+                if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
+                if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
+                if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
+                if (m.type === 'block-after') return this.block(m, contentNode);
+                if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
+                if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
+                if (m.type === 'definition-after') return this.definition(m, contentNode);
+                if (m.type === 'append') return m.target.appendChild(contentNode);
+                if (m.type === 'prepend') return (m.target || document.body).prepend(contentNode);
+                return m.target.after(contentNode);
+            },
+            tableRow(m, contentNode) {
+                const ref = m.target?.closest?.('tr') || m.target;
+                const tr = document.createElement('tr');
+                const h = document.createElement('td');
+                const d = document.createElement('td');
+                const refHead = ref?.cells?.[0], refBody = ref?.cells?.[1];
+                if (ref?.className) tr.className = ref.className;
+                if (ref?.getAttribute?.('style')) tr.setAttribute('style', ref.getAttribute('style'));
+                h.className = refHead ? refHead.className : 'rowhead nowrap';
+                d.className = refBody ? refBody.className : 'rowfollow';
+                if (refHead?.getAttribute?.('style')) h.setAttribute('style', refHead.getAttribute('style'));
+                if (refBody?.getAttribute?.('style')) d.setAttribute('style', refBody.getAttribute('style'));
+                ['align', 'valign'].forEach(attr => { if (refHead?.getAttribute?.(attr)) h.setAttribute(attr, refHead.getAttribute(attr)); if (refBody?.getAttribute?.(attr)) d.setAttribute(attr, refBody.getAttribute(attr)); });
+                const refText = refHead?.querySelector?.('.td-text');
+                if (refText) {
+                    const span = document.createElement('span');
+                    span.className = refText.className;
+                    span.textContent = labelOf(m);
+                    h.appendChild(span);
+                } else if (refHead?.firstElementChild && refHead.firstElementChild.children.length === 0) {
+                    const wrapper = refHead.firstElementChild.cloneNode(false);
+                    wrapper.textContent = labelOf(m);
+                    h.appendChild(wrapper);
+                } else {
+                    h.textContent = labelOf(m);
+                }
+                d.appendChild(contentNode);
+                tr.append(h, d);
+                ref?.after ? ref.after(tr) : m.target.after(tr);
+                return tr;
+            },
+            tableColspan(m, contentNode, before = false) {
+                const ref = m.target?.closest?.('tr') || m.target;
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                const table = ref?.closest?.('table');
+                const label = document.createElement('span');
+                label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;';
+                label.textContent = `${labelOf(m)}：`;
+                contentNode.style.display = 'inline-flex';
+                contentNode.style.alignItems = 'center';
+                contentNode.style.flexWrap = 'wrap';
+                contentNode.style.gap = contentNode.style.gap || '6px';
+                contentNode.style.verticalAlign = 'middle';
+                td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length));
+                td.style.paddingLeft = '12px';
+                td.style.paddingTop = '10px';
+                td.style.paddingBottom = '10px';
+                td.append(label, contentNode);
+                tr.appendChild(td);
+                if (before && ref?.before) ref.before(tr);
+                else if (ref?.after) ref.after(tr);
+                else (m.target || document.body).after(tr);
+                return tr;
+            },
+            block(m, contentNode) {
+                const block = document.createElement('div');
+                block.className = 'block';
+                const title = document.createElement('div');
+                title.className = 'blocktitle';
+                title.textContent = labelOf(m);
+                const body = document.createElement('div');
+                body.className = 'blockcontent';
+                body.appendChild(contentNode);
+                block.append(title, body);
+                m.target.after(block);
+                return block;
+            },
+            antRow(m, contentNode) {
+                const tr = document.createElement('tr');
+                tr.className = 'ant-descriptions-row';
+                const th = document.createElement('th');
+                th.className = 'ant-descriptions-item-label';
+                th.style.cssText = 'width:135px;text-align:right';
+                th.textContent = labelOf(m);
+                const td = document.createElement('td');
+                td.className = 'ant-descriptions-item-content';
+                td.appendChild(contentNode);
+                tr.append(th, td);
+                (m.target?.closest?.('tr') || m.target).after(tr);
+                return tr;
+            },
+            definition(m, contentNode) {
+                const dt = document.createElement('dt');
+                dt.textContent = labelOf(m);
+                const dd = document.createElement('dd');
+                dd.appendChild(contentNode);
+                const ref = m.target?.closest?.('dd') || m.target;
+                ref.after(dt, dd);
+                return dd;
+            },
+            gridPair(m, contentNode) {
+                const refValue = m.target;
+                const refLabel = refValue?.previousElementSibling;
+                const label = document.createElement('div');
+                label.className = refLabel?.className || refValue?.className || gridLabelClass;
+                label.textContent = labelOf(m);
+                const value = document.createElement('div');
+                value.className = refValue?.className || refLabel?.className || gridContentClass;
+                value.appendChild(contentNode);
+                m.target.after(label, value);
+                return value;
+            }
+        };
 
-    const AutoFeedAnchors = {
-        actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
-        nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
-        cellText(cell) { return String(cell?.textContent || '').replace(/\s+/g, ' ').trim(); },
-        rowByFirstCell(root, labels) {
-            const rows = (root || document).querySelectorAll('tr');
-            for (const tr of rows) {
-                if (labels.has(this.cellText(tr.cells?.[0]))) return tr;
-            }
-            return null;
-        },
-        domesticActionRow() {
-            const descr = document.getElementById('kdescr') || document.getElementById('kdescription');
-            const tbody = descr?.closest('tbody') || document.querySelector('#outer table tbody, table tbody');
-            return this.rowByFirstCell(tbody, this.actionLabels) || descr?.closest('tr') || null;
-        },
-        rowAfterName(root) { return this.rowByFirstCell(root, this.nameLabels); },
-        bhdNameRow() { return this.rowAfterName(document.querySelector('.table-details tbody')); },
-        monikaNameRow() {
-            const h4 = document.getElementsByTagName('h4')[0];
-            const box = h4?.parentNode?.parentNode?.getElementsByClassName?.('table-responsive')?.[1];
-            return this.rowAfterName(box?.getElementsByTagName('table')?.[0]) || null;
-        },
-        gpwTorrentRow() {
-            const tid = new URLSearchParams(window.location.search).get('torrentid');
-            if (!tid) return null;
-            return document.querySelector(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
-                || document.querySelector(`#torrent_details a[href*="id=${tid}"]`)?.closest('tr');
-        },
-        hhclubSubtitleValue() {
-            let label = null;
-            for (const el of document.querySelectorAll('div.font-bold.leading-6')) {
-                if (this.cellText(el) === '副标题') {
-                    label = el;
-                    break;
-                }
-            }
-            return label?.nextElementSibling || null;
-        },
-        fileListAnchor(id, labelText) {
-            const descr = document.getElementById('descr');
-            const parent = descr?.parentNode || document.querySelector('.cblock-innercontent,.cblock-content,#maincolumn');
-            if (!parent) return null;
-            const tableId = 'userscript-filelist-actions';
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = 'margin:10px 0;';
-                table = document.createElement('table');
-                table.id = tableId;
-                table.style.cssText = 'width:100%;border-collapse:collapse;';
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                const hr = document.createElement('hr');
-                hr.className = 'separator';
-                hr.style.marginTop = '15px';
-                hr.style.marginBottom = '15px';
-                wrap.appendChild(hr);
-                const before = descr ? (descr.previousElementSibling || descr) : parent.firstChild;
-                parent.insertBefore(wrap, before || null);
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-filelist-action-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = document.createElement('td');
-                label.textContent = labelText || id;
-                label.align = 'right';
-                label.style.cssText = 'width:80px;font-weight:bold;border:0px solid #0D8ED9;vertical-align:top;';
-                const holder = document.createElement('td');
-                holder.id = `${id}-filelist-action-holder`;
-                holder.align = 'left';
-                holder.style.cssText = 'padding-top:10px;padding-bottom:10px;padding-left:12px;border:0px solid #0D8ED9;vertical-align:top;';
-                row.append(label, holder);
-                tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-filelist-action-holder`) || row.cells[1];
-        },
-        actionTableHolder(tableId, id, labelText, anchor, mode = 'after', padding = '55px') {
-            if (!anchor?.parentNode) return null;
-            const wrapStyle = `display:block;text-align:left;width:auto;margin:0;padding-left:${padding};padding-right:${padding};`;
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = wrapStyle;
-                table = document.createElement('table');
-                table.id = tableId;
-                table.style.cssText = 'margin:0;text-align:left;width:auto;';
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                if (mode === 'prepend') anchor.prepend(wrap);
-                else if (mode === 'before') anchor.parentNode.insertBefore(wrap, anchor);
-                else anchor.after(wrap);
-            } else {
-                const wrap = document.getElementById(`${tableId}-wrap`);
-                if (wrap) wrap.style.cssText = wrapStyle;
-                table.style.cssText = 'margin:0;text-align:left;width:auto;';
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = row.insertCell(0);
-                label.textContent = labelText || id;
-                label.align = 'left';
-                label.style.fontWeight = 'bold';
-                const holder = row.insertCell(1);
-                holder.id = `${id}-${tableId}-holder`;
-                holder.align = 'left';
-                tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        unit3dActionHolder(id, labelText, anchor) {
-            const tableId = 'userscript-unit3d-actions';
-            const ref = firstOf(Array.from(document.querySelectorAll('tr')).reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
-            let table = ref?.closest('table');
-            if (!table) {
-                const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
-                const label = holder?.previousElementSibling;
-                if (label) {
-                    label.align = 'left';
-                    label.style.cssText = 'font-weight: bold;';
-                }
-                return holder;
-            }
-            if (!table.id) table.id = `${tableId}-table`;
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = document.createElement('tr');
-                row.id = rowId;
-                const label = (ref?.cells?.[0] || document.createElement('td')).cloneNode(false);
-                label.textContent = labelText || id;
-                const holder = (ref?.cells?.[1] || document.createElement('td')).cloneNode(false);
-                holder.id = `${id}-${tableId}-holder`;
-                row.append(label, holder);
-                const rows = Array.from(tbody.querySelectorAll(`tr[id$="-${tableId}-row"]`));
-                (rows.at(-1) || ref || tbody.lastElementChild)?.after(row);
-                if (!row.parentNode) tbody.appendChild(row);
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        mTeamActionHolder(id, labelText) {
-            if (id === 'mp') {
-                document.querySelectorAll('#mteam-script-action-line-mp').forEach(node => node.remove());
-                document.querySelectorAll('#mteam-script-action-row').forEach(node => {
-                    if (!node.querySelector('#mteam-script-action-line-iyuu, .iyuu-row-box')) node.remove();
-                });
-            }
-            const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
-            const anchorRow = subtitleLabel?.parentElement?.parentElement;
-            if (!anchorRow?.parentNode) return null;
-            const tableId = 'userscript-mteam-actions';
-            let table = document.getElementById(tableId);
-            if (!table) {
-                const wrap = document.createElement('div');
-                wrap.id = `${tableId}-wrap`;
-                wrap.style.cssText = 'padding-right:55px;';
-                table = document.createElement('table');
-                table.id = tableId;
-                table.appendChild(document.createElement('tbody'));
-                wrap.appendChild(table);
-                anchorRow.before(wrap);
-            }
-            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
-            const rowId = `${id}-${tableId}-row`;
-            let row = document.getElementById(rowId);
-            if (!row) {
-                row = tbody.insertRow(-1);
-                row.id = rowId;
-                row.className = 'ant-descriptions-row';
-                const label = row.insertCell(0);
-                label.className = 'ant-descriptions-item-label';
-                label.style.cssText = 'width:135px;text-align:right;';
-                label.textContent = labelText || id;
-                const holder = row.insertCell(1);
-                holder.id = `${id}-${tableId}-holder`;
-                holder.className = 'ant-descriptions-item-content';
-                holder.style.cssText = 'text-align:left;';
-            }
-            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
-        },
-        hdSpaceMediaInfoRow() {
-            const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
-            const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
-            for (const selector of scopes) {
-                const root = document.querySelector(selector);
-                if (!root) continue;
-                let lastDetail = null;
-                for (const tr of root.querySelectorAll('tr')) {
-                    const label = this.cellText(tr.cells?.[0]).replace(/[：:]$/, '');
-                    if (detailLabels.has(label)) lastDetail = tr;
-                }
-                if (lastDetail) return root.closest('#mcol tr') || lastDetail;
-            }
-            return null;
-        },
-        hdSpaceTorrentRow() {
-            for (const tr of document.querySelectorAll('#mcol tr')) {
-                if (this.cellText(tr.cells?.[0]) === 'Torrent') return tr;
-            }
-            return null;
-        },
-        hdSpaceInfoHashRow() {
-            const rows = Array.from(document.querySelectorAll('#mcol tr'));
-            let infoHash = null;
-            let torrent = null;
-            for (const tr of rows) {
-                const label = this.cellText(tr.cells?.[0]);
-                if (!infoHash && label === 'Info Hash') infoHash = tr;
-                if (!torrent && label === 'Torrent') torrent = tr;
-            }
-            return infoHash || torrent || this.rowAfterName(document.querySelector('#mcol'));
-        },
-        iptMovieInfoRow() {
-            const rows = Array.from(document.querySelectorAll('tr'));
-            let plot = null;
-            let genre = null;
-            for (const tr of rows) {
-                const label = this.cellText(tr.cells?.[0]);
-                if (!plot && label === 'Plot') plot = tr;
-                if (!genre && label === 'Genre') genre = tr;
-            }
-            const table = plot?.closest('table');
-            let existing = null;
-            if (table) {
-                for (const tr of table.querySelectorAll('tr')) {
-                    if (['IYUU', 'MoviePilot'].includes(this.cellText(tr.cells?.[0]))) existing = tr;
-                }
-            }
-            return existing || plot || genre;
+        const SITE_FAMILIES = Object.freeze({
+            'totheglory': 'custom-ttg',
+            'hdsky': 'nexusphp',
+            'sjtu': 'nexusphp',
+            'm-team': 'custom-mteam',
+            'hdcity': 'tbsource',
+            'monikadesign': 'unit3d',
+            'beyond-hd': 'custom-bhd',
+            'eiga': 'unit3d',
+            'hd-space': 'tbsource',
+            'iptorrents': 'custom-ipt',
+            'filelist': 'tbsource',
+            'hudbt': 'custom-hudbt',
+            'greatposterwall': 'custom-gpw',
+            'hhclub': 'custom-hhclub',
+            'bangumi': 'public-bt',
+            'bangumi-moe': 'public-bt',
+            'mikanani': 'public-bt',
+            'nyaa': 'public-bt',
+            'acg-rip': 'public-bt',
+            'comicat-kisssub': 'public-bt',
+            'generic': 'unknown',
+            'generic-nexusphp': 'nexusphp'
+        });
+
+        function tableMount(siteId, row, label) {
+            if (!row) return null;
+            return Mount.tableRowAfter(row, label);
         }
+
+        const AutoFeedAnchors = {
+            actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
+            nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
+            cellText(cell) { return String(cell?.textContent || '').replace(/\s+/g, ' ').trim(); },
+            rowByFirstCell(root, labels) {
+                for (const tr of (root || document).querySelectorAll('tr')) {
+                    if (labels.has(this.cellText(tr.cells?.[0]))) return tr;
+                }
+                return null;
+            },
+            domesticActionRow() {
+                const descr = document.getElementById('kdescr') || document.getElementById('kdescription');
+                const tbody = descr?.closest('tbody') || document.querySelector('#outer table tbody, table tbody');
+                return this.rowByFirstCell(tbody, this.actionLabels) || descr?.closest('tr') || null;
+            },
+            rowAfterName(root) { return this.rowByFirstCell(root, this.nameLabels); },
+            bhdNameRow() { return this.rowAfterName(document.querySelector('.table-details tbody')); },
+            monikaNameRow() {
+                const h4 = document.getElementsByTagName('h4')[0];
+                const box = h4?.parentNode?.parentNode?.getElementsByClassName?.('table-responsive')?.[1];
+                return this.rowAfterName(box?.getElementsByTagName('table')?.[0]) || null;
+            },
+            gpwTorrentRow() {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                if (!tid) return null;
+                return document.querySelector(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
+                    || document.querySelector(`#torrent_details a[href*="id=${tid}"]`)?.closest('tr');
+            },
+            hhclubSubtitleValue() {
+                let label = null;
+                for (const el of document.querySelectorAll('div.font-bold.leading-6')) {
+                    if (this.cellText(el) === '副标题') {
+                        label = el;
+                        break;
+                    }
+                }
+                return label?.nextElementSibling || null;
+            },
+            fileListAnchor(id, labelText) {
+                const descr = document.getElementById('descr');
+                const parent = descr?.parentNode || document.querySelector('.cblock-innercontent,.cblock-content,#maincolumn');
+                if (!parent) return null;
+                const tableId = 'userscript-filelist-actions';
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = 'margin:10px 0;';
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.style.cssText = 'width:100%;border-collapse:collapse;';
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    const hr = document.createElement('hr');
+                    hr.className = 'separator';
+                    hr.style.marginTop = '15px';
+                    hr.style.marginBottom = '15px';
+                    wrap.appendChild(hr);
+                    const before = descr ? (descr.previousElementSibling || descr) : parent.firstChild;
+                    parent.insertBefore(wrap, before || null);
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-filelist-action-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = document.createElement('td');
+                    label.textContent = labelText || id;
+                    label.align = 'right';
+                    label.style.cssText = 'width:80px;font-weight:bold;border:0px solid #0D8ED9;vertical-align:top;';
+                    const holder = document.createElement('td');
+                    holder.id = `${id}-filelist-action-holder`;
+                    holder.align = 'left';
+                    holder.style.cssText = 'padding-top:10px;padding-bottom:10px;padding-left:12px;border:0px solid #0D8ED9;vertical-align:top;';
+                    row.append(label, holder);
+                    tbody.appendChild(row);
+                }
+                return document.getElementById(`${id}-filelist-action-holder`) || row.cells[1];
+            },
+            actionTableHolder(tableId, id, labelText, anchor, mode = 'after', padding = '55px') {
+                if (!anchor?.parentNode) return null;
+                const wrapStyle = `display:block;text-align:left;width:auto;margin:0;padding-left:${padding};padding-right:${padding};`;
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = wrapStyle;
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.style.cssText = 'margin:0;text-align:left;width:auto;';
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    if (mode === 'prepend') anchor.prepend(wrap);
+                    else if (mode === 'before') anchor.parentNode.insertBefore(wrap, anchor);
+                    else anchor.after(wrap);
+                } else {
+                    const wrap = document.getElementById(`${tableId}-wrap`);
+                    if (wrap) wrap.style.cssText = wrapStyle;
+                    table.style.cssText = 'margin:0;text-align:left;width:auto;';
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = row.insertCell(0);
+                    label.textContent = labelText || id;
+                    label.align = 'left';
+                    label.style.fontWeight = 'bold';
+                    const holder = row.insertCell(1);
+                    holder.id = `${id}-${tableId}-holder`;
+                    holder.align = 'left';
+                    tbody.appendChild(row);
+                }
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            unit3dActionHolder(id, labelText, anchor) {
+                const tableId = 'userscript-unit3d-actions';
+                const ref = firstOf(Array.from(document.querySelectorAll('tr')).reverse(), tr => ['转发种子', '豆瓣信息'].includes(this.cellText(tr.cells?.[0])));
+                let table = ref?.closest('table');
+                if (!table) {
+                    const holder = this.actionTableHolder(tableId, id, labelText, anchor, 'after', '0');
+                    const label = holder?.previousElementSibling;
+                    if (label) {
+                        label.align = 'left';
+                        label.style.cssText = 'font-weight: bold;';
+                    }
+                    return holder;
+                }
+                if (!table.id) table.id = `${tableId}-table`;
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    const label = (ref?.cells?.[0] || document.createElement('td')).cloneNode(false);
+                    label.textContent = labelText || id;
+                    const holder = (ref?.cells?.[1] || document.createElement('td')).cloneNode(false);
+                    holder.id = `${id}-${tableId}-holder`;
+                    row.append(label, holder);
+                    const rows = Array.from(tbody.querySelectorAll(`tr[id$="-${tableId}-row"]`));
+                    (rows.at(-1) || ref || tbody.lastElementChild)?.after(row);
+                    if (!row.parentNode) tbody.appendChild(row);
+                }
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            mTeamActionHolder(id, labelText) {
+                const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
+                const anchorRow = subtitleLabel?.parentElement?.parentElement;
+                if (!anchorRow?.parentNode) return null;
+                const tableId = 'userscript-mteam-actions';
+                let table = document.getElementById(tableId);
+                if (!table) {
+                    const wrap = document.createElement('div');
+                    wrap.id = `${tableId}-wrap`;
+                    wrap.style.cssText = 'padding-right:55px;';
+                    table = document.createElement('table');
+                    table.id = tableId;
+                    table.appendChild(document.createElement('tbody'));
+                    wrap.appendChild(table);
+                    anchorRow.before(wrap);
+                }
+                const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+                const rowId = `${id}-${tableId}-row`;
+                let row = document.getElementById(rowId);
+                if (!row) {
+                    row = tbody.insertRow(-1);
+                    row.id = rowId;
+                    row.className = 'ant-descriptions-row';
+                    const label = row.insertCell(0);
+                    label.className = 'ant-descriptions-item-label';
+                    label.style.cssText = 'width:135px;text-align:right;';
+                    label.textContent = labelText || id;
+                    const holder = row.insertCell(1);
+                    holder.id = `${id}-${tableId}-holder`;
+                    holder.className = 'ant-descriptions-item-content';
+                    holder.style.cssText = 'text-align:left;';
+                }
+                return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+            },
+            hdSpaceMediaInfoRow() {
+                const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
+                const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
+                for (const selector of scopes) {
+                    const root = document.querySelector(selector);
+                    if (!root) continue;
+                    let lastDetail = null;
+                    for (const tr of root.querySelectorAll('tr')) {
+                        const label = this.cellText(tr.cells?.[0]).replace(/[：:]$/, '');
+                        if (detailLabels.has(label)) lastDetail = tr;
+                    }
+                    if (lastDetail) return root.closest('#mcol tr') || lastDetail;
+                }
+                return null;
+            },
+            hdSpaceTorrentRow() {
+                for (const tr of document.querySelectorAll('#mcol tr')) {
+                    if (this.cellText(tr.cells?.[0]) === 'Torrent') return tr;
+                }
+                return null;
+            },
+            hdSpaceInfoHashRow() {
+                const rows = Array.from(document.querySelectorAll('#mcol tr'));
+                let infoHash = null;
+                let torrent = null;
+                for (const tr of rows) {
+                    const label = this.cellText(tr.cells?.[0]);
+                    if (!infoHash && label === 'Info Hash') infoHash = tr;
+                    if (!torrent && label === 'Torrent') torrent = tr;
+                }
+                return infoHash || torrent || this.rowAfterName(document.querySelector('#mcol'));
+            },
+            iptMovieInfoRow() {
+                const rows = Array.from(document.querySelectorAll('tr'));
+                let plot = null;
+                let genre = null;
+                for (const tr of rows) {
+                    const label = this.cellText(tr.cells?.[0]);
+                    if (!plot && label === 'Plot') plot = tr;
+                    if (!genre && label === 'Genre') genre = tr;
+                }
+                const table = plot?.closest('table');
+                let existing = null;
+                if (table) {
+                    for (const tr of table.querySelectorAll('tr')) {
+                        if (['IYUU', 'MoviePilot'].includes(this.cellText(tr.cells?.[0]))) existing = tr;
+                    }
+                }
+                return existing || plot || genre;
+            }
+        };
+
+        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors };
     };
+    // <pt-common:end>
+
+    const { DOM: PTDOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors } = createPTCommon({
+        defaultLabel: 'MoviePilot',
+        productId: 'mp',
+        gridLabelClass: 'mp-grid-label',
+        gridContentClass: 'mp-grid-content'
+    });
 
     // ——————————————————————————————————————
     // [3] API 模块 (API MODULE)
@@ -977,20 +1196,21 @@
             try {
                 const torrentId = window.location.pathname.split('/').pop();
                 if (!torrentId) throw new Error("在URL中未找到种子ID");
+                const apiKey = String(CONFIG.get('mteamApiKey') || '').trim();
+                if (!apiKey) throw new Error("未配置 M-Team API Key");
 
                 const tokenResponse = await new Promise((resolve, reject) => {
                     GM_xmlhttpRequest({
                         method: "POST",
-                        url: `${localStorage.getItem("apiHost")}/torrent/genDlToken`,
+                        url: `${MTEAM_API_BASE}/torrent/genDlToken`,
                         headers: {
-                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                            "TS": String(Math.floor(Date.now() / 1000)),
-                            "Authorization": localStorage.getItem("auth") || ""
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "x-api-key": apiKey
                         },
                         data: `id=${torrentId}`,
                         responseType: 'json',
                         onload: (res) => {
-                            if (res.status === 200 && res.response?.code === "0") {
+                            if (res.status === 200 && (res.response?.code === "0" || res.response?.code === 0)) {
                                 resolve(res.response);
                             } else {
                                 const errorMsg = res.response?.message || `HTTP ${res.status}`;
@@ -1010,6 +1230,31 @@
                 GM_log(`[Moviepilot] M-Team adapter: 获取下载链接失败. ${error.message}`);
                 throw error; // 将错误向上抛出
             }
+        },
+
+        async getMteamTorrentDetail(id) {
+            const torrentId = id || window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
+            if (!torrentId) throw new Error("在URL中未找到种子ID");
+            const apiKey = String(CONFIG.get('mteamApiKey') || '').trim();
+            if (!apiKey) throw new Error("未配置 M-Team API Key");
+            const cached = mteamDetailCache.get(torrentId);
+            if (cached && Date.now() - cached.ts < MTEAM_DETAIL_TTL) return cached.res;
+            if (mteamDetailPending.has(torrentId)) return mteamDetailPending.get(torrentId);
+            const pending = this._request({
+                method: 'POST',
+                url: `${MTEAM_API_BASE}/torrent/detail?id=${encodeURIComponent(torrentId)}&origin=1`,
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "x-api-key": apiKey
+                },
+                responseType: 'json',
+                absolute: true
+            }).then(res => {
+                mteamDetailCache.set(torrentId, { res, ts: Date.now() });
+                return res;
+            }).finally(() => mteamDetailPending.delete(torrentId));
+            mteamDetailPending.set(torrentId, pending);
+            return pending;
         }
     };
 
@@ -1018,7 +1263,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    // TODO: 后续适配 https://www.haidan.cc / https://www.yemapt.org / https://rousi.pro；修复 MT
+    // TODO: 后续适配 https://www.haidan.cc / https://www.yemapt.org / https://rousi.pro
     const BT_SITE_HELPERS = {
         text(selector, root = document) {
             return root.querySelector(selector)?.textContent?.trim() || '';
@@ -1489,42 +1734,23 @@
         {
             id: 'm-team',
             matches: () => /m-team\.(cc|io|vip)\/detail\//.test(window.location.href),
-            getInfo: () => {
-                // 检查旧版UI,域名是否为ob.m-team.cc
-                const isNewUI = !window.location.hostname.includes('ob.m-team.cc');
-                if (isNewUI) {
-                    // --- 新版UI逻辑 ---
-                    const headerBar = document.querySelector('div.flex.py-5.mb-5.sticky');
-                    const titleSpan = headerBar?.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle') || document.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle');
-                    const titleElement = titleSpan || document.querySelector('h2, h1');
-                    const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
-                    const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
-                    const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                    const sizeElement = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent || ''));
-                    const holder = AutoFeedAnchors.mTeamActionHolder('mp', 'MoviePilot');
-                    if (!holder) return null;
-                    return {
-                        name: titleText,
-                        description: descriptionElement ? descriptionElement.textContent.trim() : titleText,
-                        size: sizeElement ? UTILS.parseSize(sizeElement.textContent) : 0,
-                        downloadLink: '',
-                        mount: Mount.append(holder)
-                    };
-                } else {
-                    // --- 旧版UI逻辑 ---
-                    const rows = document.querySelectorAll('.ant-descriptions-item-label');
-                    if (rows.length < 3) return null;
-                    const nameRow = rows[0], dlRow = rows[1], sizeRow = rows[2];
-                    if (!nameRow.nextElementSibling || !dlRow.nextElementSibling || !sizeRow.nextElementSibling) return null;
-                    const nameLink = nameRow.nextElementSibling.querySelector('a');
-                    return {
-                        name: nameLink?.textContent.replace(/\.torrent$/, '') || '',
-                        downloadLink: '',
-                        description: dlRow.nextElementSibling.innerText || '',
-                        size: UTILS.parseSize(sizeRow.nextElementSibling.innerText),
-                        mount: Mount.antRowAfter(nameRow.parentElement)
-                    };
-                }
+            findMount: () => {
+                const holder = AutoFeedAnchors.mTeamActionHolder('mp', 'MoviePilot');
+                return holder ? Mount.append(holder) : null;
+            },
+            getInfo: async () => {
+                const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
+                if (!CONFIG.get('mteamApiKey')) throw new Error('未配置 M-Team API Key');
+                const res = await API.getMteamTorrentDetail(tid);
+                const data = res?.data || res?.result || res;
+                const name = data?.name || data?.title || data?.smallDescr || (tid ? `M-Team ${tid}` : 'M-Team');
+                return {
+                    name,
+                    description: data?.smallDescr || data?.descr || data?.description || name,
+                    size: Number(data?.size || data?.fileSize || data?.torrentSize || 0) || UTILS.parseSize(String(data?.sizeText || '')),
+                    downloadLink: '',
+                    extra: { mteamTid: tid }
+                };
             }
         }
     ];
@@ -1568,439 +1794,6 @@
     };
 
 
-    // ——————————————————————————————————————
-    // [4.5] M-Team 链接多层捕获 (MTEAM LINK CAPTURE)
-    // ——————————————————————————————————————
-
-    const MTeamLinkCapture = {
-        _runtimeLinks: {},
-        _prefetchState: {},
-        _watcherState: {},
-        _listenerInstalled: false,
-        _hookInstalled: false,
-
-        _getCurrentTid() {
-            const m = window.location.pathname.match(/\/detail\/(\d+)/);
-            return m ? m[1] : '';
-        },
-
-        _isLikelyTorrentDownloadUrl(url) {
-            const s = String(url || '');
-            if (!s) return false;
-            if (/\/api\/rss\/dlv2\?/i.test(s)) return true;
-            if (/\/api\/torrent\/download\?/i.test(s)) return true;
-            if (/\.torrent(?:\?|$)/i.test(s)) return true;
-            if (/[?&](?:app_id|payload|playload)=/i.test(s) && /[?&]sign=/i.test(s) && /[?&]t=/i.test(s)) return true;
-            if (/halomt\.com/i.test(s) && /[?&]sign=/i.test(s)) return true;
-            return false;
-        },
-
-        _isAllowedDownloadHost(url) {
-            try {
-                const host = new URL(url).hostname.toLowerCase();
-                return /(^|\.)m-team\.cc$|(^|\.)m-team\.io$|(^|\.)halomt\.com$/.test(host);
-            } catch (e) {
-                return false;
-            }
-        },
-
-        _isTidMismatch(absUrl, tid) {
-            return tid && /[?&]tid=\d+/.test(absUrl) && !new RegExp(`[?&]tid=${tid}(?:&|$)`).test(absUrl);
-        },
-
-        _extractLinkFromString(text) {
-            const raw = String(text || '')
-                .replace(/\\\//g, '/')
-                .replace(/\\u002F/ig, '/')
-                .replace(/\\u003A/ig, ':')
-                .replace(/\\u003F/ig, '?')
-                .replace(/\\u003D/ig, '=')
-                .replace(/\\u0026/ig, '&')
-                .replace(/\\u0025/ig, '%')
-                .replace(/&amp;/g, '&');
-            const match = raw.match(/https?:\/\/[^\s"'`<>\\]+|\/api\/rss\/dlv2\?[^\s"'`<>\\]+|\/api\/torrent\/download\?[^\s"'`<>\\]+/i);
-            if (!match) return '';
-            try {
-                return new URL(match[0], window.location.origin).href;
-            } catch (e) {
-                return '';
-            }
-        },
-
-        _deepFindDownloadLinkInObject(root, maxNodes = 5000) {
-            if (!root) return '';
-            const stack = [root];
-            const visited = new Set();
-            let count = 0;
-            while (stack.length && count < maxNodes) {
-                const current = stack.pop();
-                count++;
-                if (!current) continue;
-                const t = typeof current;
-                if (t === 'string') {
-                    const parsed = this._extractLinkFromString(current);
-                    if (parsed) return parsed;
-                    continue;
-                }
-                if (t !== 'object' && t !== 'function') continue;
-                if (visited.has(current)) continue;
-                visited.add(current);
-                let keys = [];
-                try { keys = Object.keys(current); } catch (e) { continue; }
-                for (const key of keys) {
-                    let val;
-                    try { val = current[key]; } catch (e) { continue; }
-                    if (typeof val === 'string') {
-                        const parsed = this._extractLinkFromString(val);
-                        if (parsed) return parsed;
-                    } else if (val && (typeof val === 'object' || typeof val === 'function')) {
-                        stack.push(val);
-                    }
-                }
-            }
-            return '';
-        },
-
-        _findNativeDownloadButton() {
-            // 精确选择器：m-team 新版 UI 的下载按钮位置（避免误匹配其他导航按钮导致跳转）
-            const exactSelector = '#app-content > div > div.app-content__inner.px-\\[40px\\].flex.flex-col.justify-between > div.mx-auto.w-full > div.flex.py-5.mb-5.border-0.border-b.border-solid.border-\\[--mt-line-color\\].sticky.items-start.top-0.z-\\[999\\].bg-mt-primary-1.text-\\[--mt-text-base\\] > div.flex-grow.w-1.flex.flex-col.justify-between > div.flex.justify-between > div > div > div > div:nth-child(4)';
-            const exact = document.querySelector(exactSelector);
-            if (exact) return exact;
-
-            // 兜底：在标题栏 sticky 容器内找带 download 关键字的元素
-            const scope = document.querySelector('div.flex.py-5.mb-5.sticky') || document.querySelector('#app-content');
-            if (!scope) return null;
-            const candidates = scope.querySelectorAll('[class*="download" i], [title*="下載"], [title*="下载"], [aria-label*="下載"], [aria-label*="下载"]');
-            for (const c of candidates) {
-                const txt = (c.textContent || '').toLowerCase();
-                if (txt.includes('下載') || txt.includes('下载') || txt.includes('download')) return c;
-            }
-            return null;
-        },
-
-        _dispatchSyntheticClick(el) {
-            if (!el) return;
-            try { el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
-            try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
-            try { el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
-            try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); } catch (e) {}
-            try { if (typeof el.click === 'function') el.click(); } catch (e) {}
-        },
-
-        _getDownloadAttrsFromElement(el) {
-            if (!el || typeof el.getAttribute !== 'function') return [];
-            const attrs = ['href', 'data-url', 'data-href', 'onclick', 'title', 'aria-label'];
-            const values = [];
-            attrs.forEach((attr) => {
-                const v = el.getAttribute(attr);
-                if (v) values.push(v);
-            });
-            if (el.outerHTML) values.push(el.outerHTML);
-            return values;
-        },
-
-        setRuntimeLink(url, source) {
-            const tid = this._getCurrentTid();
-            if (!tid || !url) return;
-            const existing = this._runtimeLinks[tid];
-            if (existing?.url === url) {
-                existing.at = Date.now();
-                return;
-            }
-            this._runtimeLinks[tid] = { url, source: source || 'runtime', at: Date.now() };
-            GM_log(`[${SCRIPT_NAME}] M-Team 链接已捕获: ${source} → ${url}`);
-            try {
-                document.dispatchEvent(new CustomEvent('mp-mteam-runtime-link-updated', { detail: { tid, url, source } }));
-            } catch (e) {}
-        },
-
-        getRuntimeLink() {
-            const tid = this._getCurrentTid();
-            if (!tid) return '';
-            const item = this._runtimeLinks[tid];
-            if (!item?.url) return '';
-            if (Date.now() - (item.at || 0) > 10 * 60 * 1000) return '';
-            return item.url;
-        },
-
-        init() {
-            this._installRuntimeCaptureListener();
-            this._installPageContextHook();
-            this._installNativeDownloadHook();
-        },
-
-        _installRuntimeCaptureListener() {
-            if (this._listenerInstalled) return;
-            this._listenerInstalled = true;
-            document.addEventListener('mp-download-url-captured', (ev) => {
-                try {
-                    const rawUrl = ev?.detail?.url || '';
-                    const source = ev?.detail?.source || 'page-hook';
-                    if (!rawUrl) return;
-                    const abs = new URL(rawUrl, window.location.origin).href;
-                    if (!this._isLikelyTorrentDownloadUrl(abs)) return;
-                    if (!this._isAllowedDownloadHost(abs)) return;
-                    const tid = this._getCurrentTid();
-                    if (this._isTidMismatch(abs, tid)) return;
-                    this.setRuntimeLink(abs, `page:${source}`);
-                } catch (e) {}
-            }, true);
-        },
-
-        _installPageContextHook() {
-            if (this._hookInstalled) return;
-            this._hookInstalled = true;
-            if (document.getElementById('mp-mteam-page-hook-script')) return;
-
-            const script = document.createElement('script');
-            script.id = 'mp-mteam-page-hook-script';
-            script.textContent = `(function(){
-                if(window.__mpMTeamPageHookInstalled)return;
-                window.__mpMTeamPageHookInstalled=true;
-                window.__mpMTeamPrefetchUntil=0;
-                function shouldCapture(url){try{var s=String(url||'').toLowerCase();return s.indexOf('dlv2')>=0||s.indexOf('torrent/download')>=0||s.indexOf('.torrent')>=0||(s.indexOf('halomt.com')>=0&&s.indexOf('sign=')>=0)||((s.indexOf('app_id=')>=0||s.indexOf('payload=')>=0)&&s.indexOf('sign=')>=0)}catch(e){return false}}
-                function inPrefetch(){try{return Date.now()<(window.__mpMTeamPrefetchUntil||0)}catch(e){return false}}
-                try{document.addEventListener('mp-mteam-prefetch-mode',function(ev){try{var d=Number(ev&&ev.detail&&ev.detail.duration)||5000;if(d<500)d=500;window.__mpMTeamPrefetchUntil=Date.now()+d}catch(e){}},true)}catch(e){}
-                function emit(url,source){try{if(!url||!shouldCapture(url))return;document.dispatchEvent(new CustomEvent('mp-download-url-captured',{detail:{url:String(url),source:source||'page-hook'}}))}catch(e){}}
-                try{var origOpen=window.open;if(typeof origOpen==='function'){window.open=function(url){emit(url,'window.open');if(inPrefetch()&&shouldCapture(url))return null;return origOpen.apply(this,arguments)}}}catch(e){}
-                try{if(window.fetch){var origFetch=window.fetch;window.fetch=function(input){try{var u=(typeof input==='string')?input:(input&&input.url);emit(u,'fetch')}catch(e){}return origFetch.apply(this,arguments)}}}catch(e){}
-                try{var origXhrOpen=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(method,url){emit(url,'xhr.open');return origXhrOpen.apply(this,arguments)}}catch(e){}
-                try{var origAnchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){emit(this&&this.href,'anchor.click');if(inPrefetch()&&shouldCapture(this&&this.href))return;return origAnchorClick.apply(this,arguments)}}catch(e){}
-                try{document.addEventListener('click',function(ev){var path=ev.composedPath?ev.composedPath():[ev.target];for(var i=0;i<path.length;i++){var n=path[i];if(!n||!n.getAttribute)continue;emit(n.getAttribute('href'),'dom.click');emit(n.getAttribute('data-url'),'dom.click');emit(n.getAttribute('data-href'),'dom.click')}},true)}catch(e){}
-            })();`;
-            (document.documentElement || document.head || document.body).appendChild(script);
-        },
-
-        _installNativeDownloadHook() {
-            const nativeBtn = this._findNativeDownloadButton();
-            if (!nativeBtn) return;
-            if (nativeBtn.dataset?.mpHooked === '1') return;
-            if (nativeBtn.dataset) nativeBtn.dataset.mpHooked = '1';
-
-            nativeBtn.addEventListener('click', () => {
-                try {
-                    this._getDownloadAttrsFromElement(nativeBtn).forEach((raw) => {
-                        const parsed = this._extractLinkFromString(raw);
-                        if (parsed && this._isLikelyTorrentDownloadUrl(parsed) && this._isAllowedDownloadHost(parsed)) {
-                            this.setRuntimeLink(parsed, 'native-click');
-                        }
-                    });
-                } catch (e) {}
-
-                [250, 800, 1600, 2600, 4000].forEach((delay) => {
-                    setTimeout(() => {
-                        const perfHit = this._captureFromPerformance(`native-click+${delay}ms`);
-                        if (perfHit) return;
-                        const late = this.extractDownloadLink();
-                        if (late) this.setRuntimeLink(late, `native-click-extract+${delay}ms`);
-                    }, delay);
-                });
-            }, true);
-        },
-
-        _captureFromPerformance(source) {
-            const tid = this._getCurrentTid();
-            if (!tid) return '';
-            try {
-                const entries = performance.getEntriesByType('resource') || [];
-                for (let i = entries.length - 1; i >= 0; i--) {
-                    const url = entries[i]?.name || '';
-                    if (!this._isLikelyTorrentDownloadUrl(url)) continue;
-                    if (!this._isAllowedDownloadHost(url)) continue;
-                    if (/[?&]tid=\d+/.test(url) && !new RegExp(`[?&]tid=${tid}(?:&|$)`).test(url)) continue;
-                    this.setRuntimeLink(url, source || 'performance');
-                    return url;
-                }
-            } catch (e) {}
-            return '';
-        },
-
-        extractDownloadLink() {
-            const tid = this._getCurrentTid();
-            const seen = new Set();
-            let bestUrl = '';
-
-            const tryPush = (raw, source) => {
-                if (!raw) return;
-                let abs = '';
-                try { abs = new URL(String(raw).replace(/\\\//g, '/').replace(/&amp;/g, '&'), window.location.origin).href; } catch (e) { return; }
-                if (!this._isLikelyTorrentDownloadUrl(abs)) return;
-                if (!this._isAllowedDownloadHost(abs)) return;
-                if (this._isTidMismatch(abs, tid)) return;
-                if (!seen.has(abs)) {
-                    seen.add(abs);
-                    if (!bestUrl) bestUrl = abs;
-                }
-            };
-
-            // 1. 运行时缓存
-            const cached = this.getRuntimeLink();
-            if (cached) return cached;
-
-            // 2. 原生下载按钮
-            const nativeBtn = this._findNativeDownloadButton();
-            if (nativeBtn) {
-                this._getDownloadAttrsFromElement(nativeBtn).forEach((raw) => {
-                    tryPush(this._extractLinkFromString(raw), 'native-btn');
-                });
-                const reactKeys = Object.keys(nativeBtn).filter(k => /^__reactProps\$|^__reactFiber\$/i.test(k));
-                reactKeys.forEach((key) => {
-                    const reactHit = this._deepFindDownloadLinkInObject(nativeBtn[key]);
-                    if (reactHit) tryPush(reactHit, `react:${key}`);
-                });
-            }
-
-            // 3. DOM selector 扫描
-            const selectors = [
-                'a[href*="/api/rss/dlv2"]', 'a[href*="dlv2"]', 'a[href*="torrent/download"]',
-                'a[href*=".torrent"]', '[data-url*="dlv2"]', '[data-href*="dlv2"]',
-                '[class*="download"]', 'button[onclick*="dlv2"]', 'a[onclick*="download"]'
-            ];
-            for (const selector of selectors) {
-                try {
-                    document.querySelectorAll(selector).forEach((node) => {
-                        const href = node.getAttribute('href');
-                        if (href) tryPush(href, selector);
-                        const dataUrl = node.getAttribute('data-url') || node.getAttribute('data-href');
-                        if (dataUrl) tryPush(dataUrl, selector);
-                        const inline = node.getAttribute('onclick') || node.textContent;
-                        const parsed = this._extractLinkFromString(inline);
-                        if (parsed) tryPush(parsed, selector);
-                    });
-                } catch (e) {}
-            }
-
-            // 4. Performance API
-            if (!bestUrl) this._captureFromPerformance('extract-fallback');
-
-            // 5. 兜底扫脚本文本
-            if (!bestUrl) {
-                document.querySelectorAll('script').forEach((s) => {
-                    const parsed = this._extractLinkFromString(s.textContent || '');
-                    if (parsed) tryPush(parsed, 'script');
-                });
-            }
-
-            return bestUrl || this.getRuntimeLink();
-        },
-
-        _triggerPrefetchMode(durationMs = 5000) {
-            try {
-                document.dispatchEvent(new CustomEvent('mp-mteam-prefetch-mode', { detail: { duration: durationMs } }));
-            } catch (e) {}
-        },
-
-        _startMutationWatcher(reason = 'auto', windowMs = 9000) {
-            const tid = this._getCurrentTid();
-            if (!tid) return;
-            const state = this._watcherState[tid];
-            if (state?.active) return;
-
-            const observer = new MutationObserver((mutations) => {
-                for (const m of mutations) {
-                    if (m.type !== 'attributes') continue;
-                    const node = m.target;
-                    if (!node || typeof node.getAttribute !== 'function') continue;
-                    this._getDownloadAttrsFromElement(node).forEach((raw) => {
-                        const parsed = this._extractLinkFromString(raw);
-                        if (parsed && this._isLikelyTorrentDownloadUrl(parsed) && this._isAllowedDownloadHost(parsed)) {
-                            this.setRuntimeLink(parsed, `mutation:${reason}`);
-                        }
-                    });
-                }
-            });
-
-            this._watcherState[tid] = { active: true, observer };
-            observer.observe(document.documentElement || document.body, {
-                subtree: true, attributes: true,
-                attributeFilter: ['href', 'data-url', 'data-href', 'onclick', 'title', 'aria-label']
-            });
-            setTimeout(() => {
-                try { observer.disconnect(); } catch (e) {}
-                this._watcherState[tid] = { active: false };
-            }, windowMs);
-        },
-
-        autoPrefetch(reason = 'auto', options = {}) {
-            const tid = this._getCurrentTid();
-            if (!tid) return;
-            if (this.getRuntimeLink()) return;
-
-            const force = Boolean(options.force);
-            const cooldownMs = Number(options.cooldownMs || 30000);
-            const lastTs = this._prefetchState[tid] || 0;
-            if (!force && Date.now() - lastTs < cooldownMs) return;
-
-            const nativeBtn = this._findNativeDownloadButton();
-            if (!nativeBtn) {
-                GM_log(`[${SCRIPT_NAME}] M-Team 预取跳过: 未找到原生下载按钮 (${reason})`);
-                return;
-            }
-
-            this._prefetchState[tid] = Date.now();
-            GM_log(`[${SCRIPT_NAME}] M-Team 预取开始: ${reason}`);
-
-            this._triggerPrefetchMode(8000);
-            this._startMutationWatcher(reason, 9000);
-            this._dispatchSyntheticClick(nativeBtn);
-
-            [300, 900, 1600, 2600, 4000, 5200].forEach((delay) => {
-                setTimeout(() => {
-                    const perfHit = this._captureFromPerformance(`prefetch+${delay}ms`);
-                    if (perfHit) return;
-                    const late = this.extractDownloadLink();
-                    if (late) this.setRuntimeLink(late, `prefetch-extract+${delay}ms`);
-                }, delay);
-            });
-        },
-
-        async waitForLinkOnDemand(initialLink = '') {
-            this.autoPrefetch('manual-push', { force: true, cooldownMs: 1200 });
-            const immediate = this.extractDownloadLink() || initialLink;
-            if (immediate) return immediate;
-
-            return new Promise((resolve) => {
-                let attempts = 0;
-                const maxAttempts = 24;
-                const intervalMs = 700;
-
-                const cleanup = () => {
-                    clearInterval(timer);
-                    document.removeEventListener('mp-mteam-runtime-link-updated', onRuntimeLink, true);
-                };
-
-                const onRuntimeLink = () => {
-                    const got = this.getRuntimeLink() || this.extractDownloadLink();
-                    if (got) { cleanup(); resolve(got); }
-                };
-                document.addEventListener('mp-mteam-runtime-link-updated', onRuntimeLink, true);
-
-                const timer = setInterval(() => {
-                    attempts++;
-                    if (attempts % 2 === 0) {
-                        this.autoPrefetch('manual-push-retry', { force: true, cooldownMs: 1200 });
-                    }
-                    const got = this.getRuntimeLink() || this.extractDownloadLink();
-                    if (got) { cleanup(); resolve(got); return; }
-                    if (attempts >= maxAttempts) { cleanup(); resolve(''); }
-                }, intervalMs);
-            });
-        },
-
-        pruneCaches() {
-            const now = Date.now();
-            const maxAgeMs = 10 * 60 * 1000;
-            const tid = this._getCurrentTid();
-            Object.keys(this._runtimeLinks).forEach((k) => {
-                if (k === tid) return;
-                if (now - (this._runtimeLinks[k]?.at || 0) > maxAgeMs) delete this._runtimeLinks[k];
-            });
-            Object.keys(this._prefetchState).forEach((k) => {
-                if (k === tid) return;
-                if (now - (this._prefetchState[k] || 0) > maxAgeMs) delete this._prefetchState[k];
-            });
-        }
-    };
 
 
     // ——————————————————————————————————————
@@ -2010,6 +1803,9 @@
     const Core = {
         async handlePage() {
             try {
+                if (Site.adapter?.id === 'm-team') {
+                    return this.renderLazyEntry(Site.adapter);
+                }
                 const torrentInfoList = await Site.getTorrentInfo();
                 if (!torrentInfoList || torrentInfoList.length === 0) {
                     GM_log(`[${SCRIPT_NAME}] Could not extract torrent info.`);
@@ -2027,15 +1823,66 @@
             }
         },
 
+        renderLazyEntry(adapter) {
+            const mount = adapter?.findMount?.();
+            if (!mount?.target) return false;
+            const siteId = Site.adapter?.id || 'm-team';
+            const existing = PTDOM.qs(PTDOM.productRootSelector(siteId)) || PTDOM.qs(PTDOM.productRootSelector(''));
+            const container = existing || document.createElement('div');
+            container.className = container.className || 'mp-row-box pt-helper-root pt-helper-root-mp';
+            if (!container.classList.contains('pt-helper-root')) container.classList.add('pt-helper-root', 'pt-helper-root-mp');
+            Mount.mountRoot(mount, container, { siteId, family: SITE_FAMILIES[siteId] || '', anchorReason: 'lazy-button' });
+            const button = UI.renderActionButton('识别', '待识别', CONSTANTS.COLORS.SECONDARY, 'idle');
+            container.innerHTML = `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">${button}</div>`;
+            const trigger = container.querySelector('.mp-recognize-trigger');
+            if (trigger) {
+                trigger.onclick = async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (adapter.id === 'm-team' && !CONFIG.get('mteamApiKey')) {
+                        trigger.textContent = '识别（需配置 M-Team API Key）';
+                        trigger.setAttribute('data-state', 'error');
+                        trigger.style.backgroundColor = CONSTANTS.COLORS.WARNING;
+                        trigger.style.borderColor = CONSTANTS.COLORS.WARNING;
+                        trigger.title = '请在 MoviePilot 配置中填写 M-Team API Key';
+                        UI.showToast('请先配置 M-Team API Key');
+                        UI.showConfigModal(false);
+                        return;
+                    }
+                    try {
+                        const torrentInfo = await adapter.getInfo();
+                        if (!torrentInfo?.name) throw new Error('未能获取种子信息');
+                        this.startRecognition(container, torrentInfo);
+                    } catch (error) {
+                        trigger.textContent = `识别（${error?.message || '失败'}）`;
+                        trigger.setAttribute('data-state', 'error');
+                        trigger.style.backgroundColor = CONSTANTS.COLORS.WARNING;
+                        trigger.style.borderColor = CONSTANTS.COLORS.WARNING;
+                        UI.showToast(error?.message || '识别失败');
+                    }
+                };
+            }
+            return true;
+        },
+
         _processOneTorrent(torrentInfo) {
             try {
                 const { name, description, downloadLink, size, extra = {} } = torrentInfo;
-                const container = document.createElement('div');
-                container.className = 'mp-row-box';
-                Mount.render(torrentInfo.mount || Mount.prepend(), container);
+                const siteId = Site.adapter?.id || '';
+                const existing = siteId === 'm-team' ? (PTDOM.qs(PTDOM.productRootSelector(siteId)) || PTDOM.qs(PTDOM.productRootSelector(''))) : null;
+                const container = existing || document.createElement('div');
+                container.className = container.className || 'mp-row-box pt-helper-root pt-helper-root-mp';
+                if (!container.classList.contains('pt-helper-root')) container.classList.add('pt-helper-root', 'pt-helper-root-mp');
+                Mount.mountRoot(torrentInfo.mount || Mount.prepend(), container, { siteId, family: SITE_FAMILIES[siteId] || '', anchorReason: torrentInfo.mount?.type || '' });
                 if (container.parentElement?.querySelectorAll?.('.mp-recognize-trigger').length > 1) { container.remove(); return; }
 
-                const torrentData = { name, description, downloadLink, size, _bangumiId: extra.bangumiId || torrentInfo._bangumiId };
+                const torrentData = {
+                    name,
+                    description,
+                    downloadLink,
+                    size,
+                    _bangumiId: extra.bangumiId || torrentInfo._bangumiId
+                };
 
                 // 检查缓存：有则直接渲染成功结果，无则显示手动入口
                 const cached = Cache.get(name);
@@ -2283,9 +2130,16 @@
                 // M-Team 链接获取
                 if (Site.adapter.id === 'm-team') {
                     setStatus("M-Team: 获取下载链接...");
-                    let link = await MTeamLinkCapture.waitForLinkOnDemand(torrentInfo.downloadLink);
-                    if (!link) {
-                        try { link = await API.getMteamDownloadLink(); } catch (e) { GM_log(`[${SCRIPT_NAME}] genDlToken 失败:`, e); }
+                    let link = '';
+                    try {
+                        link = await API.getMteamDownloadLink();
+                    } catch (e) {
+                        GM_log(`[${SCRIPT_NAME}] genDlToken 失败:`, e);
+                        if (/未配置 M-Team API Key/.test(String(e?.message || ''))) {
+                            setStatus("请先配置 M-Team API Key");
+                            setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 3000);
+                            return;
+                        }
                     }
                     if (!link) {
                         setStatus("链接获取失败");
@@ -2647,8 +2501,8 @@
         }
     
         let hasBooted = false;
-        const bootCore = async () => {
-            if (hasBooted) return true;
+        const bootCore = async (options = {}) => {
+            if (hasBooted && !options.force) return true;
             hasBooted = true;
             const ok = await Core.handlePage();
             if (!ok) hasBooted = false;
@@ -2656,51 +2510,41 @@
         };
 
         const installMTeamDynamicBoot = () => {
-            MTeamLinkCapture.init();
-
-            const originOpen = XMLHttpRequest.prototype.open;
-            let executed = false;
-            XMLHttpRequest.prototype.open = function(...args) {
-                const url = args[1];
-                if (typeof url === 'string' && url.includes("/api/torrent/detail")) {
-                    this.addEventListener("readystatechange", function() {
-                        if (this.readyState === 4 && this.status === 200) {
-                            if (executed) return;
-                            try {
-                                const res = JSON.parse(this.responseText);
-                                if (res && res.message === 'SUCCESS') {
-                                    executed = true;
-                                    GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Recognition trigger is ready.`);
-                                    setTimeout(() => {
-                                        bootCore();
-                                        MTeamLinkCapture._installNativeDownloadHook();
-                                    }, 200);
-                                }
-                            } catch (e) {
-                                GM_log(`[${SCRIPT_NAME}] Error parsing M-Team API response.`, e);
-                            }
-                        }
-                    });
-                }
-                originOpen.apply(this, args);
+            let bootedTorrentId = '';
+            let booting = false;
+            let bootTimer = null;
+            const currentTorrentId = () => window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
+            const hasMTeamAnchor = () => Array.from(document.querySelectorAll('label')).some(label => label.textContent.trim() === '字幕');
+            const requestBoot = (delay = 300) => {
+                clearTimeout(bootTimer);
+                bootTimer = setTimeout(tryBoot, delay);
             };
 
             let attempts = 0;
             const tryBoot = async () => {
-                if (!isMTeamDetail() || document.querySelector('.mp-recognize-trigger')) return;
-                Site.init();
-                const ok = Site.adapter ? await bootCore() : false;
-                if (ok) {
-                    MTeamLinkCapture._installNativeDownloadHook();
+                if (!isMTeamDetail()) return;
+                const tid = currentTorrentId();
+                if (!tid || booting || (bootedTorrentId === tid && document.querySelector('.mp-recognize-trigger'))) return;
+                if (!hasMTeamAnchor()) {
+                    if (attempts++ < 30) requestBoot(500);
                     return;
                 }
-                if (attempts++ < 30) setTimeout(tryBoot, 500);
+                booting = true;
+                Site.init();
+                const ok = Site.adapter ? await bootCore({ force: true }) : false;
+                booting = false;
+                if (ok) {
+                    bootedTorrentId = tid;
+                    attempts = 0;
+                    return;
+                }
+                if (attempts++ < 30) requestBoot(500);
             };
-            setTimeout(tryBoot, 300);
+            requestBoot(300);
 
             new MutationObserver(() => {
-                if (!isMTeamDetail() || document.querySelector('.mp-recognize-trigger')) return;
-                setTimeout(tryBoot, 300);
+                if (!isMTeamDetail()) return;
+                requestBoot(300);
             }).observe(document.body, { childList: true, subtree: true });
         };
 

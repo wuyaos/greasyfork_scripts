@@ -19,6 +19,21 @@
 2. 在 Tampermonkey 安装或更新 `Local_Debug_Loader.user.js`。
 3. 保持文件服务器运行，直接用外部编辑器修改 `IYUU_Reseed_Checker.user.js` / `Moviepilot_NameTest.user.js`，刷新目标站页面即可加载最新脚本。
 
+## 开发说明
+
+`IYUU_Reseed_Checker.user.js` 和 `Moviepilot_NameTest.user.js` 是最终可安装脚本。两者共用的页面插入、锚点查找、DOM 安全 wrapper 和 Mount 工具维护在 `src/common/pt-common.js`。
+
+修改公共逻辑后运行：
+
+```bash
+node build/build-userscripts.mjs
+node build/build-userscripts.mjs --check
+node --check IYUU_Reseed_Checker.user.js
+node --check Moviepilot_NameTest.user.js
+```
+
+`build/build-userscripts.mjs` 会将公共源码同步到两个脚本的 `// <pt-common:start>` / `// <pt-common:end>` 区块。
+
 ## 问题
 *   IYUU_Reseed_Checker 下载馒头（M-Team）种子需要在配置页填写 M-Team API Key；未配置时会提示并阻止下载。
 *   AI_WebSummary出现“错误： Failed to fetch”，需要在油猴插件-设置-修改内容安全策略（CSP）头信息 改为“全部移除（可能不安全）”
