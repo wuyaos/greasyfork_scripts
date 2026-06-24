@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.2
+// @version      1.1.3
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @match        https://*/details.php?id=*
@@ -18,7 +18,7 @@
 // @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
 // @match        https://greatposterwall.com/torrents.php?id=*
-// @match        https://monikadesign.uk/torrents/*
+// @include      /^https:\/\/monikadesign\.uk\/torrents\/[0-9]+\/?$/
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -42,6 +42,7 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
+// - 1.1.3: 增强 lazy 详情页注入，恢复缓存/自动查询并限制 Monika 只匹配数字种子详情页。
 // - 1.1.1: 修复 HHClub grid 布局下 UI 插入到底部的问题，并加强查询结果同站去重。
 // - 1.0.9: 补充 HHClub、GPW、HDCity、IPT、BHD、FileList 详情页适配，并修正 M-Team 体积提取。
 // - 1.0.8: 为每个辅种站点详情页写入跨站页面缓存别名；馒头下载改为带 API Key 换取真实下载链接。
@@ -212,8 +213,11 @@
                 .iyuu-check-line input{margin:0}
                 .iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}
                 .iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}
-                .iyuu-secret{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:6px;align-items:center}
-                .iyuu-secret-toggle{padding:0!important;min-width:34px;font-size:14px!important;background:${COLORS.info}!important}
+                .iyuu-secret-field{position:relative;width:100%;min-width:0}
+                .iyuu-secret-field input{padding-right:34px!important}
+                .iyuu-secret-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:24px!important;height:24px!important;min-height:24px!important;padding:0!important;border:0!important;background:transparent!important;color:#677489!important;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border-radius:4px}
+                .iyuu-secret-toggle:hover{background:rgba(39,117,182,.10)!important;color:${COLORS.primary}!important;filter:none!important}
+                .iyuu-secret-toggle svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
                 .iyuu-inline{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
                 .iyuu-body button{height:32px;padding:0 10px;font-size:12px}
                 .iyuu-more{margin:0}
@@ -264,16 +268,27 @@
         },
         avatar(name) { const s = document.createElement('span'); s.className = 'iyuu-avatar'; s.textContent = String(name || '?').trim().slice(0, 1).toUpperCase(); return s; },
         toast(msg) { const t = document.createElement('div'); t.className = 'iyuu-toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); },
+        eyeIcon(hidden = true) {
+            return hidden
+                ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.5 9.2-5.5S21.2 12 21.2 12s-3.2 5.5-9.2 5.5S2.8 12 2.8 12Z"/><circle cx="12" cy="12" r="2.4"/></svg>'
+                : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.8 12s3.2-5.5 9.2-5.5c1.7 0 3.2.45 4.45 1.1M21.2 12s-3.2 5.5-9.2 5.5c-1.65 0-3.1-.4-4.3-1.05M4.5 4.5l15 15"/><path d="M9.9 9.9a2.4 2.4 0 0 0 3.2 3.2"/></svg>';
+        },
+        secretInput(id, attrs = '') {
+            return `<div class="iyuu-secret-field"><input id="${id}" type="password" autocomplete="off"${attrs}><button type="button" class="iyuu-secret-toggle" data-target="${id}" aria-label="显示密钥" title="显示密钥">${this.eyeIcon(true)}</button></div>`;
+        },
         bindSecretToggles(modal) {
             modal.querySelectorAll('.iyuu-secret-toggle').forEach(btn => {
-                const input = modal.querySelector(btn.dataset.target || '');
+                const input = document.getElementById(btn.dataset.target || '');
                 if (!input) return;
                 btn.onclick = e => {
                     e.preventDefault();
+                    e.stopPropagation();
                     const visible = input.type === 'text';
                     input.type = visible ? 'password' : 'text';
-                    btn.textContent = visible ? '◉' : '◎';
-                    btn.title = visible ? '显示' : '隐藏';
+                    btn.dataset.visible = visible ? '0' : '1';
+                    btn.setAttribute('aria-label', visible ? '显示密钥' : '隐藏密钥');
+                    btn.title = visible ? '显示密钥' : '隐藏密钥';
+                    btn.innerHTML = this.eyeIcon(visible);
                 };
             });
         },
@@ -282,7 +297,7 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label><div class="iyuu-secret"><input id="iyuuToken" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuToken" title="显示">◉</button></div></div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label><div class="iyuu-secret"><input id="iyuuMteamKey" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMteamKey" title="显示">◉</button></div></div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label><div class="iyuu-secret"><input id="iyuuMpPass" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMpPass" title="显示">◉</button></div></div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label><div class="iyuu-secret"><input id="iyuuMpApiKey" type="password" autocomplete="off"><button class="iyuu-secret-toggle" data-target="#iyuuMpApiKey" title="显示">◉</button></div></div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label>${this.secretInput('iyuuToken')}</div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label>${this.secretInput('iyuuMteamKey')}</div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label>${this.secretInput('iyuuMpPass')}</div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label>${this.secretInput('iyuuMpApiKey')}</div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             this.bindSecretToggles(modal);
             modal.querySelector('#iyuuToken').value = Config.token;
@@ -597,6 +612,30 @@
             return Mount.tableRowAfter(row, label);
         }
 
+        const AdapterRuntime = {
+            withMount(findMount, getInfo) {
+                return {
+                    findMount,
+                    getInfo: mount => getInfo(mount || findMount())
+                };
+            },
+            siteId(adapter = {}) {
+                return adapter.id || '';
+            },
+            family(adapter = {}) {
+                const siteId = this.siteId(adapter);
+                return adapter.family || SITE_FAMILIES[siteId] || '';
+            },
+            mountRoot(adapter, mount, contentNode, anchorReason = 'lazy-button') {
+                const siteId = this.siteId(adapter);
+                return Mount.mountRoot(mount, contentNode, {
+                    siteId,
+                    family: this.family(adapter),
+                    anchorReason
+                });
+            }
+        };
+
         const AutoFeedAnchors = {
             actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
             nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
@@ -832,11 +871,11 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors };
+        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime };
     };
     // <pt-common:end>
 
-    const { DOM: PTDOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors } = createPTCommon({
+    const { DOM: PTDOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime } = createPTCommon({
         defaultLabel: 'IYUU',
         productId: 'iyuu',
         gridLabelClass: 'iyuu-grid-label',
@@ -1253,11 +1292,93 @@
     const isMTeamDetail = () => isMTeamHost() && location.pathname.startsWith('/detail/');
 
     const ADAPTERS = [
-        { id: 'totheglory', matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'), getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const sizeRow = firstOf(rows, r => /尺寸|大小/.test(r.textContent)); const row = rows[1]?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount: row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend() }); } },
-        { id: 'hdsky', matches: () => location.hostname === 'hdsky.me' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead')]; const nameRow = rows[0], dlRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const row = dlRow?.parentElement || nameRow?.parentElement; return Helpers.info({ id: 'hdsky', name: nameRow?.parentElement?.querySelector('.rowfollow input[type="submit"]')?.value?.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '', description: descRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', downloadLink: dlRow?.parentElement?.querySelector('.rowfollow a')?.href || '', sizeText: sizeRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', mount: row ? tableMount('hdsky', row, 'IYUU') : Mount.prepend() }); } },
-        { id: 'sjtu', matches: () => location.hostname === 'pt.sjtu.edu.cn' && location.pathname === '/details.php', getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3]; const nameLink = nameRow?.nextElementSibling?.querySelector('a'); const row = nameRow?.parentElement; return Helpers.info({ id: 'sjtu', name: nameLink?.textContent?.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '', description: descRow?.nextElementSibling?.textContent || '', downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.textContent || '', mount: row ? tableMount('sjtu', row, 'IYUU') : Mount.prepend() }); } },
-        { id: 'bangumi', matches: () => location.hostname === 'bangumi.moe', getInfo: () => { const modal = document.querySelector('.torrent-details-content'); const root = modal || document; const title = root.querySelector('a.title-link b, a[href*="/torrent/"]')?.textContent?.trim() || document.title.split(/[-|_]/)[0].trim(); const link = root.querySelector('a[href^="magnet:"]')?.href || ''; const bangumiId = root.querySelector('a[href*="/torrent/"]')?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || location.pathname.match(/\/torrent\/([a-f0-9]+)/i)?.[1]; const info = Helpers.info({ id: 'bangumi', name: title, description: title, downloadLink: link, sizeText: root.textContent, mount: Mount.afterNode(root.querySelector('.torrent-info,.torrent-title') || document.body), extra: { bangumiId } }); if (info) info._bangumiId = bangumiId; return info; } },
-        { id: 'mikanani', matches: () => location.hostname === 'mikanani.me' && location.pathname.includes('/Home/Episode/'), getInfo: () => { const raw = Helpers.text('.episode-title, h1, h2, .an-text') || document.title; const name = raw.replace(/\s*\[\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB)\]\s*$/i, '').trim(); return Helpers.info({ id: 'mikanani', name, description: Helpers.text('.episode-desc,.bangumi-desc,.content,.panel-body') || name, downloadLink: Helpers.findDownload(['a[href^="magnet:"]', 'a[href*="/Download/"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']), sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.episode-title, h1, h2, .an-text') || document.body) }); } },
+        {
+            id: 'totheglory',
+            matches: () => location.hostname === 'totheglory.im' && location.pathname.startsWith('/t/'),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const nameRow = rows[0];
+                    const row = rows[1]?.parentElement || nameRow?.parentElement;
+                    return row ? tableMount('totheglory', row, 'IYUU') : Mount.prepend();
+                },
+                mount => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const nameRow = rows[0];
+                    const nameLink = nameRow?.nextElementSibling?.querySelector('a');
+                    const sizeRow = firstOf(rows, r => /尺寸|大小/.test(r.textContent));
+                    return Helpers.info({ id: 'totheglory', name: nameLink?.textContent?.replace(/^\[TTG\]\s*|\s*\.torrent$/g, '') || document.title, description: Helpers.text('h1'), downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.innerText || '', mount });
+                }
+            )
+        },
+        {
+            id: 'hdsky',
+            matches: () => location.hostname === 'hdsky.me' && location.pathname === '/details.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const rows = [...document.querySelectorAll('.rowhead')];
+                    const row = rows[1]?.parentElement || rows[0]?.parentElement;
+                    return row ? tableMount('hdsky', row, 'IYUU') : Mount.prepend();
+                },
+                mount => {
+                    const rows = [...document.querySelectorAll('.rowhead')];
+                    const nameRow = rows[0], dlRow = rows[1], descRow = rows[2], sizeRow = rows[3];
+                    return Helpers.info({ id: 'hdsky', name: nameRow?.parentElement?.querySelector('.rowfollow input[type="submit"]')?.value?.replace(/^\[HDSky\]\s*|\s*\.torrent$/g, '') || '', description: descRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', downloadLink: dlRow?.parentElement?.querySelector('.rowfollow a')?.href || '', sizeText: sizeRow?.parentElement?.querySelector('.rowfollow')?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'sjtu',
+            matches: () => location.hostname === 'pt.sjtu.edu.cn' && location.pathname === '/details.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const row = rows[1]?.parentElement;
+                    return row ? tableMount('sjtu', row, 'IYUU') : Mount.prepend();
+                },
+                mount => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const nameRow = rows[1], descRow = rows[2], sizeRow = rows[3];
+                    const nameLink = nameRow?.nextElementSibling?.querySelector('a');
+                    return Helpers.info({ id: 'sjtu', name: nameLink?.textContent?.replace(/^\[PT\]\.\s*|\s*\.torrent$/g, '') || '', description: descRow?.nextElementSibling?.textContent || '', downloadLink: nameLink?.href || '', sizeText: sizeRow?.nextElementSibling?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'bangumi',
+            matches: () => location.hostname === 'bangumi.moe',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const modal = document.querySelector('.torrent-details-content');
+                    const root = modal || document;
+                    const isDetail = /^\/torrent\/[a-f0-9]+$/i.test(location.pathname) || modal;
+                    if (!isDetail) return null;
+                    return Mount.afterNode(root.querySelector('.torrent-info,.torrent-title') || document.body);
+                },
+                mount => {
+                    const modal = document.querySelector('.torrent-details-content');
+                    const root = modal || document;
+                    const title = root.querySelector('a.title-link b, a[href*="/torrent/"]')?.textContent?.trim() || document.title.split(/[-|_]/)[0].trim();
+                    const link = root.querySelector('a[href^="magnet:"]')?.href || '';
+                    const bangumiId = root.querySelector('a[href*="/torrent/"]')?.href?.match(/\/torrent\/([a-f0-9]+)/i)?.[1] || location.pathname.match(/\/torrent\/([a-f0-9]+)/i)?.[1];
+                    const info = Helpers.info({ id: 'bangumi', name: title, description: title, downloadLink: link, sizeText: root.textContent, mount, extra: { bangumiId } });
+                    if (info) info._bangumiId = bangumiId;
+                    return info;
+                }
+            )
+        },
+        {
+            id: 'mikanani',
+            matches: () => location.hostname === 'mikanani.me' && location.pathname.includes('/Home/Episode/'),
+            ...AdapterRuntime.withMount(
+                () => Mount.afterNode(document.querySelector('.episode-title, h1, h2, .an-text') || document.body),
+                mount => {
+                    const raw = Helpers.text('.episode-title, h1, h2, .an-text') || document.title;
+                    const name = raw.replace(/\s*\[\d+(?:\.\d+)?\s*(?:GB|MB|GiB|MiB)\]\s*$/i, '').trim();
+                    return Helpers.info({ id: 'mikanani', name, description: Helpers.text('.episode-desc,.bangumi-desc,.content,.panel-body') || name, downloadLink: Helpers.findDownload(['a[href^="magnet:"]', 'a[href*="/Download/"]', 'a[href*="/download/"]', 'a[href*=".torrent"]']), sizeText: document.body.innerText, mount });
+                }
+            )
+        },
         {
             id: 'm-team',
             matches: () => /m-team\.(cc|io|vip)\/detail\//.test(location.href),
@@ -1271,27 +1392,231 @@
                 return { id: 'm-team', name, description: name, downloadLink: '', size: 0, extra: { mteamTid: tid } };
             }
         },
-        { id: 'hdcity', matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname), getInfo: () => { const blocks = [...document.querySelectorAll('.blocktitle')]; const info = firstOf(blocks, b => b.textContent.includes('基本信息')); const op = firstOf(blocks, b => b.textContent.includes('种子操作')); return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount: Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body) }); } },
-        { id: 'monikadesign', matches: () => location.hostname === 'monikadesign.uk' && location.pathname.startsWith('/torrents/'), getInfo: () => { const title = document.querySelector('h1.text-center'); const sub = document.querySelector('h2.text-center'); const dl = document.querySelector('a.down[href*="/download/"]'); const row = AutoFeedAnchors.monikaNameRow(); return Helpers.info({ id: 'monikadesign', name: title?.textContent || document.title, description: sub?.textContent || '', downloadLink: dl?.href || '', sizeText: document.querySelector('.torrent-size td:nth-child(2)')?.textContent || '', mount: row ? tableMount('monikadesign', row, 'IYUU') : Mount.prepend() }); } },
-        { id: 'beyond-hd', matches: () => location.hostname === 'beyond-hd.me' && location.pathname.startsWith('/torrents/'), getInfo: () => { const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]'); const row = AutoFeedAnchors.bhdNameRow(); const target = row || document.querySelector('table.table-details') || dl?.closest('.text-center') || dl?.parentElement || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body; return Helpers.info({ id: 'beyond-hd', name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(), description: Helpers.text('.panel-body'), downloadLink: dl?.href || '', sizeText: Helpers.text('.panel-body'), mount: row ? tableMount('beyond-hd', row, 'IYUU') : Mount.afterNode(target) }); } },
-        { id: 'eiga', matches: () => location.hostname === 'eiga.moi' && location.pathname.startsWith('/torrents/'), getInfo: () => { const dl = document.querySelector('a[href*="/torrents/download/"]'); const holder = AutoFeedAnchors.unit3dActionHolder('iyuu', 'IYUU', document.querySelector('menu.torrent__buttons') || document.querySelector('article')); return Helpers.info({ id: 'eiga', name: Helpers.text('h1.meta__title') || document.title.replace(/\s+-\s+Torrents.*/i, '').trim(), description: Helpers.text('.meta__description,.bbcode-rendered'), downloadLink: dl?.href || '', sizeText: document.body.innerText, mount: holder ? Mount.append(holder) : Mount.afterNode(document.querySelector('menu.torrent__buttons') || document.body) }); } },
-        { id: 'hd-space', matches: () => location.hostname === 'hd-space.org' && location.search.includes('page=torrent-details'), getInfo: () => { const row = AutoFeedAnchors.hdSpaceTorrentRow() || AutoFeedAnchors.hdSpaceInfoHashRow(); const dl = document.querySelector('a[href*="download.php"]'); const nameRow = AutoFeedAnchors.rowAfterName(document.querySelector('#mcol')); return Helpers.info({ id: 'hd-space', name: nameRow?.cells?.[1]?.textContent?.trim() || document.title, description: document.body.innerText, downloadLink: dl?.href || '', sizeText: document.body.innerText, mount: row ? tableMount('hd-space', row, 'IYUU') : Mount.afterNode(document.querySelector('#mcol') || document.body) }); } },
-        { id: 'iptorrents', matches: () => location.hostname === 'iptorrents.com' && location.pathname === '/torrent.php', getInfo: () => { const id = new URLSearchParams(location.search).get('id') || ''; const dl = firstOf(document.querySelectorAll('a[href*="download.php"]'), a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]'); const row = AutoFeedAnchors.iptMovieInfoRow(); const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body; return Helpers.info({ id: 'iptorrents', name: Helpers.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('iptorrents', row, 'IYUU') : Mount.afterNode(target) }); } },
-        { id: 'filelist', matches: () => location.hostname === 'filelist.io' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const target = AutoFeedAnchors.fileListAnchor('iyuu', 'IYUU') || row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body; return Helpers.info({ id: 'filelist', name: Helpers.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(), description: document.title.split(' :: ')[0].trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: Mount.append(target) }); } },
-        { id: 'hudbt', matches: () => location.hostname === 'hudbt.hust.edu.cn' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const table = document.querySelector('#outer dl.table'); const dts = [...document.querySelectorAll('#outer dl.table > dt')]; const byLabel = label => firstOf(dts, dt => dt.textContent.includes(label))?.nextElementSibling; const title = Helpers.text('#page-title') || Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title; const sub = byLabel('副标题')?.textContent || ''; const info = byLabel('基本信息')?.textContent || ''; const intro = byLabel('简介')?.textContent || ''; const target = byLabel('下载') || dl?.parentElement || table; return Helpers.info({ id: 'hudbt', name: title, description: sub || intro || title, downloadLink: dl?.href || '', sizeText: info || document.body.innerText, mount: target ? Mount.definitionAfter(target) : Mount.prepend() }); } },
-        { id: 'greatposterwall', matches: () => location.hostname === 'greatposterwall.com' && location.pathname === '/torrents.php' && new URLSearchParams(location.search).get('torrentid'), getInfo: () => { const tid = new URLSearchParams(location.search).get('torrentid'); const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`); const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr'); return Helpers.info({ id: 'greatposterwall', name: document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim(), description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount: row ? Mount.tableColspanAfter(row, 'IYUU') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body) }); } },
-        { id: 'hhclub', matches: () => location.hostname === 'hhanclub.net' && location.pathname === '/details.php', getInfo: () => { const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]'); const row = dl?.closest('tr'); const grid = dl?.closest('.grid'); const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? firstOf(grid.children, el => el.contains(dl)) : null); const target = row || gridCell || dl?.parentElement || dl || document.body; return Helpers.info({ id: 'hhclub', name: Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title, description: document.title, downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount: row ? tableMount('hhclub', row, 'IYUU') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target)) }); } },
-        { id: 'nyaa', matches: () => location.hostname === 'nyaa.si', getInfo: () => Helpers.info({ id: 'nyaa', name: Helpers.text('h3.panel-title') || document.title.replace(/::.*$/, '').trim(), description: Helpers.text('#torrent-description') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*="/download/"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
-        { id: 'acg-rip', matches: () => location.hostname === 'acg.rip', getInfo: () => Helpers.info({ id: 'acg-rip', name: Helpers.text('.panel-heading') || document.title.replace(/-\s*ACG\.RIP.*/i, '').trim(), description: Helpers.text('.panel-body.post-content') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*=".torrent"]')?.href || '', sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.panel-heading') || document.body) }) },
-        { id: 'comicat-kisssub', matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(location.hostname), getInfo: () => { const hash = location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || ''; const title = document.title.replace(/\s*-\s*.*/, '').trim(); return Helpers.info({ id: 'comicat-kisssub', name: title, description: Helpers.text('.intro,.entry-content,.content,.description,.panel-body,article') || title, downloadLink: document.querySelector('a[href^="magnet:"]')?.href || (hash ? `magnet:?xt=urn:btih:${hash}` : ''), sizeText: document.body.innerText, mount: Mount.afterNode(document.querySelector('.intro,.basic_info') || document.body) }); } },
-        { id: 'generic', matches: () => true, getInfo: () => { const rows = [...document.querySelectorAll('.rowhead,.heading')]; const nameRow = rows[0]; const nameLink = nameRow?.nextElementSibling?.querySelector('a') || document.querySelector('a[href^="magnet:"],a[href*="download"],a[href*=".torrent"]'); const row = AutoFeedAnchors.domesticActionRow() || nameRow?.parentElement; return Helpers.info({ id: 'generic', name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', sizeText: document.body.innerText, mount: row ? tableMount('generic', row, 'IYUU') : Mount.prepend() }); } }
+        {
+            id: 'hdcity',
+            matches: () => location.hostname === 'hdcity.city' && /^\/t-/.test(location.pathname),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const blocks = [...document.querySelectorAll('.blocktitle')];
+                    const info = firstOf(blocks, b => b.textContent.includes('基本信息'));
+                    const op = firstOf(blocks, b => b.textContent.includes('种子操作'));
+                    return Mount.blockAfter(document.querySelector('div.block') || op?.parentElement || info?.parentElement || document.body);
+                },
+                mount => {
+                    const blocks = [...document.querySelectorAll('.blocktitle')];
+                    const info = firstOf(blocks, b => b.textContent.includes('基本信息'));
+                    const op = firstOf(blocks, b => b.textContent.includes('种子操作'));
+                    return Helpers.info({ id: 'hdcity', name: Helpers.text('.blocktitle') || document.title, description: op?.parentElement?.querySelector('.blockcontent')?.textContent || '', downloadLink: document.querySelector('input[title="DirectLink"]')?.value || document.querySelector('a[href*="download?id="]')?.href || '', sizeText: info?.nextElementSibling?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'monikadesign',
+            matches: () => location.hostname === 'monikadesign.uk' && /^\/torrents\/\d+\/?$/.test(location.pathname),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const row = AutoFeedAnchors.monikaNameRow();
+                    return row ? tableMount('monikadesign', row, 'IYUU') : Mount.prepend();
+                },
+                mount => {
+                    const title = document.querySelector('h1.text-center');
+                    const sub = document.querySelector('h2.text-center');
+                    const dl = document.querySelector('a.down[href*="/download/"]');
+                    return Helpers.info({ id: 'monikadesign', name: title?.textContent || document.title, description: sub?.textContent || '', downloadLink: dl?.href || '', sizeText: document.querySelector('.torrent-size td:nth-child(2)')?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'beyond-hd',
+            matches: () => location.hostname === 'beyond-hd.me' && location.pathname.startsWith('/torrents/'),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]');
+                    const row = AutoFeedAnchors.bhdNameRow();
+                    const target = row || document.querySelector('table.table-details') || dl?.closest('.text-center') || dl?.parentElement || document.querySelector('.panel-title')?.closest('.panel') || document.querySelector('h1') || document.body;
+                    return row ? tableMount('beyond-hd', row, 'IYUU') : Mount.afterNode(target);
+                },
+                mount => {
+                    const dl = document.querySelector('a.bhd-fl-button[href*="/download/"]');
+                    return Helpers.info({ id: 'beyond-hd', name: document.title.replace(/\s*\|\s*Torrents\s*\|\s*BeyondHD.*/i, '').trim(), description: Helpers.text('.panel-body'), downloadLink: dl?.href || '', sizeText: Helpers.text('.panel-body'), mount });
+                }
+            )
+        },
+        {
+            id: 'eiga',
+            matches: () => location.hostname === 'eiga.moi' && location.pathname.startsWith('/torrents/'),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const holder = AutoFeedAnchors.unit3dActionHolder('iyuu', 'IYUU', document.querySelector('menu.torrent__buttons') || document.querySelector('article'));
+                    return holder ? Mount.append(holder) : Mount.afterNode(document.querySelector('menu.torrent__buttons') || document.querySelector('article') || document.body);
+                },
+                mount => {
+                    const dl = document.querySelector('a[href*="/torrents/download/"]');
+                    return Helpers.info({ id: 'eiga', name: Helpers.text('h1.meta__title') || document.title.replace(/\s+-\s+Torrents.*/i, '').trim(), description: Helpers.text('.meta__description,.bbcode-rendered'), downloadLink: dl?.href || '', sizeText: document.body.innerText, mount });
+                }
+            )
+        },
+        {
+            id: 'hd-space',
+            matches: () => location.hostname === 'hd-space.org' && location.search.includes('page=torrent-details'),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const row = AutoFeedAnchors.hdSpaceTorrentRow() || AutoFeedAnchors.hdSpaceInfoHashRow();
+                    return row ? tableMount('hd-space', row, 'IYUU') : Mount.afterNode(document.querySelector('#mcol') || document.body);
+                },
+                mount => {
+                    const dl = document.querySelector('a[href*="download.php"]');
+                    const nameRow = AutoFeedAnchors.rowAfterName(document.querySelector('#mcol'));
+                    return Helpers.info({ id: 'hd-space', name: nameRow?.cells?.[1]?.textContent?.trim() || document.title, description: document.body.innerText, downloadLink: dl?.href || '', sizeText: document.body.innerText, mount });
+                }
+            )
+        },
+        {
+            id: 'iptorrents',
+            matches: () => location.hostname === 'iptorrents.com' && location.pathname === '/torrent.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const row = AutoFeedAnchors.iptMovieInfoRow();
+                    return row ? tableMount('iptorrents', row, 'IYUU') : Mount.afterNode(document.querySelector('h2') || document.body);
+                },
+                mount => {
+                    const id = new URLSearchParams(location.search).get('id') || '';
+                    const dl = firstOf(document.querySelectorAll('a[href*="download.php"]'), a => a.href.includes(`/${id}/`) || a.href.includes(`id=${id}`)) || document.querySelector('a[href*="download.php"][href$=".torrent"]');
+                    const row = AutoFeedAnchors.iptMovieInfoRow();
+                    const target = row || dl?.closest('.info,.dBox') || dl?.parentElement || dl || document.querySelector('h2') || document.body;
+                    return Helpers.info({ id: 'iptorrents', name: Helpers.text('h2') || document.title.replace(/\s*-\s*IPTorrents.*/i, '').trim(), downloadLink: dl?.href || '', sizeText: target?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'filelist',
+            matches: () => location.hostname === 'filelist.io' && location.pathname === '/details.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    const row = dl?.closest('tr');
+                    const target = AutoFeedAnchors.fileListAnchor('iyuu', 'IYUU') || row || dl?.closest('.cblock-innercontent') || dl?.parentElement || dl || document.querySelector('.cblock-content,.cblock,#maincolumn,#container,table') || document.body;
+                    return Mount.append(target);
+                },
+                mount => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    return Helpers.info({ id: 'filelist', name: Helpers.titleFromDownload(dl) || document.title.split(' :: ')[0].trim(), description: document.title.split(' :: ')[0].trim(), downloadLink: dl?.href || '', sizeText: mount?.target?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'hudbt',
+            matches: () => location.hostname === 'hudbt.hust.edu.cn' && location.pathname === '/details.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    const table = document.querySelector('#outer dl.table');
+                    const dts = [...document.querySelectorAll('#outer dl.table > dt')];
+                    const byLabel = label => firstOf(dts, dt => dt.textContent.includes(label))?.nextElementSibling;
+                    const target = byLabel('下载') || dl?.parentElement || table;
+                    return target ? Mount.definitionAfter(target) : Mount.prepend();
+                },
+                mount => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    const dts = [...document.querySelectorAll('#outer dl.table > dt')];
+                    const byLabel = label => firstOf(dts, dt => dt.textContent.includes(label))?.nextElementSibling;
+                    const title = Helpers.text('#page-title') || Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title;
+                    const sub = byLabel('副标题')?.textContent || '';
+                    const info = byLabel('基本信息')?.textContent || '';
+                    const intro = byLabel('简介')?.textContent || '';
+                    return Helpers.info({ id: 'hudbt', name: title, description: sub || intro || title, downloadLink: dl?.href || '', sizeText: info || document.body.innerText, mount });
+                }
+            )
+        },
+        {
+            id: 'greatposterwall',
+            matches: () => location.hostname === 'greatposterwall.com' && location.pathname === '/torrents.php' && new URLSearchParams(location.search).get('torrentid'),
+            ...AdapterRuntime.withMount(
+                () => {
+                    const tid = new URLSearchParams(location.search).get('torrentid');
+                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr');
+                    return row ? Mount.tableColspanAfter(row, 'IYUU') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body);
+                },
+                mount => {
+                    const tid = new URLSearchParams(location.search).get('torrentid');
+                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr');
+                    return Helpers.info({ id: 'greatposterwall', name: document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim(), description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'hhclub',
+            matches: () => location.hostname === 'hhanclub.net' && location.pathname === '/details.php',
+            ...AdapterRuntime.withMount(
+                () => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    const row = dl?.closest('tr');
+                    const grid = dl?.closest('.grid');
+                    const gridCell = AutoFeedAnchors.hhclubSubtitleValue() || (grid ? firstOf(grid.children, el => el.contains(dl)) : null);
+                    const target = row || gridCell || dl?.parentElement || dl || document.body;
+                    return row ? tableMount('hhclub', row, 'IYUU') : (gridCell ? Mount.gridPairAfter(gridCell) : Mount.afterNode(target));
+                },
+                mount => {
+                    const dl = document.querySelector('a.index[href*="download.php?id="]') || document.querySelector('a[href*="download.php?id="]');
+                    return Helpers.info({ id: 'hhclub', name: Helpers.titleFromDownload(dl) || document.title.match(/"([^"]+)"/)?.[1] || document.title, description: document.title, downloadLink: dl?.href || '', sizeText: mount?.target?.textContent || '', mount });
+                }
+            )
+        },
+        {
+            id: 'nyaa',
+            matches: () => location.hostname === 'nyaa.si',
+            ...AdapterRuntime.withMount(
+                () => /^\/view\/\d+$/.test(location.pathname) ? Mount.afterNode(document.querySelector('.panel-heading') || document.body) : null,
+                mount => Helpers.info({ id: 'nyaa', name: Helpers.text('h3.panel-title') || document.title.replace(/::.*$/, '').trim(), description: Helpers.text('#torrent-description') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*="/download/"]')?.href || '', sizeText: document.body.innerText, mount })
+            )
+        },
+        {
+            id: 'acg-rip',
+            matches: () => location.hostname === 'acg.rip',
+            ...AdapterRuntime.withMount(
+                () => /^\/t\/\d+$/.test(location.pathname) ? Mount.afterNode(document.querySelector('.panel-heading') || document.body) : null,
+                mount => Helpers.info({ id: 'acg-rip', name: Helpers.text('.panel-heading') || document.title.replace(/-\s*ACG\.RIP.*/i, '').trim(), description: Helpers.text('.panel-body.post-content') || document.title, downloadLink: document.querySelector('a[href^="magnet:"],a[href*=".torrent"]')?.href || '', sizeText: document.body.innerText, mount })
+            )
+        },
+        {
+            id: 'comicat-kisssub',
+            matches: () => /(^|\.)(comicat|kisssub)\.org$/i.test(location.hostname),
+            ...AdapterRuntime.withMount(
+                () => /\/show-[a-f0-9]{40}\.html$/i.test(location.pathname) ? Mount.afterNode(document.querySelector('.intro,.basic_info') || document.body) : null,
+                mount => {
+                    const hash = location.pathname.match(/show-([a-f0-9]{40})\.html/i)?.[1] || '';
+                    const title = document.title.replace(/\s*-\s*.*/, '').trim();
+                    return Helpers.info({ id: 'comicat-kisssub', name: title, description: Helpers.text('.intro,.entry-content,.content,.description,.panel-body,article') || title, downloadLink: document.querySelector('a[href^="magnet:"]')?.href || (hash ? `magnet:?xt=urn:btih:${hash}` : ''), sizeText: document.body.innerText, mount });
+                }
+            )
+        },
+        {
+            id: 'generic',
+            matches: () => true,
+            ...AdapterRuntime.withMount(
+                () => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const nameRow = rows[0];
+                    const row = AutoFeedAnchors.domesticActionRow() || nameRow?.parentElement;
+                    return row ? tableMount('generic', row, 'IYUU') : Mount.prepend();
+                },
+                mount => {
+                    const rows = [...document.querySelectorAll('.rowhead,.heading')];
+                    const nameRow = rows[0];
+                    const nameLink = nameRow?.nextElementSibling?.querySelector('a') || document.querySelector('a[href^="magnet:"],a[href*="download"],a[href*=".torrent"]');
+                    return Helpers.info({ id: 'generic', name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', sizeText: document.body.innerText, mount });
+                }
+            )
+        }
     ];
 
     const Core = {
         adapter: null,
         async init() {
             this.adapter = firstOf(ADAPTERS, a => a.matches());
-            if (this.adapter?.id === 'm-team') return this.injectLazy(this.adapter);
+            if (this.adapter?.findMount) return this.injectLazy(this.adapter);
             const info = await this.adapter?.getInfo();
             if (info?.name) return this.inject(info);
             return false;
@@ -1303,17 +1628,31 @@
         injectLazy(adapter) {
             const mount = adapter?.findMount?.();
             if (!mount?.target) return false;
-            const siteId = adapter.id || '';
+            const siteId = AdapterRuntime.siteId(adapter);
             const existing = PTDOM.qs(PTDOM.productRootSelector(siteId)) || PTDOM.qs(PTDOM.productRootSelector(''));
             const box = existing || document.createElement('div');
             box.className = box.className || 'iyuu-row-box pt-helper-root pt-helper-root-iyuu';
             if (!box.classList.contains('pt-helper-root')) box.classList.add('pt-helper-root', 'pt-helper-root-iyuu');
-            Mount.mountRoot(mount, box, { siteId, family: SITE_FAMILIES[siteId] || '', anchorReason: 'lazy-button' });
+            AdapterRuntime.mountRoot(adapter, mount, box, 'lazy-button');
             let btn = box.querySelector('.iyuu-check-btn');
             if (!btn) {
                 btn = document.createElement('button');
                 btn.className = 'iyuu-btn iyuu-check-btn';
                 box.replaceChildren(btn);
+            }
+            if (!box.querySelector('.iyuu-multi-toggle')) {
+                const multi = document.createElement('label');
+                multi.className = 'iyuu-chip iyuu-site-choice';
+                const multiInput = document.createElement('input');
+                multiInput.type = 'checkbox';
+                multiInput.className = 'iyuu-multi-toggle';
+                multi.append(multiInput, document.createTextNode('多选'));
+                multiInput.onchange = e => {
+                    e.stopPropagation();
+                    box.querySelectorAll('.iyuu-result').forEach(n => n.remove());
+                    if (box._iyuuResult && box._iyuuLastInfo) this.render(box, btn, box._iyuuResult, box._iyuuLastInfo, box._iyuuCached);
+                };
+                box.appendChild(multi);
             }
             this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」');
             btn.onclick = async e => {
@@ -1325,31 +1664,49 @@
                     UI.showConfig();
                     return;
                 }
-                const info = await adapter.getInfo();
-                if (!info?.name) {
-                    this.setQueryButton(btn, '失败', '未能获取种子信息');
-                    UI.toast('未能获取种子信息');
-                    return;
+                try {
+                    const info = await adapter.getInfo(mount);
+                    if (!info?.name) {
+                        this.setQueryButton(btn, '失败', '未能获取种子信息');
+                        UI.toast('未能获取种子信息');
+                        return;
+                    }
+                    box._iyuuLastInfo = { ...info, mount };
+                    await this.check(box, btn, box._iyuuLastInfo);
+                } catch (e) {
+                    const message = e?.message || '查询失败';
+                    this.setQueryButton(btn, '失败', message);
+                    UI.toast(`查询失败：${message}`);
                 }
-                await this.check(box, btn, { ...info, mount });
             };
+            this.restoreLazy(box, btn, adapter, mount);
             return true;
+        },
+        async restoreLazy(box, btn, adapter, mount) {
+            try {
+                const info = await adapter.getInfo(mount);
+                if (!info?.name) return;
+                box._iyuuLastInfo = { ...info, mount };
+                await this.restore(box, btn, box._iyuuLastInfo, adapter.id === 'm-team' ? false : Config.autoQuery);
+            } catch (e) {
+                log('lazy restore skipped', e?.message || e);
+            }
         },
         inject(info) {
             const existing = PTDOM.qs(PTDOM.productRootSelector(info.id || '')) || PTDOM.qs(PTDOM.productRootSelector(''));
             if (existing) {
-                Mount.mountRoot(info.mount, existing, { siteId: info.id || '', family: SITE_FAMILIES[info.id] || '', anchorReason: info.mount?.type || '' });
+                AdapterRuntime.mountRoot({ id: info.id || '' }, info.mount, existing, info.mount?.type || '');
                 return true;
             }
             const box = document.createElement('div'); box.className = 'iyuu-row-box pt-helper-root pt-helper-root-iyuu';
             const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」'); btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
-            box.append(btn, multi); Mount.mountRoot(info.mount, box, { siteId: info.id || '', family: SITE_FAMILIES[info.id] || '', anchorReason: info.mount?.type || '' });
+            box.append(btn, multi); AdapterRuntime.mountRoot({ id: info.id || '' }, info.mount, box, info.mount?.type || '');
             this.restore(box, btn, info, Config.autoQuery);
             return true;
         },
-        async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (_) {} },
+        async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (e) { log('restore skipped', e?.message || e); } },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
         download(url) {
             if (!url) { UI.toast('未找到下载链接'); return; }

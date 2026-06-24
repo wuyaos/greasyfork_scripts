@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Local Debug Loader
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.2.1
+// @version      0.2.2
 // @description  通过本地 HTTP 文件服务器动态加载仓库里的 IYUU 与 MoviePilot 脚本，方便外部编辑器实时调试。
 // @author       wuya
 // @match        https://*/details.php?id=*
@@ -28,7 +28,7 @@
 // @match        https://hd-space.org/index.php?page=torrent-details*
 // @match        https://beyond-hd.me/torrents/*
 // @match        https://filelist.io/details.php?id=*
-// @match        https://monikadesign.uk/torrents/*
+// @include      /^https:\/\/monikadesign\.uk\/torrents\/[0-9]+\/?$/
 // @match        https://acg.rip/*
 // @match        https://nyaa.si/*
 // @match        https://*.kisssub.org/*
@@ -65,6 +65,8 @@
 // input: 本地调试 HTTP 服务 http://127.0.0.1:8787 与当前 PT/BT 详情页。
 // output: 动态拉取并执行仓库内 IYUU / MoviePilot 用户脚本，避免 Tampermonkey @require 缓存。
 // pos: 本地调试入口，仅用于开发期加载最新脚本，不作为 Greasy Fork 发布脚本。
+// changelog:
+// - 0.2.2: 同步 Monika 数字种子详情页匹配，避免本地调试加载到 grouped 列表页。
 (function () {
     'use strict';
 

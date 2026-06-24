@@ -269,6 +269,30 @@
             return Mount.tableRowAfter(row, label);
         }
 
+        const AdapterRuntime = {
+            withMount(findMount, getInfo) {
+                return {
+                    findMount,
+                    getInfo: mount => getInfo(mount || findMount())
+                };
+            },
+            siteId(adapter = {}) {
+                return adapter.id || '';
+            },
+            family(adapter = {}) {
+                const siteId = this.siteId(adapter);
+                return adapter.family || SITE_FAMILIES[siteId] || '';
+            },
+            mountRoot(adapter, mount, contentNode, anchorReason = 'lazy-button') {
+                const siteId = this.siteId(adapter);
+                return Mount.mountRoot(mount, contentNode, {
+                    siteId,
+                    family: this.family(adapter),
+                    anchorReason
+                });
+            }
+        };
+
         const AutoFeedAnchors = {
             actionLabels: new Set(['行为', '小货车', '行為', '种子认领', '簡介', '简介', '操作', 'Action', 'Tagline', 'Tools:', '设备']),
             nameLabels: new Set(['Name', 'Nombre', '名称', '标题']),
@@ -504,6 +528,6 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors };
+        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime };
     };
     // <pt-common:end>
