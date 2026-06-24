@@ -20,6 +20,7 @@
 // @match        http://comicat.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
+// @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
 // @match        https://greatposterwall.com/torrents.php?id=*
 // @match        https://iptorrents.com/torrent.php*
@@ -669,6 +670,46 @@
             }
             return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
         },
+        mTeamActionHolder(id, labelText) {
+            if (id === 'mp') {
+                document.querySelectorAll('#mteam-script-action-line-mp').forEach(node => node.remove());
+                document.querySelectorAll('#mteam-script-action-row').forEach(node => {
+                    if (!node.querySelector('#mteam-script-action-line-iyuu, .iyuu-row-box')) node.remove();
+                });
+            }
+            const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
+            const anchorRow = subtitleLabel?.parentElement?.parentElement;
+            if (!anchorRow?.parentNode) return null;
+            const tableId = 'userscript-mteam-actions';
+            let table = document.getElementById(tableId);
+            if (!table) {
+                const wrap = document.createElement('div');
+                wrap.id = `${tableId}-wrap`;
+                wrap.style.cssText = 'padding-right:55px;';
+                table = document.createElement('table');
+                table.id = tableId;
+                table.appendChild(document.createElement('tbody'));
+                wrap.appendChild(table);
+                anchorRow.before(wrap);
+            }
+            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+            const rowId = `${id}-${tableId}-row`;
+            let row = document.getElementById(rowId);
+            if (!row) {
+                row = tbody.insertRow(-1);
+                row.id = rowId;
+                row.className = 'ant-descriptions-row';
+                const label = row.insertCell(0);
+                label.className = 'ant-descriptions-item-label';
+                label.style.cssText = 'width:135px;text-align:right;';
+                label.textContent = labelText || id;
+                const holder = row.insertCell(1);
+                holder.id = `${id}-${tableId}-holder`;
+                holder.className = 'ant-descriptions-item-content';
+                holder.style.cssText = 'text-align:left;';
+            }
+            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+        },
         hdSpaceMediaInfoRow() {
             const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
             const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
@@ -977,7 +1018,7 @@
     // [4] 站点适配器 (SITE ADAPTERS)
     // ——————————————————————————————————————
 
-    // TODO: 后续适配 https://www.haidan.cc / https://www.yemapt.org / https://rousi.pro
+    // TODO: 后续适配 https://www.haidan.cc / https://www.yemapt.org / https://rousi.pro；修复 MT
     const BT_SITE_HELPERS = {
         text(selector, root = document) {
             return root.querySelector(selector)?.textContent?.trim() || '';
@@ -1459,41 +1500,15 @@
                     const tid = window.location.pathname.match(/\/detail\/(\d+)/)?.[1] || '';
                     const titleText = titleElement?.textContent?.trim() || (tid ? `M-Team ${tid}` : '') || document.title.replace(/\s*\|\s*.*$/, '').trim() || 'M-Team';
                     const descriptionElement = headerBar?.querySelector('p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                    const anchor = titleSpan || titleElement?.closest('h2,h1') || titleElement || document.querySelector('main') || document.body;
                     const sizeElement = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent || ''));
-                    let actionRow = document.querySelector('#mteam-script-action-row');
-                    if (actionRow?.tagName !== 'SPAN') {
-                        const nextActionRow = document.createElement('span');
-                        nextActionRow.id = 'mteam-script-action-row';
-                        while (actionRow?.firstChild) nextActionRow.appendChild(actionRow.firstChild);
-                        actionRow?.remove();
-                        actionRow = nextActionRow;
-                    }
-                    actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;margin-top:6px;font-size:12px;font-weight:400;line-height:1.4;';
-                    if (anchor && actionRow.previousElementSibling !== anchor) {
-                        anchor.after(actionRow);
-                    }
-                    let mpRow = document.querySelector('#mteam-script-action-line-mp');
-                    if (!mpRow) {
-                        mpRow = document.createElement('div');
-                        mpRow.id = 'mteam-script-action-line-mp';
-                        mpRow.className = 'mteam-script-action-line mteam-script-action-line-mp';
-                        mpRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
-                        const label = document.createElement('span');
-                        label.className = 'mteam-script-action-label';
-                        label.style.cssText = 'min-width:72px;color:var(--mt-text-base,#263238);font-weight:700;font-size:12px;line-height:1.6;background:transparent;border:0;padding:0;';
-                        label.textContent = 'MoviePilot：';
-                        mpRow.appendChild(label);
-                    }
-                    mpRow.querySelectorAll('.mp-row-box').forEach(node => node.remove());
-                    if (actionRow && mpRow.parentElement !== actionRow) actionRow.insertBefore(mpRow, actionRow.firstChild);
-                    else if (!actionRow && mpRow.parentElement !== (titleElement?.parentElement || null)) anchor.after(mpRow);
+                    const holder = AutoFeedAnchors.mTeamActionHolder('mp', 'MoviePilot');
+                    if (!holder) return null;
                     return {
                         name: titleText,
                         description: descriptionElement ? descriptionElement.textContent.trim() : titleText,
                         size: sizeElement ? UTILS.parseSize(sizeElement.textContent) : 0,
                         downloadLink: '',
-                        mount: Mount.append(mpRow)
+                        mount: Mount.append(holder)
                     };
                 } else {
                     // --- 旧版UI逻辑 ---
@@ -2612,6 +2627,9 @@
         }
     };
 
+    const isMTeamHost = () => /(^|\.)m-team\.(cc|io|vip)$/.test(window.location.hostname);
+    const isMTeamDetail = () => isMTeamHost() && window.location.pathname.startsWith('/detail/');
+
     function main() {
         // 1. 加载配置
         CONFIG.load();
@@ -2628,12 +2646,6 @@
             return;
         }
     
-        // 4. 初始化站点适配器
-        Site.init();
-        if (!Site.adapter) {
-            return; // 如果没有适配器，则不执行页面注入
-        }
-
         let hasBooted = false;
         const bootCore = async () => {
             if (hasBooted) return true;
@@ -2643,9 +2655,7 @@
             return ok;
         };
 
-        // 5. 处理 M-Team 的动态加载，等待详细信息出现后再渲染入口
-        if (Site.adapter.id === 'm-team') {
-            // 立即初始化链接捕获，越早 hook fetch/XHR 命中越多
+        const installMTeamDynamicBoot = () => {
             MTeamLinkCapture.init();
 
             const originOpen = XMLHttpRequest.prototype.open;
@@ -2663,10 +2673,7 @@
                                     GM_log(`[${SCRIPT_NAME}] M-Team torrent detail API intercepted. Recognition trigger is ready.`);
                                     setTimeout(() => {
                                         bootCore();
-                                        // 启动后再 hook 一次原生按钮（此时 DOM 才齐全）
                                         MTeamLinkCapture._installNativeDownloadHook();
-                                        // 不在初始化时自动预取（合成点击可能导致跳转），
-                                        // 链接获取延迟到用户点击"推送到MP"时按需触发
                                     }, 200);
                                 }
                             } catch (e) {
@@ -2680,7 +2687,7 @@
 
             let attempts = 0;
             const tryBoot = async () => {
-                if (document.querySelector('.mp-recognize-trigger')) return;
+                if (!isMTeamDetail() || document.querySelector('.mp-recognize-trigger')) return;
                 Site.init();
                 const ok = Site.adapter ? await bootCore() : false;
                 if (ok) {
@@ -2690,6 +2697,23 @@
                 if (attempts++ < 30) setTimeout(tryBoot, 500);
             };
             setTimeout(tryBoot, 300);
+
+            new MutationObserver(() => {
+                if (!isMTeamDetail() || document.querySelector('.mp-recognize-trigger')) return;
+                setTimeout(tryBoot, 300);
+            }).observe(document.body, { childList: true, subtree: true });
+        };
+
+        // 4. 初始化站点适配器
+        if (isMTeamHost() && !isMTeamDetail()) return;
+        Site.init();
+        if (!Site.adapter) {
+            return; // 如果没有适配器，则不执行页面注入
+        }
+
+        // 5. 处理 M-Team 的动态加载，等待详细信息出现后再渲染入口
+        if (Site.adapter.id === 'm-team') {
+            installMTeamDynamicBoot();
         } else if (window.location.hostname === 'bangumi.moe') {
             // bangumi.moe 是 SPA，内容异步渲染，需要轮询等待 DOM 就绪
             const spaBoot = () => {

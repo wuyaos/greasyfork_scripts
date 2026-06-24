@@ -13,9 +13,9 @@
 // @match        https://hdsky.me/details.php?id=*
 // @match        https://pt.sjtu.edu.cn/details.php?id=*
 // @match        https://*.comicat.org/*
-// @match        https://*.m-team.cc/*
-// @match        https://*.m-team.io/*
-// @match        https://*.m-team.vip/*
+// @match        https://*.m-team.cc/detail/*
+// @match        https://*.m-team.io/detail/*
+// @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
 // @match        https://greatposterwall.com/torrents.php?id=*
 // @match        https://monikadesign.uk/torrents/*
@@ -74,72 +74,74 @@
     const log = (label, value = '') => { if (debugEnabled()) console.log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     let iyuuLastRequest = 0;
-    const AUTO_FEED_SITE_URLS = {
-        '1ptba': 'https://1ptba.com/',
-        'audiences': 'https://audiences.me/',
-        'bhd': 'https://beyond-hd.me/',
-        'beyondhd': 'https://beyond-hd.me/',
-        'btn': 'https://broadcasthe.net/',
-        'byr': 'https://byr.pt/',
-        'btschool': 'https://pt.btschool.club/',
-        'carpt': 'https://carpt.net/',
-        'cmct': 'https://springsunday.net/',
-        'chdbits': 'https://ptchdbits.co/',
-        'cspt': 'https://cspt.top/',
-        '财神': 'https://cspt.top/',
-        'discfan': 'https://discfan.net/',
-        'eiga': 'https://eiga.moi/',
-        'acm': 'https://eiga.moi/',
-        'filelist': 'https://filelist.io/',
-        'freefarm': 'https://pt.0ff.cc/',
-        'gpw': 'https://greatposterwall.com/',
-        'greatposterwall': 'https://greatposterwall.com/',
-        'haidan': 'https://www.haidan.video/',
-        'hdarea': 'https://hdarea.club/',
-        'hdb': 'https://hdbits.org/',
-        'hdbits': 'https://hdbits.org/',
-        'hdcity': 'https://hdcity.city/',
-        'hddolby': 'https://www.hddolby.com/',
-        'hdfans': 'http://hdfans.org/',
-        'hdhome': 'https://hdhome.org/',
-        'hdsky': 'https://hdsky.me/',
-        'hdspace': 'https://hd-space.org/',
-        'hd-space': 'https://hd-space.org/',
-        'hdtime': 'https://hdtime.org/',
-        'hdu': 'https://pt.upxin.net/',
-        'hudbt': 'https://hudbt.hust.edu.cn/',
-        'ipt': 'https://iptorrents.com/',
-        'iptorrents': 'https://iptorrents.com/',
-        'monika': 'https://monikadesign.uk/',
-        'monikadesign': 'https://monikadesign.uk/',
-        'mteam': 'https://kp.m-team.cc/',
-        'm-team': 'https://kp.m-team.cc/',
-        '馒头': 'https://kp.m-team.cc/',
-        'mt': 'https://kp.m-team.cc/',
-        'nanyang': 'https://nanyangpt.com/',
-        'ourbits': 'https://ourbits.club/',
-        'pter': 'https://pterclub.net/',
-        'pterclub': 'https://pterclub.net/',
-        'pthome': 'https://www.pthome.net/',
-        'ptsbao': 'https://ptsbao.club/',
-        'ptt': 'https://www.pttime.org/',
-        'putao': 'https://pt.sjtu.edu.cn/',
-        'qingwa': 'https://qingwapt.com/',
-        'rousi': 'https://rousi.pro/',
-        'tccf': 'https://et8.org/',
-        'tjupt': 'https://www.tjupt.org/',
-        'tlfbits': 'http://pt.eastgame.org/',
-        'ttg': 'https://totheglory.im/',
-        'ubits': 'https://ubits.club/',
-        'yemapt': 'https://www.yemapt.org/',
-        'zmpt': 'https://zmpt.cc/',
-        'zhuque': 'https://zhuque.in/',
-        '朱雀': 'https://zhuque.in/'
-    };
-    const AUTO_FEED_HOST_URLS = Object.fromEntries(Object.values(AUTO_FEED_SITE_URLS).map(url => {
-        try { const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); return [host, url]; } catch (_) { return ['', url]; }
-    }).filter(([host]) => host));
     const normalizeSiteKey = value => String(value || '').toLowerCase().replace(/[\s._-]+/g, '');
+    const AUTO_FEED_SITE_DEFS = [
+        { url: 'https://1ptba.com/', aliases: ['1ptba'] },
+        { url: 'https://audiences.me/', aliases: ['audiences'] },
+        { url: 'https://beyond-hd.me/', aliases: ['bhd', 'beyondhd'] },
+        { url: 'https://broadcasthe.net/', aliases: ['btn'] },
+        { url: 'https://byr.pt/', aliases: ['byr'] },
+        { url: 'https://pt.btschool.club/', aliases: ['btschool'] },
+        { url: 'https://carpt.net/', aliases: ['carpt'] },
+        { url: 'https://springsunday.net/', aliases: ['cmct'] },
+        { url: 'https://ptchdbits.co/', aliases: ['chdbits'] },
+        { url: 'https://cspt.top/', aliases: ['cspt', '财神'] },
+        { url: 'https://discfan.net/', aliases: ['discfan'] },
+        { url: 'https://eiga.moi/', aliases: ['eiga', 'acm'] },
+        { url: 'https://filelist.io/', aliases: ['filelist'] },
+        { url: 'https://pt.0ff.cc/', aliases: ['freefarm'] },
+        { url: 'https://greatposterwall.com/', aliases: ['gpw', 'greatposterwall'] },
+        { url: 'https://www.haidan.video/', aliases: ['haidan'] },
+        { url: 'https://hdarea.club/', aliases: ['hdarea'] },
+        { url: 'https://hdbits.org/', aliases: ['hdb', 'hdbits'] },
+        { url: 'https://hdcity.city/', aliases: ['hdcity'] },
+        { url: 'https://www.hddolby.com/', aliases: ['hddolby'] },
+        { url: 'http://hdfans.org/', aliases: ['hdfans'] },
+        { url: 'https://hdhome.org/', aliases: ['hdhome'] },
+        { url: 'https://hdsky.me/', aliases: ['hdsky'] },
+        { url: 'https://hd-space.org/', aliases: ['hdspace', 'hd-space'] },
+        { url: 'https://hdtime.org/', aliases: ['hdtime'] },
+        { url: 'https://pt.upxin.net/', aliases: ['hdu'] },
+        { url: 'https://hudbt.hust.edu.cn/', aliases: ['hudbt'] },
+        { url: 'https://iptorrents.com/', aliases: ['ipt', 'iptorrents'] },
+        { url: 'https://monikadesign.uk/', aliases: ['monika', 'monikadesign'] },
+        { url: 'https://kp.m-team.cc/', aliases: ['mteam', 'm-team', '馒头', 'mt'], hosts: ['m-team.cc', 'm-team.io', 'm-team.vip'] },
+        { url: 'https://nanyangpt.com/', aliases: ['nanyang'] },
+        { url: 'https://ourbits.club/', aliases: ['ourbits'] },
+        { url: 'https://pterclub.net/', aliases: ['pter', 'pterclub'] },
+        { url: 'https://www.pthome.net/', aliases: ['pthome'] },
+        { url: 'https://ptsbao.club/', aliases: ['ptsbao'] },
+        { url: 'https://www.pttime.org/', aliases: ['ptt'] },
+        { url: 'https://pt.sjtu.edu.cn/', aliases: ['putao'] },
+        { url: 'https://www.qingwapt.org/', aliases: ['qingwa', 'qingwapt', '青蛙'], hosts: ['qingwapt.com', 'qingwapt.org'] },
+        { url: 'https://rousi.pro/', aliases: ['rousi'] },
+        { url: 'https://et8.org/', aliases: ['tccf'] },
+        { url: 'https://www.tjupt.org/', aliases: ['tjupt'] },
+        { url: 'http://pt.eastgame.org/', aliases: ['tlfbits'] },
+        { url: 'https://totheglory.im/', aliases: ['ttg'] },
+        { url: 'https://ubits.club/', aliases: ['ubits'] },
+        { url: 'https://www.yemapt.org/', aliases: ['yemapt'] },
+        { url: 'https://zmpt.cc/', aliases: ['zmpt'] },
+        { url: 'https://zhuque.in/', aliases: ['zhuque', '朱雀'] }
+    ];
+    const normalizedHost = raw => {
+        try {
+            const text = String(raw || '');
+            const url = /^https?:\/\//i.test(text) ? new URL(text) : new URL(`https://${text}`);
+            return url.hostname.replace(/^www\./, '').toLowerCase();
+        } catch (_) {
+            return String(raw || '').replace(/^https?:\/\//i, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+        }
+    };
+    const AUTO_FEED_SITE_URLS = Object.fromEntries(AUTO_FEED_SITE_DEFS.flatMap(def => (def.aliases || []).flatMap(alias => [
+        [String(alias || '').toLowerCase(), def.url],
+        [normalizeSiteKey(alias), def.url]
+    ]).filter(([key]) => key)));
+    const AUTO_FEED_HOST_URLS = Object.fromEntries(AUTO_FEED_SITE_DEFS.flatMap(def => [def.url, ...(def.hosts || [])].map(raw => [normalizedHost(raw), def.url]).filter(([host]) => host)));
+    const AUTO_FEED_CANONICAL_HOSTS = Object.fromEntries(AUTO_FEED_SITE_DEFS.flatMap(def => {
+        const canonical = normalizeSiteKey((def.aliases || [])[0]) || normalizedHost(def.url);
+        return [def.url, ...(def.hosts || [])].map(raw => [normalizedHost(raw), canonical]).filter(([host]) => host);
+    }));
     const firstOf = (items, predicate) => {
         for (const item of items || []) {
             if (predicate(item)) return item;
@@ -529,6 +531,40 @@
             }
             return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
         },
+        mTeamActionHolder(id, labelText) {
+            const subtitleLabel = firstOf(document.querySelectorAll('label'), el => this.cellText(el) === '字幕');
+            const anchorRow = subtitleLabel?.parentElement?.parentElement;
+            if (!anchorRow?.parentNode) return null;
+            const tableId = 'userscript-mteam-actions';
+            let table = document.getElementById(tableId);
+            if (!table) {
+                const wrap = document.createElement('div');
+                wrap.id = `${tableId}-wrap`;
+                wrap.style.cssText = 'padding-right:55px;';
+                table = document.createElement('table');
+                table.id = tableId;
+                table.appendChild(document.createElement('tbody'));
+                wrap.appendChild(table);
+                anchorRow.before(wrap);
+            }
+            const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+            const rowId = `${id}-${tableId}-row`;
+            let row = document.getElementById(rowId);
+            if (!row) {
+                row = tbody.insertRow(-1);
+                row.id = rowId;
+                row.className = 'ant-descriptions-row';
+                const label = row.insertCell(0);
+                label.className = 'ant-descriptions-item-label';
+                label.style.cssText = 'width:135px;text-align:right;';
+                label.textContent = labelText || id;
+                const holder = row.insertCell(1);
+                holder.id = `${id}-${tableId}-holder`;
+                holder.className = 'ant-descriptions-item-content';
+                holder.style.cssText = 'text-align:left;';
+            }
+            return document.getElementById(`${id}-${tableId}-holder`) || row.cells[1];
+        },
         hdSpaceMediaInfoRow() {
             const detailLabels = new Set(['豆瓣 (NaN)', '评分', '类型', '国家/地区', '导演', '语言', '上映日期', '片长', '演员', 'Year', 'Runtime', 'Country', 'Genre', 'Rating', 'Votes', 'Tagline', 'Plot', 'Cast']);
             const scopes = ['#douban_info table', '#imdb table', '#douban_info', '#imdb'];
@@ -697,7 +733,15 @@
         downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
         isMTeam(s) { const text = [s?.host, s?.url, s?.downloadUrl, s?.domain, s?.base_url, s?.site, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' '); return /m-team\.(cc|io|vip)|馒头|饅頭|\bM[-_ ]?Team\b|\bMT\b/i.test(text); },
         mTeamApi(s) { const host = String(s?.host || s?.downloadUrl || s?.url || '').match(/m-team\.(cc|io|vip)/i)?.[0] || 'm-team.cc'; return `https://api.${host.replace(/^api\./, '')}/api/torrent/genDlToken`; },
-        sameHost(a, b) { return Boolean(a && b && (a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`))); },
+        canonicalHost(host) {
+            const h = String(host || '').replace(/^www\./, '').toLowerCase();
+            return AUTO_FEED_CANONICAL_HOSTS[h] || h;
+        },
+        sameHost(a, b) {
+            const left = this.canonicalHost(a);
+            const right = this.canonicalHost(b);
+            return Boolean(left && right && (left === right || left.endsWith(`.${right}`) || right.endsWith(`.${left}`)));
+        },
         currentSid(list) {
             const current = location.hostname.replace(/^www\./, '').toLowerCase();
             const currentIsMTeam = /(^|\.)m-team\.(cc|io|vip)$/.test(current);
@@ -972,36 +1016,9 @@
                 const titleSpan = document.querySelector('h2 span.align-middle.mr-2, h2 span.align-middle');
                 const titleEl = titleSpan || document.querySelector('h2');
                 const descriptionEl = document.querySelector('div.flex.py-5.mb-5.sticky p.text-mt-gray-4') || document.querySelector('p.text-mt-gray-4');
-                const anchor = titleSpan || titleEl?.closest('h2') || titleEl || document.querySelector('main') || document.body;
                 const sizeEl = firstOf(document.querySelectorAll('.ant-space-item .ant-typography'), el => /[體体]積[:：]/.test(el.textContent));
-                let actionRow = document.querySelector('#mteam-script-action-row');
-                if (actionRow?.tagName !== 'SPAN') {
-                    const nextActionRow = document.createElement('span');
-                    nextActionRow.id = 'mteam-script-action-row';
-                    while (actionRow?.firstChild) nextActionRow.appendChild(actionRow.firstChild);
-                    actionRow?.remove();
-                    actionRow = nextActionRow;
-                }
-                actionRow.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;margin-top:6px;font-size:12px;font-weight:400;line-height:1.4;';
-                if (anchor && actionRow.previousElementSibling !== anchor) {
-                    anchor.after(actionRow);
-                }
-                let iyuuRow = document.querySelector('#mteam-script-action-line-iyuu');
-                if (!iyuuRow) {
-                    iyuuRow = document.createElement('div');
-                    iyuuRow.id = 'mteam-script-action-line-iyuu';
-                    iyuuRow.className = 'mteam-script-action-line mteam-script-action-line-iyuu';
-                    iyuuRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
-                    const label = document.createElement('span');
-                    label.className = 'mteam-script-action-label';
-                    label.style.cssText = 'min-width:72px;color:var(--mt-text-base,#263238);font-weight:700;font-size:12px;line-height:1.6;background:transparent;border:0;padding:0;';
-                    label.textContent = 'IYUU：';
-                    iyuuRow.appendChild(label);
-                }
-                iyuuRow.querySelectorAll('.iyuu-row-box').forEach(node => node.remove());
-                const mount = Mount.append(iyuuRow);
-                if (actionRow && iyuuRow.parentElement !== actionRow) actionRow.appendChild(iyuuRow);
-                else if (!actionRow && iyuuRow.parentElement !== (titleEl?.parentElement || null)) anchor.after(iyuuRow);
+                const holder = AutoFeedAnchors.mTeamActionHolder('iyuu', 'IYUU');
+                const mount = holder ? Mount.append(holder) : null;
                 return Helpers.info({ id: 'm-team', name: Helpers.text('h2 span.align-middle') || Helpers.text('h2') || document.title, description: descriptionEl?.textContent || document.title, downloadLink: '', sizeText: sizeEl?.textContent || '', mount });
             }
         },

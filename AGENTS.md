@@ -19,3 +19,8 @@ Input: 浏览器用户脚本运行环境、目标站点页面、用户本地 GM 
 - `serve_debug.py`: 本地调试 HTTP server 实现，设置 no-cache 与 CORS 响应头。
 - `icon/`: 脚本图标资源。
 - `class_icon/`: NicePT 分类图标资源。
+
+## Local Rules
+
+- 使用 `agent-browser` 分析需要登录态的真实站点页面时，不要启动 WSL/agent-browser 自带的新浏览器代替用户浏览器；优先连接用户手动启动的 Windows Catsxp CDP（例如 `--remote-debugging-port=9222`）。如果 CDP 端口不可达，先报告监听/连接问题并继续用代码和用户提供的 DOM 证据分析，不要用未登录的新浏览器页面下结论。
+- 运行 Python 时使用当前 micromamba 环境里的 Python；避免调用系统 Python 导致依赖或版本不一致。
