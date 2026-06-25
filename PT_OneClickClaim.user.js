@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT一键认领 Plus
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.2.1
+// @version      0.2.2
 // @description  根据标题表达式、体积、IP、客户端筛选当前做种列表，预览后批量认领 PT 种子。
 // @author       ngtrio & AI
 // @match        *://*/userdetails.php?id=*
@@ -10,6 +10,7 @@
 // @grant        none
 // @noframes
 // @license      MIT
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-oneclickclaim.svg
 // @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js
 // @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js
 // ==/UserScript==
