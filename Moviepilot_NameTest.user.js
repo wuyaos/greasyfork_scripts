@@ -1,40 +1,26 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.3
+// @version      3.5.4
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
-// @match        https://*/details.php?id=*
-// @match        http://*/details.php?id=*
-// @match        https://*/details_movie.php?id=*
-// @match        https://*/details_tv.php?id=*
-// @match        https://*/details_animate.php?id=*
+// @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
 // @match        https://totheglory.im/t/*
-// @match        https://hdsky.me/details.php?id=*
-// @match        https://pt.sjtu.edu.cn/details.php?id=*
-// @match        https://bangumi.moe/*
-// @match        https://mikanani.me/Home/*
-// @match        https://*.comicat.org/*
-// @match        https://comicat.org/*
-// @match        http://*.comicat.org/*
-// @match        http://comicat.org/*
+// @match        https://bangumi.moe/torrent/*
+// @match        https://mikanani.me/Home/Episode/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
-// @match        https://greatposterwall.com/torrents.php?id=*
-// @match        https://iptorrents.com/torrent.php*
+// @include      /^https:\/\/greatposterwall\.com\/torrents\.php\?(?=[^#]*\bid=)(?=[^#]*\btorrentid=)[^#]*(?:#.*)?$/
+// @match        https://iptorrents.com/torrent.php?id=*
 // @match        https://eiga.moi/torrents/*
-// @match        https://hd-space.org/index.php?page=torrent-details*
+// @include      /^https:\/\/hd-space\.org\/index\.php\?(?=[^#]*\bpage=torrent-details\b)(?=[^#]*\bid=)[^#]*(?:#.*)?$/
 // @match        https://beyond-hd.me/torrents/*
-// @match        https://filelist.io/details.php?id=*
 // @include      /^https:\/\/monikadesign\.uk\/torrents\/[0-9]+\/?$/
-// @match        https://acg.rip/*
-// @match        https://nyaa.si/*
-// @match        https://*.kisssub.org/*
-// @match        https://kisssub.org/*
-// @match        http://*.kisssub.org/*
-// @match        http://kisssub.org/*
+// @match        https://acg.rip/t/*
+// @match        https://nyaa.si/view/*
+// @include      /^https?:\/\/([^/]+\.)?(comicat|kisssub)\.org\/show-[a-f0-9]{40}\.html(?:[?#].*)?$/
 // @grant        GM_log
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -51,6 +37,7 @@
 // ==/UserScript==
 
 // changelog:
+// - 3.5.4: 收紧公共 BT 与 GPW 匹配到详情页，避免首页/列表页误注入，IPT 匹配收紧到详情页。
 // - 3.5.3: 增强 lazy 详情页识别缓存/自动识别恢复，优化配置密钥显示切换，并限制 Monika 只匹配数字种子详情页。
 
 (function () {

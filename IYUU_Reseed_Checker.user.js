@@ -1,23 +1,20 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.4
+// @version      1.1.5
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
-// @match        https://*/details.php?id=*
-// @match        http://*/details.php?id=*
-// @match        https://*/details_movie.php?id=*
-// @match        https://*/details_tv.php?id=*
-// @match        https://*/details_animate.php?id=*
+// @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
 // @match        https://totheglory.im/t/*
-// @match        https://hdsky.me/details.php?id=*
-// @match        https://pt.sjtu.edu.cn/details.php?id=*
-// @match        https://*.comicat.org/*
 // @match        https://*.m-team.cc/detail/*
 // @match        https://*.m-team.io/detail/*
 // @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
-// @match        https://greatposterwall.com/torrents.php?id=*
+// @include      /^https:\/\/greatposterwall\.com\/torrents\.php\?(?=[^#]*\bid=)(?=[^#]*\btorrentid=)[^#]*(?:#.*)?$/
+// @match        https://iptorrents.com/torrent.php?id=*
+// @match        https://eiga.moi/torrents/*
+// @include      /^https:\/\/hd-space\.org\/index\.php\?(?=[^#]*\bpage=torrent-details\b)(?=[^#]*\bid=)[^#]*(?:#.*)?$/
+// @match        https://beyond-hd.me/torrents/*
 // @include      /^https:\/\/monikadesign\.uk\/torrents\/[0-9]+\/?$/
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
@@ -43,6 +40,7 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
+// - 1.1.5: 补齐 IYUU 私有站特殊详情页匹配，避免在公共 BT 站点注入，并收紧 IPT 匹配到详情页。
 // - 1.1.4: 使用 IYUU 文档站图标作为脚本图标。
 // - 1.1.3: 增强 lazy 详情页注入，恢复缓存/自动查询并限制 Monika 只匹配数字种子详情页。
 // - 1.1.1: 修复 HHClub grid 布局下 UI 插入到底部的问题，并加强查询结果同站去重。
