@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.3
+// @version      1.1.4
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @match        https://*/details.php?id=*
@@ -34,6 +34,7 @@
 // @connect      *.m-team.cc
 // @connect      *
 // @license      MIT
+// @icon         https://doc.iyuu.cn/logo_28.png
 // @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/IYUU_Reseed_Checker.user.js
 // @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/IYUU_Reseed_Checker.user.js
 // ==/UserScript==
@@ -42,6 +43,7 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
+// - 1.1.4: 使用 IYUU 文档站图标作为脚本图标。
 // - 1.1.3: 增强 lazy 详情页注入，恢复缓存/自动查询并限制 Monika 只匹配数字种子详情页。
 // - 1.1.1: 修复 HHClub grid 布局下 UI 插入到底部的问题，并加强查询结果同站去重。
 // - 1.0.9: 补充 HHClub、GPW、HDCity、IPT、BHD、FileList 详情页适配，并修正 M-Team 体积提取。
