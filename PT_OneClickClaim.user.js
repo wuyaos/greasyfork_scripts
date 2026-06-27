@@ -95,16 +95,64 @@
   function cacheGet(key) { try { return sessionStorage.getItem(key); } catch (_) { return null; } }
   function cacheSet(key, value) { try { sessionStorage.setItem(key, value); } catch (_) {} }
 
+  function ensureStyle() {
+    if (document.querySelector('#pt-claim-plus-style')) return;
+    const style = el('style', { id: 'pt-claim-plus-style' });
+    style.textContent = `
+#pt-claim-plus{font:12px/1.45 Arial,Helvetica,sans-serif;color:#2f3742;background:linear-gradient(180deg,#fbfcfe,#f4f7fb);border:1px solid #d8dee8;border-radius:7px;box-shadow:0 1px 2px rgba(20,35,60,.06);padding:0;margin:6px 0;box-sizing:border-box;overflow:visible}
+#pt-claim-plus .ptc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #e1e7ef;background:rgba(238,243,248,.65)}
+#pt-claim-plus .ptc-title{font-weight:700;color:#253044;white-space:nowrap;display:flex;align-items:center;gap:6px}
+#pt-claim-plus .ptc-title:before{content:'✓';display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#dfeee7;color:#2d7650;font-size:11px}
+#pt-claim-plus .ptc-head-status{color:#5c6878;white-space:nowrap}
+#pt-claim-plus .ptc-body{padding:8px 10px;display:flex;flex-direction:column;gap:7px}
+#pt-claim-plus .ptc-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+#pt-claim-plus .ptc-field{display:inline-flex;align-items:center;gap:5px;color:#536071;white-space:nowrap}
+#pt-claim-plus input{height:26px;border:1px solid #c8d1dd;border-radius:4px;background:#fff;color:#243044;padding:2px 6px;box-sizing:border-box}
+#pt-claim-plus .ptc-keyword{width:clamp(240px,36vw,440px)}#pt-claim-plus .ptc-size{width:58px;text-align:right}
+#pt-claim-plus details{position:relative}#pt-claim-plus summary{list-style:none;cursor:pointer;border:1px solid #c8d1dd;background:#fff;border-radius:4px;padding:4px 8px;color:#344154;min-width:96px}#pt-claim-plus summary::-webkit-details-marker{display:none}#pt-claim-plus details[open] summary{background:#eef5fc;border-color:#aebfd5}
+#pt-claim-plus .ptc-menu{position:absolute;z-index:9999;top:30px;left:0;max-height:180px;overflow:auto;min-width:210px;padding:5px;border:1px solid #ccd6e2;background:#fff;border-radius:6px;box-shadow:0 8px 20px rgba(24,39,64,.15)}
+#pt-claim-plus .ptc-menu label{display:block;padding:3px 5px;border-radius:4px;white-space:nowrap}#pt-claim-plus .ptc-menu label:hover{background:#f2f6fb}
+#pt-claim-plus .ptc-actions{display:flex;gap:6px;align-items:center;white-space:nowrap}
+#pt-claim-plus .ptc-btn{height:28px;border:1px solid #c7d0dc;border-radius:4px;background:#f3f5f8;color:#2f3b4d;padding:0 10px;cursor:pointer}#pt-claim-plus .ptc-btn:hover{filter:brightness(.97)}
+#pt-claim-plus .ptc-btn-check{background:#e8f1fb;border-color:#b9cce3}#pt-claim-plus .ptc-btn-primary{background:#e6f3ed;border-color:#a8d0bc;color:#1f6041;font-weight:700}
+#pt-claim-plus .ptc-status{margin-left:auto;color:#5c6878;background:#eef3f8;border:1px solid #dce5ef;border-radius:5px;padding:4px 7px;min-width:200px;text-align:right}
+@media(max-width:900px){#pt-claim-plus .ptc-head{align-items:flex-start;flex-direction:column}#pt-claim-plus .ptc-status{margin-left:0;text-align:left}#pt-claim-plus .ptc-keyword{width:100%;min-width:210px}}
+`;
+    document.head.append(style);
+  }
+
   function buildPanel() {
+    ensureStyle();
     const box = el('div', { id: 'pt-claim-plus' });
-    Object.assign(box.style, { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', margin: '6px 0', padding: '6px', border: '1px solid #ddd', background: '#fffbe6' });
-    state.ui.keyword = input('claim-keyword', '关键词: 2160p H265|HEVC -REMUX S01E*', '260px');
-    state.ui.size = input('claim-size', '最低大小(GB)', '110px');
-    state.ui.ip = multiFilter('IP');
+    const head = el('div', { class: 'ptc-head' });
+    const body = el('div', { class: 'ptc-body' });
+    const filterRow = el('div', { class: 'ptc-row ptc-filter-row' });
+    const actionRow = el('div', { class: 'ptc-row' });
+    state.ui.keyword = input('claim-keyword', '2160p H265|HEVC -REMUX S01E*', '');
+    state.ui.keyword.className = 'ptc-keyword';
+    state.ui.sizeMin = input('claim-size-min', '最小', '');
+    state.ui.sizeMin.className = 'ptc-size';
+    state.ui.sizeMax = input('claim-size-max', '最大', '');
+    state.ui.sizeMax.className = 'ptc-size';
     state.ui.client = multiFilter('客户端');
-    state.ui.status = el('span');
-    append(box, text('PT一键认领 Plus'), state.ui.keyword, state.ui.size, state.ui.ip.root, state.ui.client.root, button('刷新筛选', refreshItemsAndOptions), button('检测认领', preview), button('确认认领', doClaim), state.ui.status);
+    state.ui.ip = multiFilter('IP');
+    state.ui.status = el('span', { class: 'ptc-status' });
+    append(head, el('div', { class: 'ptc-title' }), el('div', { class: 'ptc-head-status' }));
+    head.firstChild.textContent = 'PT一键认领 Plus';
+    head.lastChild.textContent = `已启用 ${state.adapter.name}`;
+    append(filterRow, field('关键词', state.ui.keyword), field('体积', state.ui.sizeMin), text('-'), field('', state.ui.sizeMax), text('GB'), state.ui.client.root, state.ui.ip.root);
+    append(actionRow, el('div', { class: 'ptc-actions' }), state.ui.status);
+    append(actionRow.firstChild, button('刷新筛选', refreshItemsAndOptions), button('检测认领', preview, 'ptc-btn-check'), button('确认认领', doClaim, 'ptc-btn-primary'));
+    append(body, filterRow, actionRow);
+    append(box, head, body);
     return box;
+  }
+
+  function field(labelText, control) {
+    const wrap = el('label', { class: 'ptc-field' });
+    if (labelText) wrap.append(text(labelText));
+    wrap.append(control);
+    return wrap;
   }
 
   function refreshItemsAndOptions() {
@@ -165,8 +213,9 @@
   function matchFilter(item, f) {
     if (!matchKeyword(item.title, f.keyword)) return false;
     if (f.minBytes && (!item.sizeBytes || item.sizeBytes < f.minBytes)) return false;
-    if (f.ips.size && !matchesSelected(item.ips, f.ips)) return false;
+    if (f.maxBytes && (!item.sizeBytes || item.sizeBytes > f.maxBytes)) return false;
     if (f.clients.size && !matchesSelected(item.clients, f.clients)) return false;
+    if (f.ips.size && !matchesSelected(item.ips, f.ips)) return false;
     return true;
   }
 
@@ -217,8 +266,9 @@
   function wildcard(term) { return new RegExp(escapeRegExp(term).replace(/\\\*/g, '.*'), 'i'); }
   function tokens(query) { const out = []; query.replace(/"([^"]+)"|'([^']+)'|(\S+)/g, (_, a, b, c) => out.push(a || b || c)); return out; }
 
-  function filters() { return { keyword: parseKeywordQuery(state.ui.keyword.value), minBytes: Number(state.ui.size.value || 0) * 1024 ** 3, ips: selectedMulti(state.ui.ip), clients: selectedMulti(state.ui.client) }; }
-  function filterSummary(sep) { const f = filters(); return [`关键词: ${state.ui.keyword.value || '全部'}`, `最低体积: ${state.ui.size.value || '不限'} GB`, `IP: ${summarySet(f.ips)}`, `客户端: ${summarySet(f.clients)}`].join(sep); }
+  function filters() { return { keyword: parseKeywordQuery(state.ui.keyword.value), minBytes: Number(state.ui.sizeMin.value || 0) * 1024 ** 3, maxBytes: Number(state.ui.sizeMax.value || 0) * 1024 ** 3, ips: selectedMulti(state.ui.ip), clients: selectedMulti(state.ui.client) }; }
+  function filterSummary(sep) { const f = filters(); return [`关键词: ${state.ui.keyword.value || '全部'}`, `体积: ${sizeSummary()}`, `客户端: ${summarySet(f.clients)}`, `IP: ${summarySet(f.ips)}`].join(sep); }
+  function sizeSummary() { const min = clean(state.ui.sizeMin.value), max = clean(state.ui.sizeMax.value); if (min && max) return `${min}-${max} GB`; if (min) return `≥${min} GB`; if (max) return `≤${max} GB`; return '不限'; }
   function summarySet(set) { return set.size ? [...set].map(v => v === EMPTY_VALUE ? EMPTY_LABEL : v).join(', ') : '全部'; }
   function findTitleCell(cells) { return cells.find(c => c.querySelector('a[title]')) || cells.find(c => c.querySelector('a[href*="details"],a[href*="torrent"],a[href*="/t/"]')) || cells[1] || cells[0]; }
   function findSizeText(cells) { return readableText(cells.find(c => /\d+(?:\.\d+)?\s*(?:TiB|GiB|MiB|KiB|TB|GB|MB|KB)/i.test(readableText(c))) || null); }
@@ -226,7 +276,7 @@
   const SEEDING_LABEL_RE = /^(当前做种|目前做種|目前做种|当前做種|做種中|做种中)$/;
   function getSeedingBlock() { if (/\/getusertorrentlist\.php/i.test(location.pathname)) { const bodies = document.querySelectorAll('tbody'); return bodies[bodies.length - 1]; } return [...document.querySelectorAll('tr')].find(row => row.childElementCount === 2 && SEEDING_LABEL_RE.test(clean(row.cells[0]?.textContent)))?.cells[1]; }
   function readableText(node) { if (!node) return ''; const clone = node.cloneNode(true); clone.querySelectorAll('br').forEach(br => br.replaceWith('\n')); clone.querySelectorAll('img[title]').forEach(img => img.replaceWith(` ${img.title} `)); return clone.textContent || ''; }
-  function multiFilter(titleText) { const root = el('details'); const summary = el('summary'); const box = el('div'); Object.assign(box.style, { maxHeight: '180px', overflow: 'auto', minWidth: '190px', padding: '4px', border: '1px solid #ddd', background: '#fff' }); root.append(summary, box); const control = { root, summary, box, title: titleText }; root.addEventListener('change', () => updateMultiSummary(control)); updateMultiSummary(control); return control; }
+  function multiFilter(titleText) { const root = el('details'); const summary = el('summary'); const box = el('div', { class: 'ptc-menu' }); root.append(summary, box); const control = { root, summary, box, title: titleText }; root.addEventListener('change', () => updateMultiSummary(control)); updateMultiSummary(control); return control; }
   function fillMulti(control, values, emptyCount = 0) { const old = selectedMulti(control); const counts = new Map(); values.filter(Boolean).forEach(v => counts.set(v, (counts.get(v) || 0) + 1)); if (emptyCount) counts.set(EMPTY_VALUE, emptyCount); control.box.textContent = ''; [...counts.keys()].sort((a, b) => labelValue(a).localeCompare(labelValue(b))).forEach(value => { const cb = el('input', { type: 'checkbox' }); cb.value = value; cb.checked = old.has(value); const line = el('label'); line.style.display = 'block'; line.append(cb, text(` ${labelValue(value)} (${counts.get(value)})`)); control.box.append(line); }); updateMultiSummary(control); }
   function labelValue(value) { return value === EMPTY_VALUE ? EMPTY_LABEL : value; }
   function selectedMulti(control) { return new Set([...control.box.querySelectorAll('input:checked')].map(x => x.value)); }
@@ -240,7 +290,7 @@
   function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
   function setStatus(msg) { if (state.ui.status) state.ui.status.textContent = msg; }
   function input(id, placeholder, width) { const n = el('input', { id, placeholder }); n.style.width = width; return n; }
-  function button(labelText, fn) { const n = el('button'); n.textContent = labelText; n.addEventListener('click', fn); return n; }
+  function button(labelText, fn, className = '') { const n = el('button', { class: `ptc-btn ${className}`.trim() }); n.textContent = labelText; n.addEventListener('click', fn); return n; }
   function text(value) { return document.createTextNode(value); }
   function append(parent, ...children) { children.forEach(child => parent.appendChild(child)); return parent; }
   function el(tag, attrs = {}) { const n = document.createElement(tag); Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v)); return n; }
