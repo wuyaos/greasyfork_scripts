@@ -31,21 +31,69 @@
   const state = { adapter: null, block: null, items: [], ui: {} };
 
   const adapters = [
-    { id: 'pter', name: 'PterClub', match: () => /(^|\.)pterclub\.(com|net)$/i.test(location.hostname), claim(row) { const a = row.querySelector('.claim-confirm[data-url],a[data-url*="add_torrent_id"],a[href*="add_torrent_id"]'); const raw = a?.getAttribute('data-url') || a?.getAttribute('href') || ''; const id = raw.match(/add_torrent_id=(\d+)/)?.[1]; return id ? { id, cell: closestCell(a) } : null; }, request(item) { return { url: `/viewclaims.php?in_modal=yes&do_ajax=1&add_torrent_id=${encodeURIComponent(item.id)}`, method: 'GET' }; }, async validate(resp) { assertOk(resp); try { await resp.json(); } catch (_) { throw new Error('认领失败，可能认领人数已满'); } } },
-    { id: 'spring', name: 'SpringSunday', match: () => /(^|\.)springsunday\.net$/i.test(location.hostname), claim(row) { const btn = [...row.querySelectorAll('button[id^="btn"],.btn[id^="btn"]')].find(isVisible); const id = btn?.id?.replace(/^btn/, ''); return id ? { id, cell: closestCell(btn) } : null; }, request(item) { return formRequest('/adopt.php', { action: 'add', id: item.id }); }, async validate(resp) { assertOk(resp); } },
-    { id: 'audiences', name: 'Audiences', match: () => /(^|\.)audiences\.me$/i.test(location.hostname), claim(row) { const a = [...row.querySelectorAll('a[href]')].find(el => /认领种子|領種|claim/i.test(el.textContent)); const href = a?.getAttribute('href') || ''; const id = href.match(/claim_block(\d+)/)?.[1] || href.match(/[?&]tid=(\d+)/)?.[1]; return id ? { id, cell: closestCell(a) } : null; }, request(item) { return { url: `/claim.php?act=add&tid=${encodeURIComponent(item.id)}`, method: 'GET' }; }, async validate(resp) { assertOk(resp); const data = await safeJson(resp); if (data && data.res === false) throw new Error(data.message || '认领失败'); } },
-    { id: 'generic', name: '通用 NPHP', match: () => true, claim(row) { const btn = [...row.querySelectorAll('button[data-torrent_id]')].find(el => isVisible(el) && /领|領|claim/i.test(el.textContent)); const id = btn?.getAttribute('data-torrent_id'); return id ? { id, cell: closestCell(btn) } : null; }, request(item) { return formRequest('/ajax.php', { action: 'addClaim', 'params[torrent_id]': item.id }); }, async validate(resp) { assertOk(resp); const data = await safeJson(resp); if (data && data.ret !== undefined && Number(data.ret) !== 0) throw new Error(data.msg || '认领失败'); } }
+    { id: 'pter', name: 'PterClub', match: () => /(^|\.)pterclub\.(com|net)$/i.test(location.hostname), knownClaim: true, claim(row) { const a = row.querySelector('.claim-confirm[data-url],a[data-url*="add_torrent_id"],a[href*="add_torrent_id"]'); const raw = a?.getAttribute('data-url') || a?.getAttribute('href') || ''; const id = raw.match(/add_torrent_id=(\d+)/)?.[1]; return id ? { id, cell: closestCell(a) } : null; }, request(item) { return { url: `/viewclaims.php?in_modal=yes&do_ajax=1&add_torrent_id=${encodeURIComponent(item.id)}`, method: 'GET' }; }, async validate(resp) { assertOk(resp); try { await resp.json(); } catch (_) { throw new Error('认领失败，可能认领人数已满'); } } },
+    { id: 'spring', name: 'SpringSunday', match: () => /(^|\.)springsunday\.net$/i.test(location.hostname), knownClaim: true, claim(row) { const btn = [...row.querySelectorAll('button[id^="btn"],.btn[id^="btn"]')].find(isVisible); const id = btn?.id?.replace(/^btn/, ''); return id ? { id, cell: closestCell(btn) } : null; }, request(item) { return formRequest('/adopt.php', { action: 'add', id: item.id }); }, async validate(resp) { assertOk(resp); } },
+    { id: 'audiences', name: 'Audiences', match: () => /(^|\.)audiences\.me$/i.test(location.hostname), knownClaim: true, claim(row) { const a = [...row.querySelectorAll('a[href]')].find(el => /认领种子|領種|claim/i.test(el.textContent)); const href = a?.getAttribute('href') || ''; const id = href.match(/claim_block(\d+)/)?.[1] || href.match(/[?&]tid=(\d+)/)?.[1]; return id ? { id, cell: closestCell(a) } : null; }, request(item) { return { url: `/claim.php?act=add&tid=${encodeURIComponent(item.id)}`, method: 'GET' }; }, async validate(resp) { assertOk(resp); const data = await safeJson(resp); if (data && data.res === false) throw new Error(data.message || '认领失败'); } },
+    { id: 'generic', name: '通用 NPHP', match: () => true, probePath: '/claim.php', pageHit: html => /用戶認領種子詳情|用户认领种子详情|認領種子詳情|认领种子详情/i.test(html), claim(row) { const btn = [...row.querySelectorAll('button[data-torrent_id]')].find(el => isVisible(el) && /领|領|認領|认领|claim/i.test(el.textContent)); const id = btn?.getAttribute('data-torrent_id'); return id ? { id, cell: closestCell(btn) } : null; }, request(item) { return formRequest('/ajax.php', { action: 'addClaim', 'params[torrent_id]': item.id }); }, async validate(resp) { assertOk(resp); const data = await safeJson(resp); if (data && data.ret !== undefined && Number(data.ret) !== 0) throw new Error(data.msg || '认领失败'); } }
   ];
 
   window.addEventListener('load', init);
 
-  function init() {
+  async function init() {
     state.adapter = adapters.find(a => a.match());
     state.block = getSeedingBlock();
     if (!state.block || document.querySelector('#pt-claim-plus')) return console.log('当前做种未找到');
-    state.block.prepend(buildPanel());
+    const hasFeature = await siteHasClaim(state.adapter);
+    if (!hasFeature) return console.log('当前站点无认领功能，隐藏操作栏');
+    insertPanel(buildPanel());
     refreshItemsAndOptions();
   }
+
+  function insertPanel(panel) {
+    if (state.block?.tagName === 'TBODY') {
+      const row = el('tr');
+      const cell = el('td', { colspan: String(maxColumnCount(state.block)) });
+      cell.append(panel);
+      row.append(cell);
+      state.block.prepend(row);
+      return;
+    }
+    state.block.prepend(panel);
+  }
+
+  function maxColumnCount(tbody) {
+    return Math.max(1, ...[...tbody.rows].map(row => row.cells?.length || 0));
+  }
+
+  async function siteHasClaim(adapter) {
+    if (adapter.knownClaim) return true;
+    if (!hasClaimEntryLink()) return false;
+    const cacheKey = `ptc:${location.hostname}`;
+    const cached = cacheGet(cacheKey);
+    if (cached !== null) return cached === '1';
+    const uid = currentUid();
+    const path = adapter.probePath + (uid ? `?uid=${uid}` : '');
+    try {
+      const resp = await fetch(path, { credentials: 'same-origin' });
+      if (!resp.ok) return false;
+      const ok = adapter.pageHit(await resp.text());
+      cacheSet(cacheKey, ok ? '1' : '0');
+      return ok;
+    } catch (_) { return false; }
+  }
+
+  function hasClaimEntryLink() {
+    const areas = [...document.querySelectorAll('td.bottom, #info_block, #userinfo, .medium, .user-info, .fix-menu, .top-account-entry, .top-account-dropdown, .top-stats-bar')];
+    const links = areas.flatMap(area => [...area.querySelectorAll('a[href*="claim.php"]')]);
+    return links.some(a => /认领|認領|claim|\d+\s*\/\s*\d+/i.test(a.textContent || a.href));
+  }
+
+  function currentUid() {
+    const m = location.search.match(/[?&](?:id|userid|uid)=(\d+)/i);
+    return m?.[1] || '';
+  }
+  function cacheGet(key) { try { return sessionStorage.getItem(key); } catch (_) { return null; } }
+  function cacheSet(key, value) { try { sessionStorage.setItem(key, value); } catch (_) {} }
 
   function buildPanel() {
     const box = el('div', { id: 'pt-claim-plus' });
@@ -175,7 +223,8 @@
   function findTitleCell(cells) { return cells.find(c => c.querySelector('a[title]')) || cells.find(c => c.querySelector('a[href*="details"],a[href*="torrent"],a[href*="/t/"]')) || cells[1] || cells[0]; }
   function findSizeText(cells) { return readableText(cells.find(c => /\d+(?:\.\d+)?\s*(?:TiB|GiB|MiB|KiB|TB|GB|MB|KB)/i.test(readableText(c))) || null); }
   function parseSize(text) { const m = String(text).replace(/iB/gi, 'B').match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|B)/i); return m ? Number(m[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024, B: 1 }[m[2].toUpperCase()] || 1) : 0; }
-  function getSeedingBlock() { if (/\/getusertorrentlist\.php/i.test(location.pathname)) { const bodies = document.querySelectorAll('tbody'); return bodies[bodies.length - 1]; } return [...document.querySelectorAll('tr')].find(row => row.childElementCount === 2 && clean(row.cells[0]?.textContent) === '当前做种')?.cells[1]; }
+  const SEEDING_LABEL_RE = /^(当前做种|目前做種|目前做种|当前做種|做種中|做种中)$/;
+  function getSeedingBlock() { if (/\/getusertorrentlist\.php/i.test(location.pathname)) { const bodies = document.querySelectorAll('tbody'); return bodies[bodies.length - 1]; } return [...document.querySelectorAll('tr')].find(row => row.childElementCount === 2 && SEEDING_LABEL_RE.test(clean(row.cells[0]?.textContent)))?.cells[1]; }
   function readableText(node) { if (!node) return ''; const clone = node.cloneNode(true); clone.querySelectorAll('br').forEach(br => br.replaceWith('\n')); clone.querySelectorAll('img[title]').forEach(img => img.replaceWith(` ${img.title} `)); return clone.textContent || ''; }
   function multiFilter(titleText) { const root = el('details'); const summary = el('summary'); const box = el('div'); Object.assign(box.style, { maxHeight: '180px', overflow: 'auto', minWidth: '190px', padding: '4px', border: '1px solid #ddd', background: '#fff' }); root.append(summary, box); const control = { root, summary, box, title: titleText }; root.addEventListener('change', () => updateMultiSummary(control)); updateMultiSummary(control); return control; }
   function fillMulti(control, values, emptyCount = 0) { const old = selectedMulti(control); const counts = new Map(); values.filter(Boolean).forEach(v => counts.set(v, (counts.get(v) || 0) + 1)); if (emptyCount) counts.set(EMPTY_VALUE, emptyCount); control.box.textContent = ''; [...counts.keys()].sort((a, b) => labelValue(a).localeCompare(labelValue(b))).forEach(value => { const cb = el('input', { type: 'checkbox' }); cb.value = value; cb.checked = old.has(value); const line = el('label'); line.style.display = 'block'; line.append(cb, text(` ${labelValue(value)} (${counts.get(value)})`)); control.box.append(line); }); updateMultiSummary(control); }
