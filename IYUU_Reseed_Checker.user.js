@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.11
+// @version      1.1.12
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -25,6 +25,7 @@
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
 // @grant        GM_openInTab
+// @grant        GM_log
 // @connect      self
 // @connect      2025.iyuu.cn
 // @connect      zmpt.cc
@@ -66,14 +67,12 @@
         sites: 'iyuu_reseed_sites_index', sitesTime: 'iyuu_reseed_sites_index_time', sid: 'iyuu_reseed_sid_sha1',
         sidTime: 'iyuu_reseed_sid_sha1_time', sidKey: 'iyuu_reseed_sid_sha1_key', result: 'iyuu_reseed_result_cache',
         mteamKey: 'iyuu_reseed_mteam_api_key', configured: 'iyuu_reseed_configured_once', autoQuery: 'iyuu_reseed_auto_query',
-        gazelleDl: 'iyuu_reseed_gazelle_download_enabled', debug: 'iyuu_debug',
+        gazelleDl: 'iyuu_reseed_gazelle_download_enabled',
         mpUrl: 'moviepilotUrl', mpUser: 'moviepilotUser', mpPass: 'moviepilotPassword', mpAuthMode: 'moviepilotAuthMode', mpApiKey: 'moviepilotApiKey'
     };
     const COLORS = { primary: '#2775b6', secondary: '#e6702e', success: '#5bb053', warn: '#c54640', info: '#677489' };
-    const DEBUG = false;
     const safeJson = v => { try { return JSON.stringify(v, (k, val) => val instanceof ArrayBuffer ? `ArrayBuffer(${val.byteLength})` : val, 2); } catch (_) { return String(v); } };
-    const debugEnabled = () => { try { return Boolean(GM_getValue(KEYS.debug, DEBUG)); } catch (_) { return DEBUG; } };
-    const log = (label, value = '') => { if (debugEnabled()) console.log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
+    const log = (label, value = '') => { GM_log(`[${SCRIPT_NAME}] ${label}`, value && typeof value === 'object' ? safeJson(value) : value); };
     const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     let iyuuLastRequest = 0;
     const normalizeSiteKey = value => String(value || '').toLowerCase().replace(/[\s._-]+/g, '');
@@ -163,11 +162,13 @@
         'pt.hdupt.net': { base_url: 'pt.hdupt.com', domain: 'pt.hdupt.com', host: 'pt.hdupt.com', site: 'hdupt' },
         56: { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
         'haidan.video': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
-        'haidan.cc': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' }
+        'haidan.cc': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
+        'pterclub.com': { base_url: 'pterclub.net', domain: 'pterclub.net', host: 'pterclub.net', site: 'pterclub' },
+        'www.pterclub.com': { base_url: 'pterclub.net', domain: 'pterclub.net', host: 'pterclub.net', site: 'pterclub' }
     };
 
     const Config = {
-        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false, gazelleDl: false, debug: false,
+        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false, gazelleDl: false,
         load() {
             this.token = Store.get(KEYS.token, '');
             this.owned = Store.json(KEYS.owned, []);
@@ -176,16 +177,14 @@
             this.mteamKey = Store.get(KEYS.mteamKey, '');
             this.autoQuery = Boolean(Store.get(KEYS.autoQuery, false));
             this.gazelleDl = Boolean(Store.get(KEYS.gazelleDl, false));
-            this.debug = debugEnabled();
         },
-        save({ token, owned, mteamKey, autoQuery, gazelleDl, debug }) {
+        save({ token, owned, mteamKey, autoQuery, gazelleDl }) {
             Store.set(KEYS.token, String(token || '').trim());
             Store.set(KEYS.owned, JSON.stringify((owned || []).map(String)));
             Store.set(KEYS.zmpt, true);
             Store.set(KEYS.mteamKey, String(mteamKey || '').trim());
             Store.set(KEYS.autoQuery, Boolean(autoQuery));
             Store.set(KEYS.gazelleDl, Boolean(gazelleDl));
-            Store.set(KEYS.debug, Boolean(debug));
             Store.set(KEYS.configured, true);
             Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey);
             this.load();
@@ -318,14 +317,13 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label>${this.secretInput('iyuuToken')}</div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label>${this.secretInput('iyuuMteamKey')}</div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuGazelleDl" type="checkbox"> <span><b>允许使用 FL（消耗令牌）</b><small>Gazelle 站点（如 GPW）部分种子只有 FL 下载链接，使用会消耗下载令牌；关闭时这类种子将跳过并提示。DL 链接和 Haidan 不受影响。</small></span></label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label>${this.secretInput('iyuuMpPass')}</div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label>${this.secretInput('iyuuMpApiKey')}</div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label>${this.secretInput('iyuuToken')}</div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label>${this.secretInput('iyuuMteamKey')}</div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuGazelleDl" type="checkbox"> <span><b>允许使用 FL（消耗令牌）</b><small>Gazelle 站点（如 GPW）部分种子只有 FL 下载链接，使用会消耗下载令牌；关闭时这类种子将跳过并提示。DL 链接和 Haidan 不受影响。</small></span></label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label>${this.secretInput('iyuuMpPass')}</div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label>${this.secretInput('iyuuMpApiKey')}</div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             this.bindSecretToggles(modal);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
             modal.querySelector('#iyuuAutoQuery').checked = Config.autoQuery;
             modal.querySelector('#iyuuGazelleDl').checked = Config.gazelleDl;
-            modal.querySelector('#iyuuDebugLog').checked = Config.debug;
             modal.querySelector('#iyuuMpUrl').value = Store.get(KEYS.mpUrl, 'http://127.0.0.1:3000');
             modal.querySelector('#iyuuMpAuth').value = Store.get(KEYS.mpAuthMode, 'password');
             modal.querySelector('#iyuuMpUser').value = Store.get(KEYS.mpUser, 'admin');
@@ -352,7 +350,6 @@
                 mteamKey: modal.querySelector('#iyuuMteamKey').value,
                 autoQuery: modal.querySelector('#iyuuAutoQuery').checked,
                 gazelleDl: modal.querySelector('#iyuuGazelleDl').checked,
-                debug: modal.querySelector('#iyuuDebugLog').checked,
                 owned: [...selected]
             });
             modal.querySelector('#iyuuDetectSites').onclick = async () => { try { MoviePilot.save(modal); const detected = SiteIndex.matchMoviePilot(await MoviePilot.sites(), sites); detected.forEach(sid => selected.add(sid)); renderSites(modal.querySelector('#iyuuSiteSearch').value); this.toast(`已按 MoviePilot 选择站点：${detected.length} 个`); } catch (e) { this.toast(`MoviePilot 获取失败：${e.message}`); } };
@@ -372,6 +369,13 @@
         gridContentClass
     }) => {
         const NS = 'pt-helper';
+        const TORRENT_LINK_SELECTORS = Object.freeze([
+            'a[href*="download.php"]',
+            'a[href*="download"]',
+            'a[href$=".torrent"]',
+            'a[href*="/dl/"]',
+            'a[href*="download?id="]'
+        ])
         const Native = {
             closest: Element.prototype.closest
         };
@@ -681,14 +685,14 @@
                 return (DOM.qs('.group-info__name', root)?.textContent || DOM.qs('h2 a[href*="torrents.php?id="]', root)?.textContent || document.title.replace(/\s*::.*/, '')).replace(/\s+/g, ' ').trim();
             },
             gpwActualName(row, tid = '') {
-                const detail = tid ? DOM.qs(`#torrent_detail_${tid}, #torrent${tid}, #torrent_${tid}`) : null;
-                const text = `${row?.innerText || row?.textContent || ''}\n${detail?.innerText || detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|ts|m2ts|avi|iso)\b)/i)?.[1]?.trim()
+                const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
+                const text = `${row?.textContent || ''}\n${detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
+                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg))/i)?.[1]?.trim()
                     || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
                     || '';
             },
             gazelleEntries(root = document) {
-                const title = this.gpwGroupTitle(root);
+                const groupTitle = this.gpwGroupTitle(root);
                 return DOM.qsa('tr.torrent_row, tr.TableTorrent-rowTitle', root).map(row => {
                     const links = DOM.qsa('a[href*="action=download"]', row);
                     const dl = links.find(link => !/([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || '')) || links[0];
@@ -697,11 +701,13 @@
                     const seed = DOM.qs('.TableTorrent-cellSeeders, .torrent_seeders, .seeders', row)?.textContent?.trim() || '';
                     const leech = DOM.qs('.TableTorrent-cellLeechers, .torrent_leechers, .leechers', row)?.textContent?.trim() || '';
                     const snatch = DOM.qs('.TableTorrent-cellSnatches, .torrent_snatched, .snatches, .snatched', row)?.textContent?.trim() || '';
+                    const actualName = this.gpwActualName(row, tid);
+                    const format = DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '';
                     return this.gazelleUnifiedEntry(row, dl, {
                         tid,
-                        title,
-                        format: DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '',
-                        actualName: this.gpwActualName(row, tid),
+                        title: actualName || groupTitle || format,
+                        format,
+                        actualName,
                         size: DOM.qs('.TableTorrent-cellSize', row)?.textContent?.trim() || '',
                         slc: seed || leech || snatch ? `${seed || 0}/${leech || 0}/${snatch || 0}` : '',
                         flLink: fl?.href || fl?.getAttribute?.('href') || '',
@@ -1143,11 +1149,11 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
+        return { DOM, Mount, SITE_FAMILIES, TORRENT_LINK_SELECTORS, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
     // <pt-common:end>
 
-    const { DOM: PTDOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker } = createPTCommon({
+    const { DOM: PTDOM, Mount, SITE_FAMILIES, TORRENT_LINK_SELECTORS, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker } = createPTCommon({
         defaultLabel: 'IYUU',
         productId: 'iyuu',
         gridLabelClass: 'iyuu-grid-label',
@@ -1165,6 +1171,16 @@
                 return new Promise((resolve, reject) => GM_xmlhttpRequest({ method, url: full, data, headers, responseType, timeout: 15000, onload: r => { log('HTTP response', { url: full, status: r.status, response: r.response }); return (r.status >= 200 && r.status < 300) || allowStatuses.includes(r.status) ? resolve(r.response) : reject(new Error(`HTTP ${r.status}`)); }, onerror: reject, ontimeout: () => reject(new Error('请求超时')) }));
             };
             return run();
+        },
+        async arrayBuffer(url) {
+            const full = new URL(url, location.origin).href;
+            const sameOrigin = new URL(full).origin === location.origin;
+            if (sameOrigin) {
+                const res = await fetch(full, { credentials: 'include' });
+                if (!res.ok) throw new Error(`下载 HTTP ${res.status}`);
+                return res.arrayBuffer();
+            }
+            return this.request({ url: full, responseType: 'arraybuffer' });
         }
     };
 
@@ -1296,12 +1312,44 @@
         },
         homepage(s) { const raw = s?.base_url || s?.url || s?.domain || s?.site || ''; if (!raw) return ''; try { return (raw.startsWith('http') ? new URL(raw) : new URL(`https://${raw}`)).origin; } catch (_) { const host = this.host(s); return host ? `https://${host}` : ''; } },
         webOrigin(s) { const origin = this.homepage(s); return /(^|\.)m-team\.(cc|io|vip)$/i.test(this.host(s)) ? 'https://kp.m-team.cc' : origin; },
+        rewriteOverrideUrl(rawUrl) {
+            if (!rawUrl || typeof rawUrl !== 'string') return '';
+            if (!/^https?:\/\//i.test(rawUrl)) return rawUrl;
+            let url;
+            try { url = new URL(rawUrl, location.origin); } catch (_) { return rawUrl; }
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') return rawUrl;
+            const strippedHost = url.hostname.replace(/^www\./, '').toLowerCase();
+            for (const [key, override] of Object.entries(SITE_OVERRIDES)) {
+                if (typeof key !== 'string' || !key || /^-?\d+$/.test(key)) continue;
+                const oldHost = key.replace(/^www\./, '').toLowerCase();
+                if (oldHost !== strippedHost) continue;
+                const newHost = (override && (override.host || override.domain || override.base_url)) || '';
+                if (!newHost) continue;
+                try {
+                    const replacement = new URL(`https://${String(newHost).replace(/^https?:\/\//i, '').replace(/^www\./, '')}`);
+                    url.host = replacement.host;
+                    return url.href;
+                } catch (_) { return rawUrl; }
+            }
+            return rawUrl;
+        },
         webUrl(url) { try { const u = new URL(url, location.origin); if (/(^|\.)m-team\.(cc|io|vip)$/i.test(u.hostname.replace(/^api\./, ''))) { u.protocol = 'https:'; u.host = 'kp.m-team.cc'; } return u.href; } catch (_) { return url || ''; } },
         isHomepageUrl(url) { try { const u = new URL(url, location.origin); return (!u.pathname || u.pathname === '/') && !u.search && !u.hash; } catch (_) { return false; } },
         pageUrl(s, pageField, torrentId, rawUrl = '', web = false) { const origin = web ? this.webOrigin(s) : this.homepage(s); const direct = rawUrl || ''; if (!origin) return web ? this.webUrl(direct) : direct; if (!torrentId) return web ? this.webUrl(direct || origin) : (direct || origin); const tpl = pageField || 'details.php?id={}'; const path = String(tpl).replace('{}', String(torrentId)).replace(/\{[^}]*\}/g, ''); const built = path.startsWith('http') ? path : `${origin}/${path.replace(/^\//, '')}`; const out = direct && !this.isHomepageUrl(direct) ? direct : built; return web ? this.webUrl(out) : out; },
         detailUrl(s, torrentId, rawUrl = '') { return this.pageUrl(s, s?.details_page || 'details.php?id={}', torrentId, rawUrl, true); },
-        downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
+        downloadUrl(s, torrentId, rawUrl = '') { const direct = rawUrl || ''; if (direct && !this.isHomepageUrl(direct)) return direct; if (this.isTotheglory(s)) return ''; return torrentId ? this.pageUrl(s, s?.download_page || 'download.php?id={}', torrentId, '') : ''; },
+        isLikelyDetailUrl(url) { return /(?:details\.php|\/detail\/|torrents\.php\?id=)/i.test(String(url || '')); },
+        bestDownloadUrl(site, torrentId = site?.torrentId) {
+            let tid = torrentId;
+            if (!tid) {
+                const m = String(site?.url || site?.downloadUrl || '').match(/[?&](?:id|tid|torrent_id)=(\d+)/i);
+                if (m) tid = m[1];
+            }
+            const url = site?.downloadUrl || this.downloadUrl(site, tid) || '';
+            return this.isLikelyDetailUrl(url) ? '' : url;
+        },
         isMTeam(s) { const text = [s?.host, s?.url, s?.downloadUrl, s?.domain, s?.base_url, s?.site, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' '); return /m-team\.(cc|io|vip)|馒头|饅頭|\bM[-_ ]?Team\b|\bMT\b/i.test(text); },
+        isTotheglory(s) { const text = [s?.host, s?.url, s?.downloadUrl, s?.domain, s?.base_url, s?.site, s?.name, s?.nickname, s?.name_cn].filter(Boolean).join(' '); return /totheglory\.im|(^|\b)TTG\b/i.test(text); },
         mTeamApi() { return `${MTEAM_API_BASE}/torrent/genDlToken`; },
         canonicalHost(host) {
             const h = String(host || '').replace(/^www\./, '').toLowerCase();
@@ -1324,7 +1372,7 @@
         },
         hasCurrent(list) { return Boolean(this.currentSid(list)); },
         bySid(list) { const m = new Map(); (list || []).forEach(s => m.set(String(s.id || s.sid), s)); return m; },
-        matchMoviePilot(mpSites, iyuuSites) { const hosts = new Set((mpSites || []).map(s => this.host(s)).filter(Boolean)); return (iyuuSites || []).filter(s => { const host = this.host(s); return host && [...hosts].some(h => h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }).map(s => String(s.id || s.sid)).filter(Boolean); },
+        matchMoviePilot(mpSites, iyuuSites) { const hosts = new Set((mpSites || []).map(s => this.host(s)).filter(Boolean)); return (iyuuSites || []).filter(s => { const host = this.host(s); return host && [...hosts].some(h => this.sameHost(h, host)); }).map(s => String(s.id || s.sid)).filter(Boolean); },
         async detectLoggedIn(list, onProgress) {
             const targets = (list || []).filter(s => this.host(s) && (s.id || s.sid)); const hits = []; let done = 0; const concurrency = 3; const gap = 400;
             const probe = async s => { const sid = String(s.id || s.sid); const host = this.host(s); try { const html = await HTTP.request({ url: `https://${host}/`, responseType: 'text', allowStatuses: [301, 302, 403] }); if (!/login|登录|sign\s*in|忘记密码|忘記密碼|验证码|captcha|two[-_ ]?step/i.test(String(html || ''))) hits.push(sid); } catch (_) {} done++; onProgress?.(done, targets.length); await wait(gap); };
@@ -1354,6 +1402,9 @@
             if (!sid) return null;
             const meta = index.get(sid) || {};
             const torrentId = this.torrentId(raw);
+            const rewrite = SiteIndex.rewriteOverrideUrl.bind(SiteIndex);
+            const detailRaw = rewrite(raw.url || raw.page_url || raw.link || raw.zmpt_data?.url || '');
+            const downloadRaw = rewrite(raw.download_url || raw.downloadUrl || raw.down_url || raw.zmpt_data?.download_url || '');
             return {
                 source,
                 sid,
@@ -1362,8 +1413,8 @@
                 torrentId,
                 icon: raw.icon || raw.logo || raw.favicon || SiteIndex.icon(meta),
                 count: this.count(raw, source),
-                url: SiteIndex.detailUrl(meta, torrentId, raw.url || raw.page_url || raw.link || raw.zmpt_data?.url || '') || SiteIndex.detailUrl(meta, torrentId, ''),
-                downloadUrl: SiteIndex.downloadUrl(meta, torrentId, raw.download_url || raw.downloadUrl || raw.down_url || raw.zmpt_data?.download_url || '') || SiteIndex.downloadUrl(meta, torrentId, '')
+                url: SiteIndex.detailUrl(meta, torrentId, detailRaw) || SiteIndex.detailUrl(meta, torrentId, ''),
+                downloadUrl: SiteIndex.bestDownloadUrl({ ...meta, downloadUrl: downloadRaw }, torrentId)
             };
         },
         mergeBySid(target, next) {
@@ -1408,40 +1459,27 @@
             if (!url || url.startsWith('magnet:')) return '';
             let bytes;
             try {
-                const sameOrigin = (() => { try { return new URL(url, location.origin).origin === location.origin; } catch (_) { return false; } })();
-                if (sameOrigin) {
-                    const res = await fetch(url, { credentials: 'include' });
-                    if (!res.ok) throw new Error(`下载 HTTP ${res.status}`);
-                    bytes = new Uint8Array(await res.arrayBuffer());
-                } else {
-                    const buf = await HTTP.request({ url, responseType: 'arraybuffer' });
-                    bytes = new Uint8Array(buf);
-                }
+                bytes = new Uint8Array(await HTTP.arrayBuffer(url));
             } catch (e) { throw new Error(`下载种子失败：${e?.message || e}`); }
-            const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160));
-            if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } }
-            if (/^\s*<!doctype html|<html|<head/i.test(head)) throw new Error('下载被 Cloudflare/登录拦截，请用带 passkey 的 HTTPS 链接');
+            this.assertTorrentResponse(bytes);
             const range = this.infoRange(bytes);
             return range ? await Crypto.sha1Hex(bytes.slice(range[0], range[1])) : '';
         },
+        assertTorrentResponse(bytes) {
+            const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160));
+            if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } }
+            if (/^\s*<!doctype html|<html|<head/i.test(head)) throw new Error('下载被 Cloudflare/登录拦截，请用带 passkey 的 HTTPS 链接');
+        },
         findTorrentUrl() {
-            const selectors = [
-                'a[href*="download.php"]',
-                'a[href*="download"]',
-                'a[href$=".torrent"]',
-                'a[href*="/dl/"]',
-                'a[href*="download?id="]'
-            ];
             const all = [];
-            for (const sel of selectors) all.push(...document.querySelectorAll(sel));
-            const score = a => { const h = String(a.href || ''); if (!h || h.startsWith('magnet:')) return -1; let s = 0; if (/^https:/i.test(h)) s += 2; if (/passkey=/i.test(h)) s += 2; if (/https=1/i.test(h)) s += 1; return s; };
-            const best = [...new Set(all)].map(a => ({ a, s: score(a) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a;
+            for (const sel of TORRENT_LINK_SELECTORS) all.push(...document.querySelectorAll(sel));
+            const best = [...new Set(all)].map(a => ({ a, s: Helpers.scoreTorrentLink(a, { rewardDownloadPath: true }) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a;
             if (best?.href) return best.href;
-            for (const sel of selectors) {
-                const link = firstOf(document.querySelectorAll(sel), a => !String(a.href || '').startsWith('magnet:'));
+            for (const sel of TORRENT_LINK_SELECTORS) {
+                const link = firstOf(document.querySelectorAll(sel), a => Helpers.scoreTorrentLink(a) >= 0);
                 if (link?.href) return link.href;
             }
-            const byText = firstOf(document.querySelectorAll('a[href]'), a => /下载|torrent|种子|download/i.test(a.textContent || ''));
+            const byText = firstOf(document.querySelectorAll('a[href]'), a => /下载|torrent|种子|download/i.test(a.textContent || '') && Helpers.scoreTorrentLink(a) >= 0);
             return byText?.href || '';
         },
         infoRange(bytes) { const dec = new TextDecoder('latin1'); const str = dec.decode(bytes); const key = str.indexOf('4:info'); if (key < 0) return null; const start = key + 6; let i = start; const walk = () => { const begin = i; const c = str[i]; if (c === 'i') { i = str.indexOf('e', i) + 1; return [begin, i]; } if (c === 'l' || c === 'd') { i++; while (str[i] !== 'e' && i < str.length) walk(); i++; return [begin, i]; } if (/\d/.test(c)) { const colon = str.indexOf(':', i); const len = Number(str.slice(i, colon)); i = colon + 1 + len; return [begin, i]; } throw new Error('bad bencode'); }; try { return walk(); } catch (_) { return null; } }
@@ -1578,6 +1616,29 @@
             if (Array.isArray(raw?.list)) return raw.list;
             return Object.values(data || {}).flatMap(v => Array.isArray(v) ? v : (Array.isArray(v?.torrent) ? v.torrent : []));
         },
+        isOwnedItem(item, built, ownedSet, ownedSites) {
+            const realSid = String(item?.sid || item?.site_id || item?.site || item?.site_id_str || '');
+            if (realSid && ownedSet.has(realSid)) return true;
+            const hostCandidates = [
+                built?.host, SiteIndex.host(built), SiteIndex.host({ url: built?.downloadUrl }),
+                item?.domain, item?.host, item?.base_url,
+                item?.url, item?.page_url, item?.link,
+                item?.download_url, item?.downloadUrl, item?.down_url,
+                item?.zmpt_data?.url, item?.zmpt_data?.download_url
+            ];
+            const itemHosts = hostCandidates.map(raw => {
+                if (!raw) return '';
+                const rewritten = SiteIndex.rewriteOverrideUrl(raw);
+                return SiteIndex.host({ url: rewritten }) || SiteIndex.host({ domain: raw, base_url: raw, host: raw });
+            }).filter(Boolean);
+            if (itemHosts.length && ownedSites.some(s => {
+                const ownedHost = SiteIndex.host(s);
+                return ownedHost && itemHosts.some(h => SiteIndex.sameHost(ownedHost, h));
+            })) return true;
+            const itemName = String(item?.site_name || item?.site_alias || item?.name || item?.name_cn || built?.name || '').trim();
+            if (itemName && ownedSites.some(s => normalizeSiteKey(SiteIndex.name(s)) === normalizeSiteKey(itemName))) return true;
+            return false;
+        },
         async query(hash) {
             if (!Config.zmpt) return { ok: false, source: 'fallback', sites: [] };
             const raw = await HTTP.request({ url: `${ZMPT_API}?hash=${encodeURIComponent(hash)}` });
@@ -1587,16 +1648,11 @@
             const list = await SiteIndex.get(false);
             const index = SiteIndex.bySid(list);
             const ownedSet = new Set((Config.owned || []).map(String));
-            const ownedHosts = new Set(list.filter(s => ownedSet.has(String(s.id || s.sid))).map(s => SiteIndex.host(s)).filter(Boolean));
+            const ownedSites = list.filter(s => ownedSet.has(String(s.id || s.sid)));
             const sites = data.map((item, idx) => {
-                const realSid = String(item?.sid || item?.site_id || item?.site || '');
-                if (ownedSet.size && realSid && !ownedSet.has(realSid)) return null;
                 const built = ReseedSite.build({ source: 'fallback', raw: item, index, fallbackSid: `fallback-${idx}` });
                 if (!built) return null;
-                if (ownedSet.size) {
-                    const host = SiteIndex.host(built);
-                    if (!host || (!ownedHosts.has(host) && !ownedHosts.has(String(item?.sid || item?.site_id || '')))) return null;
-                }
+                if (ownedSet.size && !this.isOwnedItem(item, built, ownedSet, ownedSites)) return null;
                 return built;
             }).filter(Boolean);
             return { ok: true, source: 'fallback', sites };
@@ -1604,19 +1660,41 @@
     };
 
     const ResultCache = {
-        _data: null, version: 'site-dedupe-v2', okTtl: 6 * 3600e3, partialTtl: 3600e3, emptyTtl: 3600e3, max: 500,
+        _data: null, version: 'site-dedupe-v2', okTtl: 6 * 3600e3, partialTtl: 3600e3, max: 500,
         _load() { if (this._data) return this._data; try { const raw = Store.get(KEYS.result, '{}'); this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch (_) { this._data = {}; } return this._data; },
         _persist() { try { Store.set(KEYS.result, JSON.stringify(this._data || {})); } catch (e) { log('result cache write failed', e.message); } },
         sidKey() { return Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); },
         key(hash) { return `hash:${hash}|${this.sidKey()}`; },
-        normalizeUrl(url) { try { const u = new URL(url || location.href, location.origin); u.hash = ''; return u.href; } catch (_) { return String(url || ''); } },
-        pageKey(input = '') { return `page:${this.normalizeUrl(typeof input === 'string' ? input : '')}|${this.sidKey()}`; },
-        siteKeys(payload) { return (payload?.sites || []).map(s => s.url).filter(Boolean).map(url => this.pageKey(url)); },
-        _ttlOf(item) { return item?.empty ? this.emptyTtl : (item?.partial ? this.partialTtl : this.okTtl); },
+        normalizeUrl(url) { try { const u = new URL(url || location.href, location.origin); u.hash = ''; ['authkey', 'torrent_pass', 'usetoken', 'https', 'passkey'].forEach(key => u.searchParams.delete(key)); u.searchParams.sort(); return u.href; } catch (_) { return String(url || ''); } },
+        downloadUrlKey(url) { try { const u = new URL(url || location.href, location.origin); const id = u.searchParams.get('id'); const action = u.searchParams.get('action') || ''; if (id && (/download/i.test(u.pathname) || /download/i.test(action))) return `${u.origin}${u.pathname}?action=${action || 'download'}&id=${id}`; } catch (_) { /* noop */ } return ''; },
+        detailUrlKey(url) {
+            try {
+                const u = new URL(url || location.href, location.origin);
+                const path = u.pathname;
+                const q = new URLSearchParams();
+                if (/\/details\.php$/i.test(path) && u.searchParams.get('id')) {
+                    q.set('id', u.searchParams.get('id'));
+                } else if (/\/torrents\.php$/i.test(path) && u.searchParams.get('id')) {
+                    q.set('id', u.searchParams.get('id'));
+                    if (u.searchParams.get('torrentid')) q.set('torrentid', u.searchParams.get('torrentid'));
+                } else if (/\/details\.php$/i.test(path) && u.searchParams.get('group_id')) {
+                    q.set('group_id', u.searchParams.get('group_id'));
+                    if (u.searchParams.get('torrent_id')) q.set('torrent_id', u.searchParams.get('torrent_id'));
+                } else if (/\/detail\/\d+\/?$/i.test(path) || /^\/t\/\d+\/?$/i.test(path)) {
+                    return `${u.origin}${path.replace(/\/$/, '')}`;
+                } else {
+                    return '';
+                }
+                return `${u.origin}${path}?${q.toString()}`;
+            } catch (_) { return ''; }
+        },
+        pageKey(input = '') { const url = typeof input === 'string' ? input : ''; return `page:${this.detailUrlKey(url) || this.downloadUrlKey(url) || this.normalizeUrl(url)}|${this.sidKey()}`; },
+        siteKeys(payload) { return (payload?.sites || []).flatMap(s => [s?.url, s?.downloadUrl].filter(Boolean).map(url => this.pageKey(url))); },
+        _ttlOf(item) { return item?.partial ? this.partialTtl : this.okTtl; },
         getKey(key) { const data = this._load(); const item = data[key]; if (!item || item.version !== this.version) return null; const ttl = this._ttlOf(item); if (Date.now() - (item.ts || 0) > ttl) { delete data[key]; this._persist(); return null; } return item.payload || null; },
         get(hash) { return this.getKey(this.key(hash)); },
         getPage(url = '') { return this.getKey(this.pageKey(url)); },
-        set(hash, payload) { if (!hash || !payload) return; const data = this._load(); const item = { payload, ts: Date.now(), version: this.version, empty: !(payload.sites || []).length, partial: Boolean(payload.partial) }; data[this.key(hash)] = item; data[this.pageKey()] = item; this.siteKeys(payload).forEach(k => { data[k] = item; }); this._prune(); this._persist(); },
+        set(hash, payload, info) { if (!hash || !payload) return; const data = this._load(); const item = { payload, ts: Date.now(), version: this.version, partial: Boolean(payload.partial) }; data[this.key(hash)] = item; data[this.pageKey()] = item; this.siteKeys(payload).forEach(k => { data[k] = item; }); this._prune(); this._persist(); },
         _prune() { const data = this._data || {}; const now = Date.now(); Object.keys(data).forEach(k => { const item = data[k] || {}; const ttl = this._ttlOf(item); if (now - (item.ts || 0) > ttl) delete data[k]; }); const keys = Object.keys(data); if (keys.length > this.max) keys.map(k => ({ k, ts: data[k]?.ts || 0 })).sort((a, b) => a.ts - b.ts).slice(0, keys.length - this.max).forEach(({ k }) => delete data[k]); },
         clear() { this._data = {}; Store.del(KEYS.result); UI.toast('辅种查询缓存已清空'); },
         size() { return Object.keys(this._load()).length; }
@@ -1627,6 +1705,7 @@
         abs(raw) { try { return raw ? new URL(raw, location.origin).href : ''; } catch (_) { return ''; } },
         size(t) { const m = String(t || '').replace(/iB/gi, 'B').toUpperCase().match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)/); if (!m) return 0; return Number(m[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024 }[m[2]] || 1); },
         findDownload(selectors) { for (const sel of selectors) { const el = document.querySelector(sel); if (el?.href || el?.value) return el.href || el.value; } return ''; },
+        scoreTorrentLink(link, { allowMagnet = false, rewardDownloadPath = false } = {}) { const h = String(link?.href || link || ''); if (!h || (h.startsWith('magnet:') && !allowMagnet)) return -1; let s = 0; if (/^https:/i.test(h)) s += 2; if (/passkey=/i.test(h)) s += 2; if (/https=1/i.test(h)) s += 1; if (rewardDownloadPath && /download\.php|\/download(?:\/|$)|\.torrent(?:$|\?)/i.test(h)) s += 3; if (/edit|report|comment|help|rules/i.test(h)) s -= 2; return s; },
         titleFromDownload(link) { return String(link?.textContent || link?.href?.split('/').pop() || '').replace(/\.torrent$/i, '').trim(); },
         info({ id, name, description = '', downloadLink = '', sizeText = '', size = 0, mount, extra = {} }) { return name && mount?.target ? { id, name: String(name).trim(), description, downloadLink, size: Number(size) || this.size(sizeText), mount, extra } : null; }
     };
@@ -1883,15 +1962,17 @@
             matches: () => GazelleSites.gpwMatches(),
             ...AdapterRuntime.withMount(
                 () => GazelleSites.gpwMount('IYUU'),
-                mount => {
+                async mount => {
                     const tid = new URLSearchParams(location.search).get('torrentid');
                     const name = document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim();
                     const entries = GazelleSites.gazelleEntries();
-                    if (entries.length > 1) return Helpers.info({ id: 'greatposterwall', name, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: name, currentTid: tid || '' } });
-                    const entry = entries.find(item => item.tid === tid) || entries[0] || {};
-                    const dl = entry.downloadLink ? null : (document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`) || (entry.tid ? document.querySelector(`a[href*="action=download"][href*="id=${entry.tid}"]`) : null));
+                    const groupInfo = Helpers.info({ id: 'greatposterwall', name, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: name, currentTid: tid || '' } });
+                    if (entries.length > 1) return groupInfo;
+                    const entry = entries.find(item => item.tid === tid) || entries[0];
+                    if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
+                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
                     const row = GazelleSites.gpwTorrentRow(tid) || dl?.closest('tr');
-                    return Helpers.info({ id: 'greatposterwall', name, description: document.title, downloadLink: entry.downloadLink || dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entry.tid || '', needsToken: entry.needsToken === true, flLink: entry.flLink || '' } });
+                    return Helpers.info({ id: 'greatposterwall', name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName: '', title: '', groupTitle: name, needsToken: false, flLink: '' } });
                 }
             )
         },
@@ -1900,15 +1981,20 @@
             matches: () => GazelleSites.haidanMatches(),
             ...AdapterRuntime.withMount(
                 () => GazelleSites.haidanMount('IYUU'),
-                mount => {
+                async mount => {
                     const tid = new URLSearchParams(location.search).get('torrent_id');
                     const title = Helpers.text('.detail-info-title') || document.title.trim();
                     const entries = GazelleSites.haidanEntries();
-                    if (entries.length > 1) return Helpers.info({ id: 'haidan', name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
-                    const dl = document.querySelector(`a[href*="download.php"][href*="id=${tid}"]`) || (entries[0]?.downloadLink ? document.querySelector(`a[href*="download.php"][href*="id=${entries[0].tid}"]`) : null);
+                    const groupInfo = Helpers.info({ id: 'haidan', name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
+                    if (entries.length > 1) return groupInfo;
+                    const entry = entries.find(e => e.tid === tid) || entries[0];
+                    if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
+                    const dl = document.querySelector(`a[href*="download.php"][href*="id=${tid}"]`);
                     const row = dl?.closest('.torrent-wrap') || dl?.closest('tr') || dl?.closest('.torrent,.torrent-row') || dl?.parentElement;
                     const explicitHash = GazelleSites.extractExplicitHash(row);
-                    return Helpers.info({ id: 'haidan', name: title, description: document.title, downloadLink: dl?.href || entries[0]?.downloadLink || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entries[0]?.tid || '', explicitHash: explicitHash || entries[0]?.explicitHash || '' } });
+                    const actualName = GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(tid) : '';
+                    const name = actualName || title;
+                    return Helpers.info({ id: 'haidan', name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '' } });
                 }
             )
         },
@@ -1971,9 +2057,9 @@
                 mount => {
                     const rows = [...document.querySelectorAll('.rowhead,.heading')];
                     const nameRow = rows[0];
-                    const candidates = [...document.querySelectorAll('a[href*="download"],a[href*=".torrent"],a[href^="magnet:"]')];
-                    const score = a => { const h = String(a.href || ''); if (!h) return -1; let s = 0; if (/^https:/i.test(h)) s += 2; if (/passkey=/i.test(h)) s += 2; if (/download\.php|\/download|\.torrent/i.test(h)) s += 1; return s; };
-                    const nameLink = nameRow?.nextElementSibling?.querySelector('a') || candidates.map(a => ({ a, s: score(a) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a || null;
+                    const selectors = [...TORRENT_LINK_SELECTORS, 'a[href^="magnet:"]'].join(',');
+                    const candidates = [...document.querySelectorAll(selectors)];
+                    const nameLink = nameRow?.nextElementSibling?.querySelector('a') || candidates.map(a => ({ a, s: Helpers.scoreTorrentLink(a, { rewardDownloadPath: true, allowMagnet: true }) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a || null;
                     return Helpers.info({ id: 'generic', name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', sizeText: document.body.innerText, mount });
                 }
             )
@@ -2074,11 +2160,53 @@
                 const info = await adapter.getInfo(mount);
                 if (!info?.name) return;
                 box._iyuuLastInfo = { ...info, mount };
-                if (info.extra?.groupMode) return;
+                if (info.extra?.groupMode) {
+                    const entries = info.extra?.entries || [];
+                    const params = new URLSearchParams(location.search);
+                    const currentTid = info.extra?.currentTid || params.get('torrentid') || params.get('torrent_id') || '';
+                    const candidates = currentTid ? entries.filter(e => String(e?.tid || '') === String(currentTid)) : [];
+                    for (const entry of candidates) {
+                        if (!entry?.downloadLink) continue;
+                        const entryInfo = this.pickedInfoFromEntry(info, entry, mount);
+                        const pageCached = ResultCache.getPage(entryInfo);
+                        if (!pageCached) continue;
+                        await this.injectCurrentSite(pageCached, entryInfo);
+                        box._iyuuLastInfo = entryInfo;
+                        btn.dataset.done = '1';
+                        this.render(box, btn, pageCached, entryInfo, true);
+                        return;
+                    }
+                    return;
+                }
                 await this.restore(box, btn, box._iyuuLastInfo, adapter.id === 'm-team' ? false : Config.autoQuery);
             } catch (e) {
                 log('lazy restore skipped', e?.message || e);
             }
+        },
+        pickedInfoFromEntry(info, entry, mount) {
+            const groupTitle = info.extra?.groupTitle || info.name;
+            return {
+                id: info.id,
+                name: entry?.title || entry?.actualName || groupTitle || info?.name,
+                description: entry?.detail || entry?.title || info.description || info.name,
+                downloadLink: entry?.downloadLink || '',
+                size: entry?.sizeBytes || Helpers.size(entry?.size || ''),
+                mount: mount || info.mount,
+                extra: { ...(info.extra || {}), groupMode: false, tid: entry?.tid, title: entry?.title || '', actualName: entry?.actualName || '', groupTitle, explicitHash: entry?.explicitHash || '', needsToken: entry?.needsToken === true, flLink: entry?.flLink || '', entries: info.extra?.entries || [] }
+            };
+        },
+        async pickedInfoWithActualName(info, entry, mount) {
+            const groupTitle = info.extra?.groupTitle || info.name;
+            const actualName = entry?.actualName || (GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(entry?.tid) : '');
+            return {
+                id: info.id,
+                name: actualName || entry?.title || groupTitle || info?.name,
+                description: entry?.detail || entry?.title || info.description || info.name,
+                downloadLink: entry?.downloadLink || '',
+                size: entry?.sizeBytes || Helpers.size(entry?.size || ''),
+                mount: mount || info.mount,
+                extra: { ...(info.extra || {}), groupMode: false, tid: entry?.tid, title: entry?.title || '', actualName, groupTitle, explicitHash: entry?.explicitHash || '', needsToken: entry?.needsToken === true, flLink: entry?.flLink || '', entries: info.extra?.entries || [] }
+            };
         },
         inject(info) {
             const existing = PTDOM.qs(PTDOM.productRootSelector(info.id || '')) || PTDOM.qs(PTDOM.productRootSelector(''));
@@ -2103,16 +2231,10 @@
                 title: `选择种子（共 ${entries.length} 个）`,
                 rows: entries,
                 actionLabel: '选择并查询',
-                onAction: (entry, actionBtn) => {
-                    const pickedInfo = {
-                        id: info.id,
-                        name: `${info.extra?.groupTitle || info.name} [tid=${entry.tid}]`,
-                        description: entry.detail || entry.title || info.description || info.name,
-                        downloadLink: entry.downloadLink || '',
-                        size: entry.sizeBytes || Helpers.size(entry.size || ''),
-                        mount: info.mount,
-                        extra: { ...(info.extra || {}), groupMode: false, tid: entry.tid, explicitHash: entry.explicitHash || '', needsToken: entry.needsToken === true, flLink: entry.flLink || '' }
-                    };
+                onAction: async (entry, actionBtn) => {
+                    actionBtn.disabled = true;
+                    actionBtn.textContent = '读取中…';
+                    const pickedInfo = await this.pickedInfoWithActualName(info, entry, info.mount);
                     box._iyuuLastInfo = pickedInfo;
                     actionBtn.closest('.pt-gazelle-picker')?.remove();
                     this.check(box, btn, pickedInfo);
@@ -2120,23 +2242,48 @@
             });
             document.body.appendChild(panel);
         },
-        async restore(box, btn, info, auto = false) { if (info.extra?.groupMode) return; try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (e) { log('restore skipped', e?.message || e); } },
+        async restore(box, btn, info, auto = false) {
+            if (info.extra?.groupMode) return;
+            try {
+                const pageCached = ResultCache.getPage(info);
+                if (pageCached) {
+                    await this.injectCurrentSite(pageCached, info);
+                    btn.dataset.done = '1';
+                    this.render(box, btn, pageCached, info, true);
+                    return;
+                }
+                if (!auto) return;
+                const hash = await InfoHash.extract(info);
+                if (!hash) return;
+                const cached = ResultCache.get(hash);
+                if (cached) {
+                    await this.injectCurrentSite(cached, info);
+                    btn.dataset.done = '1';
+                    this.render(box, btn, cached, info, true);
+                    ResultCache.set(hash, cached, info);
+                    return;
+                }
+                if (!btn.disabled) this.check(box, btn, info);
+            } catch (e) {
+                log('restore skipped', e?.message || e);
+            }
+        },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
         download(url) {
             if (!url) { UI.toast('未找到下载链接'); return; }
             if (url.startsWith('magnet:')) { UI.toast('磁力链接，已在新标签打开'); this.openTab(url); return; }
-            if (/details\.php|\/detail\/|torrents\.php\?id=/i.test(url)) { UI.toast('该站点缺少下载链接，已打开详情页'); this.openTab(url); return; }
+            if (SiteIndex.isLikelyDetailUrl(url)) { UI.toast('该站点缺少下载链接，已打开详情页'); this.openTab(url); return; }
             try { const a = document.createElement('a'); a.href = url; a.download = (url.split('/').pop() || 'download').split('?')[0] || 'download.torrent'; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { UI.toast(`下载失败：${e.message}，改为打开链接`); this.openTab(url); }
         },
         async resolveDownloadUrl(site) {
-            if (!SiteIndex.isMTeam(site)) return site.downloadUrl || SiteIndex.downloadUrl(site, site?.torrentId) || '';
+            if (!SiteIndex.isMTeam(site)) return SiteIndex.bestDownloadUrl(site);
             if (!Config.mteamKey) throw new Error('未配置 M-Team API Key，无法下载馒头种子');
             const id = site.torrentId || String(site.url || '').match(/\/detail\/(\d+)/)?.[1] || String(site.downloadUrl || '').match(/[?&](?:id|tid)=(\d+)/)?.[1];
             if (!id) throw new Error(`${site.name || '馒头'} 缺少种子 ID`);
             const res = await HTTP.request({ method: 'POST', url: SiteIndex.mTeamApi(), data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' });
             const link = res?.data || res?.url || res?.download_url || '';
             if (!link) throw new Error(res?.message || res?.msg || '获取馒头下载链接失败');
-            return link;
+            return SiteIndex.isLikelyDetailUrl(link) ? '' : link;
         },
         async downloadSelected(selected) {
             const sites = [...selected];
@@ -2159,13 +2306,13 @@
             box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove());
             try {
                 const pageCached = force ? null : ResultCache.getPage(info);
-                if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; }
+                if (pageCached) { await this.injectCurrentSite(pageCached, info); btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; }
                 const hash = await InfoHash.extract(info);
                 if (!hash) throw new Error(info.extra?.gazelleSkipped ? '需开启 FL（消耗令牌）' : '未找到 Hash');
                 const cached = force ? null : ResultCache.get(hash);
                 const result = cached || await this.fetch(hash);
-                const iyuuFailed = result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false);
-                if (result?.sites?.length) ResultCache.set(hash, result);
+                this.injectCurrentSite(result, info);
+                if (result?.sites?.length) ResultCache.set(hash, result, info);
                 btn.dataset.done = '1';
                 this.render(box, btn, result, info, Boolean(cached));
             } catch (e) {
@@ -2221,35 +2368,89 @@
             });
             return items;
         },
+        async injectCurrentSite(result, info) {
+            if (!result || !Array.isArray(result.sites) || !info) return;
+            const list = await SiteIndex.get(false).catch(() => []);
+            const sid = SiteIndex.currentSid(list);
+            const currentHost = location.hostname.replace(/^www\./, '').toLowerCase();
+            const isCurrent = s => (sid && sid === String(s?.sid || '')) || (s?.host && SiteIndex.sameHost(currentHost, s.host));
+            let matched = false;
+            result.sites = result.sites.map(s => {
+                if (s?.source === 'current' && !isCurrent(s)) return { ...s, source: (s._origSource || 'iyuu') };
+                if (isCurrent(s)) { matched = true; return { ...s, _origSource: s._origSource || (s.source === 'current' ? 'iyuu' : s.source), source: 'current' }; }
+                return s;
+            });
+            if (!matched) {
+                result.sites = [...result.sites, {
+                    source: 'current', _origSource: 'current',
+                    sid: sid || 'current',
+                    name: info.name || SiteIndex.name({ id: sid }) || location.hostname,
+                    host: currentHost,
+                    torrentId: info.extra?.tid || '',
+                    icon: [], count: 1,
+                    url: location.href,
+                    downloadUrl: ''
+                }];
+            }
+        },
+        visibleSites(sites) {
+            const currentHost = location.hostname.replace(/^www\./, '').toLowerCase();
+            return (sites || []).filter(s => {
+                if (s?.source === 'current') return false;
+                if (s?.host && SiteIndex.sameHost(currentHost, s.host)) return false;
+                return true;
+            });
+        },
+        sourceLabel(result, cached) {
+            const iyuuOk = (result.sources || []).some(s => s?.source === 'iyuu' && s?.ok !== false && (s?.sites || []).length);
+            const zmptOk = (result.sources || []).some(s => s?.source === 'fallback' && s?.ok && (s?.sites || []).length);
+            const srcLabel = iyuuOk ? 'IYUU' : (zmptOk ? 'ZMPT' : '');
+            return srcLabel ? `${srcLabel}${cached ? ' 缓存' : ''}` : '';
+        },
+        sourceErrors(result) {
+            return (result.sources || []).filter(s => s?.ok === false && s?.error).map(s => `${s.error}（${s.source === 'iyuu' ? 'IYUU' : (s.source === 'fallback' ? 'ZMPT' : s.source)}）`);
+        },
         async fetch(hash) {
             log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt });
-            const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })];
-            if (Config.zmpt) tasks.push(Fallback.query(hash));
-            const settled = await Promise.allSettled(tasks);
-            const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] });
-            const sites = this.mergeSites(sources.flatMap(s => s.sites || []));
-            const primary = firstOf(sources, s => s.source === 'iyuu');
-            const partial = Boolean(sites.length && primary?.ok === false && primary.error);
+            const sources = [];
+            const iyuuResult = Config.token
+                ? await IYUU.query(hash).catch(e => ({ ok: false, source: 'iyuu', error: e?.message || 'IYUU 查询失败', sites: [] }))
+                : { ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] };
+            sources.push(iyuuResult);
+            if (iyuuResult.ok && (iyuuResult.sites || []).length) {
+                return { hash, sources, sites: this.mergeSites(iyuuResult.sites), partial: false };
+            }
+            if (Config.zmpt) {
+                const zmptResult = await Fallback.query(hash).catch(e => ({ ok: false, source: 'fallback', error: e?.message || 'ZMPT 查询失败', sites: [] }));
+                sources.push(zmptResult);
+            }
+            const allSites = sources.flatMap(s => s.sites || []);
+            const sites = this.mergeSites(allSites);
+            const partial = Boolean(sites.length && iyuuResult.ok === false && iyuuResult.error);
             log('fetch result sources', sources);
             return { hash, sources, sites, partial };
         },
         render(box, btn, result, info, cached = false) {
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
             box._iyuuResult = result; box._iyuuCached = cached;
+            box.querySelectorAll('.iyuu-result').forEach(n => n.remove());
             const wrap = document.createElement('span'); wrap.className = 'iyuu-result iyuu-row-box';
-            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = firstOf(result.sources, s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const primaryError = primary?.ok === false && primary.error ? primary.error : ''; const error = !hasSites && primaryError ? primaryError : '';
+            const visible = this.visibleSites(result.sites);
+            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = firstOf(result.sources, s => s.source === 'iyuu'); const hasSites = Boolean(visible.length); const primaryError = primary?.ok === false && primary.error ? primary.error : ''; const srcErrors = this.sourceErrors(result);
             if (hasSites && primaryError) console.warn(`[${SCRIPT_NAME}] IYUU 主源失败（已用兜底结果）：${primaryError}`);
-            this.setQueryButton(btn, error ? '失败' : `${result.sites.length}站${cached ? ' 缓存' : ''}`, error || '重新查询');
-            if (hasSites) {
-                const iyuuOk = primary?.ok !== false && (primary?.sites || []).length;
-                const zmptOk = (result.sources || []).some(s => s?.source === 'fallback' && s?.ok && (s?.sites || []).length);
-                const srcLabel = iyuuOk ? 'IYUU' : (zmptOk ? 'ZMPT' : '');
-                if (srcLabel) wrap.append(UI.tag(`来源:${srcLabel}${cached ? ' 缓存' : ''}`, COLORS.info));
-            }
-            if (!result.sites.length) {
-                const srcErrors = (result.sources || []).filter(s => s?.ok === false && s?.error).map(s => `${s.error}（${s.source === 'iyuu' ? 'IYUU' : (s.source === 'fallback' ? 'ZMPT' : s.source)}）`);
-                if (srcErrors.length) srcErrors.forEach(msg => wrap.append(UI.tag(msg, COLORS.warn)));
-                else wrap.append(UI.tag('暂无辅种', COLORS.info));
+            this.setQueryButton(btn, hasSites ? `${visible.length}站${cached ? ' 缓存' : ''}` : '失败', srcErrors[0] || '重新查询');
+            const srcLabel = this.sourceLabel(result, cached);
+            if (srcLabel) wrap.append(UI.tag(srcLabel, COLORS.info));
+            srcErrors.forEach(msg => wrap.append(UI.tag(msg, COLORS.warn)));
+            if (!visible.length && !srcErrors.length) wrap.append(UI.tag('暂无辅种', COLORS.info));
+            const isGazelleSite = ['greatposterwall', 'haidan'].includes(info.id) || /gazelle|gpw/i.test(SITE_FAMILIES[info.id] || SITE_FAMILIES[location.hostname.replace(/^www\./, '')] || '');
+            if (isGazelleSite) {
+                const pickedLabel = info.extra?.actualName || info.extra?.title || info.name || (info.extra?.tid ? `tid=${info.extra?.tid}` : '');
+                if (pickedLabel) {
+                    const tag = UI.tag(`种子：${pickedLabel}`, COLORS.info);
+                    tag.title = `当前缓存对应的种子：${pickedLabel}`;
+                    wrap.append(tag);
+                }
             }
             if (info.extra?.groupMode === false && (info.extra?.entries || []).length > 1) {
                 const reselect = document.createElement('button');
@@ -2258,9 +2459,21 @@
                 reselect.onclick = e => { e.preventDefault(); e.stopPropagation(); this.showPicker(box, btn, { ...info, extra: { ...(info.extra || {}), groupMode: true } }); };
                 wrap.append(reselect);
             }
-            result.sites.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
-            if (multi && result.sites.length) { const all = document.createElement('button'); all.className = 'iyuu-btn'; all.textContent = '全选'; all.onclick = e => { e.preventDefault(); e.stopPropagation(); result.sites.forEach(s => selected.add(s)); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const none = document.createElement('button'); none.className = 'iyuu-btn'; none.textContent = '清空'; none.onclick = e => { e.preventDefault(); e.stopPropagation(); selected.clear(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const dl = document.createElement('button'); dl.className = 'iyuu-btn'; dl.textContent = '下载种子'; dl.onclick = e => { e.preventDefault(); e.stopPropagation(); this.downloadSelected(selected); }; const open = document.createElement('button'); open.className = 'iyuu-btn'; open.textContent = '打开选中'; open.onclick = e => { e.preventDefault(); e.stopPropagation(); const urls = [...selected].filter(s => s.url); if (!urls.length) { UI.toast('未勾选可跳转站点'); return; } urls.forEach(s => this.openTab(s.url)); UI.toast(`已打开 ${urls.length} 个站点`); }; wrap.append(all, none, dl, open); }
+            visible.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
+            this.renderMultiActions(wrap, box, btn, result, info, cached, selected, visible);
             box.appendChild(wrap);
+        },
+        renderMultiActions(wrap, box, btn, result, info, cached, selected, visible) {
+            if (!box.querySelector('.iyuu-multi-toggle')?.checked || !visible.length) return;
+            const all = document.createElement('button'); all.className = 'iyuu-btn'; all.textContent = '全选';
+            all.onclick = e => { e.preventDefault(); e.stopPropagation(); visible.forEach(s => selected.add(s)); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); };
+            const none = document.createElement('button'); none.className = 'iyuu-btn'; none.textContent = '清空';
+            none.onclick = e => { e.preventDefault(); e.stopPropagation(); selected.clear(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); };
+            const dl = document.createElement('button'); dl.className = 'iyuu-btn'; dl.textContent = '下载种子';
+            dl.onclick = e => { e.preventDefault(); e.stopPropagation(); this.downloadSelected(selected); };
+            const open = document.createElement('button'); open.className = 'iyuu-btn'; open.textContent = '打开选中';
+            open.onclick = e => { e.preventDefault(); e.stopPropagation(); const urls = [...selected].filter(s => s.url); if (!urls.length) { UI.toast('未勾选可跳转站点'); return; } urls.forEach(s => this.openTab(s.url)); UI.toast(`已打开 ${urls.length} 个站点`); };
+            wrap.append(all, none, dl, open);
         }
     };
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.10
+// @version      3.5.11
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -95,8 +95,7 @@
             moviepilotTmdbKey: '',
             moviepilotMteamApiKey: '',
             moviepilotAutoQuery: false,
-            moviepilotGazelleFlEnabled: false,
-            moviepilotGazellePushConfirmed: false
+            moviepilotGazelleFlEnabled: false
         }
     };
 
@@ -113,7 +112,6 @@
             this._values.mteamApiKey = GM_getValue('moviepilotMteamApiKey', CONSTANTS.DEFAULT_CONFIG.moviepilotMteamApiKey);
             this._values.autoQuery = Boolean(GM_getValue('moviepilotAutoQuery', CONSTANTS.DEFAULT_CONFIG.moviepilotAutoQuery));
             this._values.gazelleFlEnabled = Boolean(GM_getValue('moviepilotGazelleFlEnabled', CONSTANTS.DEFAULT_CONFIG.moviepilotGazelleFlEnabled));
-            this._values.gazellePushConfirmed = Boolean(GM_getValue('moviepilotGazellePushConfirmed', CONSTANTS.DEFAULT_CONFIG.moviepilotGazellePushConfirmed));
             GM_log(`[${SCRIPT_NAME}] 配置已加载。`);
         },
 
@@ -143,7 +141,6 @@
                 GM_deleteValue('moviepilotMteamApiKey');
                 GM_deleteValue('moviepilotAutoQuery');
                 GM_deleteValue('moviepilotGazelleFlEnabled');
-                GM_deleteValue('moviepilotGazellePushConfirmed');
                 try { GM_deleteValue(CONSTANTS.RECOGNIZE_CACHE.KEY); } catch (e) {}
                 GM_log(`[${SCRIPT_NAME}] 所有配置已重置。正在刷新页面...`);
                 location.reload();
@@ -520,6 +517,13 @@
         gridContentClass
     }) => {
         const NS = 'pt-helper';
+        const TORRENT_LINK_SELECTORS = Object.freeze([
+            'a[href*="download.php"]',
+            'a[href*="download"]',
+            'a[href$=".torrent"]',
+            'a[href*="/dl/"]',
+            'a[href*="download?id="]'
+        ])
         const Native = {
             closest: Element.prototype.closest
         };
@@ -829,14 +833,14 @@
                 return (DOM.qs('.group-info__name', root)?.textContent || DOM.qs('h2 a[href*="torrents.php?id="]', root)?.textContent || document.title.replace(/\s*::.*/, '')).replace(/\s+/g, ' ').trim();
             },
             gpwActualName(row, tid = '') {
-                const detail = tid ? DOM.qs(`#torrent_detail_${tid}, #torrent${tid}, #torrent_${tid}`) : null;
-                const text = `${row?.innerText || row?.textContent || ''}\n${detail?.innerText || detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|ts|m2ts|avi|iso)\b)/i)?.[1]?.trim()
+                const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
+                const text = `${row?.textContent || ''}\n${detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
+                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg))/i)?.[1]?.trim()
                     || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
                     || '';
             },
             gazelleEntries(root = document) {
-                const title = this.gpwGroupTitle(root);
+                const groupTitle = this.gpwGroupTitle(root);
                 return DOM.qsa('tr.torrent_row, tr.TableTorrent-rowTitle', root).map(row => {
                     const links = DOM.qsa('a[href*="action=download"]', row);
                     const dl = links.find(link => !/([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || '')) || links[0];
@@ -845,11 +849,13 @@
                     const seed = DOM.qs('.TableTorrent-cellSeeders, .torrent_seeders, .seeders', row)?.textContent?.trim() || '';
                     const leech = DOM.qs('.TableTorrent-cellLeechers, .torrent_leechers, .leechers', row)?.textContent?.trim() || '';
                     const snatch = DOM.qs('.TableTorrent-cellSnatches, .torrent_snatched, .snatches, .snatched', row)?.textContent?.trim() || '';
+                    const actualName = this.gpwActualName(row, tid);
+                    const format = DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '';
                     return this.gazelleUnifiedEntry(row, dl, {
                         tid,
-                        title,
-                        format: DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '',
-                        actualName: this.gpwActualName(row, tid),
+                        title: actualName || groupTitle || format,
+                        format,
+                        actualName,
                         size: DOM.qs('.TableTorrent-cellSize', row)?.textContent?.trim() || '',
                         slc: seed || leech || snatch ? `${seed || 0}/${leech || 0}/${snatch || 0}` : '',
                         flLink: fl?.href || fl?.getAttribute?.('href') || '',
@@ -1291,7 +1297,7 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
+        return { DOM, Mount, SITE_FAMILIES, TORRENT_LINK_SELECTORS, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
     // <pt-common:end>
 
@@ -1302,21 +1308,6 @@
         gridContentClass: 'mp-grid-content'
     });
 
-    function gazellePushNeedsConfirm() {
-        if (CONFIG.get('gazellePushConfirmed')) return false;
-        const host = location.hostname.replace(/^www\./i, '').toLowerCase();
-        const siteId = String(Site.adapter?.id || '').toLowerCase();
-        const family = SITE_FAMILIES[siteId] || SITE_FAMILIES[host] || SITE_FAMILIES[host.split('.')[0]] || '';
-        return GazelleSites.isOrpheusHost() || GazelleSites.isGpwHost() || GazelleSites.isHaidanHost() || /gazelle|gpw/.test(family);
-    }
-
-    function confirmGazellePush() {
-        if (!gazellePushNeedsConfirm()) return true;
-        if (!confirm('该站点为 Gazelle，推送将消耗一次下载令牌，确认推送？')) return false;
-        GM_setValue('moviepilotGazellePushConfirmed', true);
-        CONFIG._values.gazellePushConfirmed = true;
-        return true;
-    }
 
     // ——————————————————————————————————————
     // [3] API 模块 (API MODULE)
@@ -2118,17 +2109,17 @@
             matches: () => GazelleSites.gpwMatches(),
             ...AdapterRuntime.withMount(
                 () => GazelleSites.gpwMount('MoviePilot'),
-                mount => {
+                async mount => {
                     const tid = new URLSearchParams(window.location.search).get('torrentid');
                     const name = document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim();
                     const entries = GazelleSites.gazelleEntries();
-                    if (entries.length > 1) {
-                        return BT_SITE_HELPERS.info({ name, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: name, currentTid: tid || '' } });
-                    }
-                    const entry = entries.find(item => item.tid === tid) || entries[0] || {};
-                    const dl = entry.downloadLink ? null : (document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`) || (entry.tid ? document.querySelector(`a[href*="action=download"][href*="id=${entry.tid}"]`) : null));
+                    const groupInfo = BT_SITE_HELPERS.info({ name, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: name, currentTid: tid || '' } });
+                    if (entries.length > 1) return groupInfo;
+                    const entry = entries.find(item => item.tid === tid) || entries[0];
+                    if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
+                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
                     const row = GazelleSites.gpwTorrentRow(tid) || dl?.closest('tr');
-                    return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: entry.downloadLink || dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entry.tid || '', needsToken: entry.needsToken === true, flLink: entry.flLink || '' } });
+                    return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName: '', title: '', groupTitle: name, needsToken: false, flLink: '' } });
                 }
             )
         },
@@ -2137,17 +2128,20 @@
             matches: () => GazelleSites.haidanMatches(),
             ...AdapterRuntime.withMount(
                 () => GazelleSites.haidanMount('MoviePilot'),
-                mount => {
+                async mount => {
                     const tid = new URLSearchParams(window.location.search).get('torrent_id');
                     const title = BT_SITE_HELPERS.text('.detail-info-title') || document.title.trim();
                     const entries = GazelleSites.haidanEntries();
-                    if (entries.length > 1) {
-                        return BT_SITE_HELPERS.info({ name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
-                    }
-                    const dl = document.querySelector(`a[href*="download.php"][href*="id=${tid}"]`) || (entries[0]?.downloadLink ? document.querySelector(`a[href*="download.php"][href*="id=${entries[0].tid}"]`) : null);
+                    const groupInfo = BT_SITE_HELPERS.info({ name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
+                    if (entries.length > 1) return groupInfo;
+                    const entry = entries.find(e => e.tid === tid) || entries[0];
+                    if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
+                    const dl = document.querySelector(`a[href*="download.php"][href*="id=${tid}"]`);
                     const row = dl?.closest('.torrent-wrap') || dl?.closest('tr') || dl?.closest('.torrent,.torrent-row') || dl?.parentElement;
                     const explicitHash = GazelleSites.extractExplicitHash(row);
-                    return BT_SITE_HELPERS.info({ name: title, description: document.title, downloadLink: dl?.href || entries[0]?.downloadLink || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entries[0]?.tid || '', explicitHash: explicitHash || entries[0]?.explicitHash || '' } });
+                    const actualName = GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(tid) : '';
+                    const name = actualName || title;
+                    return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '' } });
                 }
             )
         },
@@ -2339,8 +2333,20 @@
             if (adapter.id === 'm-team') return;
             try {
                 const torrentInfo = await adapter.getInfo(mount);
-                if (!torrentInfo?.name || torrentInfo.extra?.groupMode) return;
-                const cached = Cache.get(torrentInfo.name);
+                if (!torrentInfo?.name) return;
+                if (torrentInfo.extra?.groupMode) {
+                    const entries = torrentInfo.extra?.entries || [];
+                    for (const entry of entries) {
+                        const pickedInfo = this.pickedInfoFromEntry(torrentInfo, entry, mount);
+                        const cached = Cache.get(pickedInfo);
+                        if (!cached?.media_info) continue;
+                        GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${pickedInfo.name}`);
+                        this.renderSuccess(container, cached, pickedInfo);
+                        return;
+                    }
+                    return;
+                }
+                const cached = Cache.get(torrentInfo);
                 if (cached && cached.media_info) {
                     GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${torrentInfo.name}`);
                     this.renderSuccess(container, cached, torrentInfo);
@@ -2357,6 +2363,31 @@
             } catch (error) {
                 GM_log(`[${SCRIPT_NAME}] Lazy restore skipped: ${adapter.id}`, error?.stack || error?.message || error);
             }
+        },
+
+        pickedInfoFromEntry(torrentInfo, entry, mount) {
+            const groupTitle = torrentInfo.extra?.groupTitle || torrentInfo.name;
+            return {
+                name: entry?.title || entry?.actualName || groupTitle || torrentInfo?.name,
+                description: entry?.detail || entry?.title || entry?.format || torrentInfo.description || groupTitle,
+                downloadLink: entry?.downloadLink || '',
+                size: entry?.sizeBytes || BT_SITE_HELPERS.findSize(entry?.size || ''),
+                mount: mount || torrentInfo.mount,
+                extra: { ...(torrentInfo.extra || {}), groupMode: false, tid: entry?.tid, title: entry?.title || '', actualName: entry?.actualName || '', groupTitle, explicitHash: entry?.explicitHash || '', needsToken: entry?.needsToken === true, flLink: entry?.flLink || '', entries: torrentInfo.extra?.entries || [] }
+            };
+        },
+
+        async pickedInfoWithActualName(torrentInfo, entry, mount) {
+            const groupTitle = torrentInfo.extra?.groupTitle || torrentInfo.name;
+            const actualName = entry?.actualName || (GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(entry?.tid) : '');
+            return {
+                name: actualName || entry?.title || groupTitle || torrentInfo?.name,
+                description: entry?.detail || entry?.title || entry?.format || torrentInfo.description || groupTitle,
+                downloadLink: entry?.downloadLink || '',
+                size: entry?.sizeBytes || BT_SITE_HELPERS.findSize(entry?.size || ''),
+                mount: mount || torrentInfo.mount,
+                extra: { ...(torrentInfo.extra || {}), groupMode: false, tid: entry?.tid, title: entry?.title || '', actualName, groupTitle, explicitHash: entry?.explicitHash || '', needsToken: entry?.needsToken === true, flLink: entry?.flLink || '', entries: torrentInfo.extra?.entries || [] }
+            };
         },
 
         _processOneTorrent(torrentInfo) {
@@ -2380,7 +2411,7 @@
                 };
 
                 // 检查缓存：有则直接渲染成功结果，无则显示手动入口
-                const cached = Cache.get(name);
+                const cached = Cache.get(torrentData);
                 if (cached && cached.media_info) {
                     GM_log(`[${SCRIPT_NAME}] 命中识别缓存: ${name}`);
                     this.renderSuccess(container, cached, torrentData);
@@ -2407,18 +2438,8 @@
                 onAction: async (entry, btn) => {
                     btn.disabled = true;
                     btn.textContent = '读取中…';
-                    const actualName = entry.actualName || (GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(entry.tid) : '');
                     btn.closest('.pt-gazelle-picker')?.remove();
-                    const pickedTitle = entry.title || title;
-                    const pickedName = actualName || entry.actualName || entry.title || entry.format || `${pickedTitle} [tid=${entry.tid}]`;
-                    const pickedInfo = {
-                        name: pickedName,
-                        description: entry.detail || entry.title || entry.format || torrentInfo.description || title,
-                        downloadLink: entry.downloadLink || '',
-                        size: entry.sizeBytes || BT_SITE_HELPERS.findSize(entry.size || ''),
-                        mount: torrentInfo.mount,
-                        extra: { ...(torrentInfo.extra || {}), groupMode: false, tid: entry.tid, actualName, explicitHash: entry.explicitHash, needsToken: entry.needsToken === true, flLink: entry.flLink || '' }
-                    };
+                    const pickedInfo = await this.pickedInfoWithActualName(torrentInfo, entry, torrentInfo.mount);
                     this.renderManualEntry(container, pickedInfo, 'running', '识别中');
                     this.startRecognition(container, pickedInfo);
                 }
@@ -2504,7 +2525,7 @@
                     try {
                         const data = await API.recognize(candidates[i], subtitle);
                         if (data && data.media_info) {
-                            Cache.set(torrentInfo.name, data);
+                            Cache.set(torrentInfo, data);
                             this.renderSuccess(container, data, torrentInfo);
                             return;
                         }
@@ -2522,7 +2543,7 @@
                     const mediaInfo = await this.tmdbFallback(candidates, torrentInfo.description);
                     if (mediaInfo && mediaInfo.tmdb_id) {
                         const data = { media_info: mediaInfo, meta_info: {} };
-                        Cache.set(torrentInfo.name, data);
+                        Cache.set(torrentInfo, data);
                         this.renderSuccess(container, data, torrentInfo);
                         return;
                     }
@@ -2590,6 +2611,8 @@
             finalHtml += UI.renderActionButton('识别', '成功', CONSTANTS.COLORS.SECONDARY, 'idle', '重新识别');
             const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;`;
             finalHtml += `<button class="mp-download-button" style="${buttonStyle}">推送到MP</button>`;
+            const pickedLabel = torrentInfo.extra?.actualName || torrentInfo.extra?.title || torrentInfo.name || torrentInfo.extra?.tid || '';
+            if (pickedLabel) finalHtml += UI.renderTag(`种子：${pickedLabel}`, CONSTANTS.COLORS.INFO);
             if (torrentInfo.extra?.groupMode === false && (torrentInfo.extra?.entries || []).length > 1) {
                 finalHtml += `<button type="button" class="mp-reselect-torrent" style="background-color:${CONSTANTS.COLORS.SECONDARY}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;">重选种子</button>`;
             }
@@ -2714,12 +2737,6 @@
                 if (Site.adapter.id === 'greatposterwall' && /([?&])usetoken=1(?:&|$)/.test(torrentInfo.downloadLink || '') && !CONFIG.get('gazelleFlEnabled')) {
                     setStatus("需开启 FL（消耗令牌）");
                     setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 2000);
-                    return;
-                }
-
-                if (!confirmGazellePush()) {
-                    setStatus("已取消推送");
-                    setTimeout(() => { button.textContent = originalText; button.disabled = false; }, 1500);
                     return;
                 }
 
@@ -2974,6 +2991,24 @@
     // [6.5] 识别结果缓存 (RECOGNIZE CACHE)
     // ——————————————————————————————————————
 
+    function normalizeDownloadKey(url) {
+        const raw = String(url || '').trim();
+        if (!raw || raw.startsWith('magnet:')) return '';
+        try {
+            const parsed = new URL(raw, window.location.href);
+            ['authkey', 'torrent_pass', 'usetoken', 'https', 'passkey'].forEach(key => parsed.searchParams.delete(key));
+            const kept = new URLSearchParams();
+            ['action', 'id'].forEach(key => {
+                const value = parsed.searchParams.get(key);
+                if (value) kept.set(key, value);
+            });
+            const query = kept.toString();
+            return `${parsed.origin}${parsed.pathname}${query ? `?${query}` : ''}`.toLowerCase();
+        } catch (e) {
+            return '';
+        }
+    }
+
     const Cache = {
         _data: null,
 
@@ -3000,8 +3035,14 @@
             return UTILS.cleanText(name).toLowerCase();
         },
 
-        get(name) {
-            const key = this._normalizeKey(name);
+        keyOf(input) {
+            if (typeof input === 'string') return this._normalizeKey(input);
+            const downloadKey = normalizeDownloadKey(input?.downloadLink);
+            return downloadKey || this._normalizeKey(input?.name);
+        },
+
+        get(input) {
+            const key = this.keyOf(input);
             if (!key) return null;
             const data = this._load();
             const item = data[key];
@@ -3014,8 +3055,8 @@
             return item.payload || null;
         },
 
-        set(name, payload) {
-            const key = this._normalizeKey(name);
+        set(input, payload) {
+            const key = this.keyOf(input);
             if (!key || !payload) return;
             const data = this._load();
             data[key] = { payload, ts: Date.now() };

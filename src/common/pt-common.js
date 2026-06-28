@@ -6,6 +6,13 @@
         gridContentClass
     }) => {
         const NS = 'pt-helper';
+        const TORRENT_LINK_SELECTORS = Object.freeze([
+            'a[href*="download.php"]',
+            'a[href*="download"]',
+            'a[href$=".torrent"]',
+            'a[href*="/dl/"]',
+            'a[href*="download?id="]'
+        ])
         const Native = {
             closest: Element.prototype.closest
         };
@@ -315,14 +322,14 @@
                 return (DOM.qs('.group-info__name', root)?.textContent || DOM.qs('h2 a[href*="torrents.php?id="]', root)?.textContent || document.title.replace(/\s*::.*/, '')).replace(/\s+/g, ' ').trim();
             },
             gpwActualName(row, tid = '') {
-                const detail = tid ? DOM.qs(`#torrent_detail_${tid}, #torrent${tid}, #torrent_${tid}`) : null;
-                const text = `${row?.innerText || row?.textContent || ''}\n${detail?.innerText || detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|ts|m2ts|avi|iso)\b)/i)?.[1]?.trim()
+                const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
+                const text = `${row?.textContent || ''}\n${detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
+                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg))/i)?.[1]?.trim()
                     || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
                     || '';
             },
             gazelleEntries(root = document) {
-                const title = this.gpwGroupTitle(root);
+                const groupTitle = this.gpwGroupTitle(root);
                 return DOM.qsa('tr.torrent_row, tr.TableTorrent-rowTitle', root).map(row => {
                     const links = DOM.qsa('a[href*="action=download"]', row);
                     const dl = links.find(link => !/([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || '')) || links[0];
@@ -331,11 +338,13 @@
                     const seed = DOM.qs('.TableTorrent-cellSeeders, .torrent_seeders, .seeders', row)?.textContent?.trim() || '';
                     const leech = DOM.qs('.TableTorrent-cellLeechers, .torrent_leechers, .leechers', row)?.textContent?.trim() || '';
                     const snatch = DOM.qs('.TableTorrent-cellSnatches, .torrent_snatched, .snatches, .snatched', row)?.textContent?.trim() || '';
+                    const actualName = this.gpwActualName(row, tid);
+                    const format = DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '';
                     return this.gazelleUnifiedEntry(row, dl, {
                         tid,
-                        title,
-                        format: DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '',
-                        actualName: this.gpwActualName(row, tid),
+                        title: actualName || groupTitle || format,
+                        format,
+                        actualName,
                         size: DOM.qs('.TableTorrent-cellSize', row)?.textContent?.trim() || '',
                         slc: seed || leech || snatch ? `${seed || 0}/${leech || 0}/${snatch || 0}` : '',
                         flLink: fl?.href || fl?.getAttribute?.('href') || '',
@@ -777,6 +786,6 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
+        return { DOM, Mount, SITE_FAMILIES, TORRENT_LINK_SELECTORS, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
     // <pt-common:end>
