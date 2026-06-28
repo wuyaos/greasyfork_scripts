@@ -7,18 +7,16 @@
     }) => {
         const NS = 'pt-helper';
         const Native = {
-            querySelector: Document.prototype.querySelector,
-            querySelectorAll: Document.prototype.querySelectorAll,
             closest: Element.prototype.closest
         };
         const DOM = {
             ns: NS,
             productId,
             qs(selector, root = document) {
-                try { return Native.querySelector.call(root, selector); } catch (_) { return null; }
+                try { return typeof root?.querySelector === 'function' ? root.querySelector(selector) : null; } catch (_) { return null; }
             },
             qsa(selector, root = document) {
-                try { return Array.from(Native.querySelectorAll.call(root, selector)); } catch (_) { return []; }
+                try { return typeof root?.querySelectorAll === 'function' ? Array.from(root.querySelectorAll(selector)) : []; } catch (_) { return []; }
             },
             closest(node, selector) {
                 try { return node ? Native.closest.call(node, selector) : null; } catch (_) { return null; }
@@ -92,6 +90,7 @@
 
         const Mount = {
             afterNode(target) { return { type: 'div-after', target }; },
+            inlineAfter(target, label = defaultLabel) { return { type: 'inline-after', target, label }; },
             tableRowAfter(target, label = defaultLabel) { return { type: 'table-row-after', target, label }; },
             tableColspanAfter(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
             tableColspanBefore(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
@@ -126,6 +125,7 @@
                 if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
                 if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
                 if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
+                if (m.type === 'inline-after') return this.renderInlineAfter(m, contentNode);
                 if (m.type === 'block-after') return this.block(m, contentNode);
                 if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
                 if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
@@ -171,23 +171,41 @@
                 const td = document.createElement('td');
                 const table = ref?.closest?.('table');
                 const label = document.createElement('span');
-                label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;';
-                label.textContent = `${labelOf(m)}：`;
+                const separator = document.createElement('span');
+                label.style.cssText = 'font-weight:700;vertical-align:middle;';
+                label.textContent = labelOf(m);
+                separator.textContent = '｜';
                 contentNode.style.display = 'inline-flex';
                 contentNode.style.alignItems = 'center';
                 contentNode.style.flexWrap = 'wrap';
                 contentNode.style.gap = contentNode.style.gap || '6px';
                 contentNode.style.verticalAlign = 'middle';
                 td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length));
-                td.style.paddingLeft = '12px';
-                td.style.paddingTop = '10px';
-                td.style.paddingBottom = '10px';
-                td.append(label, contentNode);
+                td.style.padding = '6px 8px';
+                td.style.textAlign = 'left';
+                td.append(label, separator, contentNode);
                 tr.appendChild(td);
                 if (before && ref?.before) ref.before(tr);
                 else if (ref?.after) ref.after(tr);
                 else (m.target || document.body).after(tr);
                 return tr;
+            },
+            renderInlineAfter(m, contentNode) {
+                const wrap = document.createElement('div');
+                const label = document.createElement('span');
+                const separator = document.createElement('span');
+                wrap.style.cssText = 'display:flex;justify-content:flex-start;align-items:center;gap:4px;flex-wrap:wrap;padding:4px 6px;text-align:left;width:100%;margin-left:0;align-self:stretch;';
+                label.style.fontWeight = '700';
+                label.textContent = labelOf(m);
+                separator.textContent = '｜';
+                contentNode.style.display = 'inline-flex';
+                contentNode.style.alignItems = 'center';
+                contentNode.style.flexWrap = 'wrap';
+                contentNode.style.gap = contentNode.style.gap || '6px';
+                contentNode.style.marginLeft = '0';
+                wrap.append(label, separator, contentNode);
+                m.target.after(wrap);
+                return wrap;
             },
             block(m, contentNode) {
                 const block = document.createElement('div');
@@ -239,6 +257,148 @@
             }
         };
 
+        const GazelleSites = {
+            isOrpheusHost() { return /(^|\.)orpheus\.network$/i.test(location.hostname); },
+            isGpwHost() { return location.hostname === 'greatposterwall.com'; },
+            isHaidanHost() { return /(^|\.)haidan\.(cc|video)$/i.test(location.hostname); },
+            orphusMatches() { return this.isOrpheusHost() && location.pathname === '/torrents.php' && new URLSearchParams(location.search).has('id'); },
+            gpwMatches() {
+                const params = new URLSearchParams(location.search);
+                return this.isGpwHost() && location.pathname === '/torrents.php' && params.has('id') && !params.has('action');
+            },
+            haidanMatches() { return this.isHaidanHost() && location.pathname === '/details.php' && new URLSearchParams(location.search).has('group_id'); },
+            gazelleTidFromLink(link, param = 'id') {
+                const href = link?.href || link?.getAttribute?.('href') || '';
+                try { return new URL(href, location.origin).searchParams.get(param) || ''; } catch (_) { return ''; }
+            },
+            parseSize(text) {
+                const match = String(text || '').replace(/iB/gi, 'B').toUpperCase().match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)/);
+                if (!match) return 0;
+                return Number(match[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024 }[match[2]] || 1);
+            },
+            firstLineText(node, limit = 120) {
+                const text = String(node?.innerText || node?.textContent || '').split(/\n|◎/).map(s => s.trim()).find(Boolean) || '';
+                return text.replace(/\s+/g, ' ').trim().slice(0, limit);
+            },
+            async haidanActualName(tid) {
+                if (!tid) return '';
+                try {
+                    const res = await fetch(new URL(`torrent_info.php?id=${encodeURIComponent(tid)}`, location.origin).href, { credentials: 'include' });
+                    const html = await res.text();
+                    const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                    return text.match(/- \[name\] \(String\) \[\d+\] :\s*(.*?)(?:\s*- \[piece length\]|\s*- \[pieces\]|\s*- \[private\]|$)/i)?.[1]?.trim() || '';
+                } catch (_) { return ''; }
+            },
+            gazelleUnifiedEntry(row, dl, opts = {}) {
+                if (!row || !dl) return null;
+                const tid = opts.tid || this.gazelleTidFromLink(dl, opts.tidParam || 'id');
+                if (!tid) return null;
+                const text = String(row.textContent || '').replace(/\s+/g, ' ').trim();
+                const title = String(opts.title || '').trim() || this.firstLineText(DOM.qs('.detail-info-items-block-content2', row), 120) || `torrentid ${tid}`;
+                const format = String(opts.format || '').trim()
+                    || DOM.qs('.torrent_format, .format', row)?.textContent?.trim()
+                    || text.match(/\b(FLAC|MP3|AAC|AC3|DTS|Blu-?ray|WEB-?DL|WEBRip|Encode|Remux|DVD|HDTV|x264|x265|H\.?264|H\.?265)\b/i)?.[0]
+                    || '';
+                const size = String(opts.size || text.match(/\b\d+(?:\.\d+)?\s*[TGMK]i?B\b/i)?.[0] || '').trim();
+                const slc = String(opts.slc || '').trim();
+                const downloadLink = opts.downloadLink || dl.href || dl.getAttribute?.('href') || '';
+                const flLink = String(opts.flLink || '').trim();
+                const needsToken = Boolean(opts.needsToken);
+                const explicitHash = this.extractExplicitHash(row);
+                const actualName = String(opts.actualName || '').trim();
+                return { tid, title, format, actualName, size, sizeBytes: this.parseSize(size), slc, active: slc, downloadLink, flLink, needsToken, explicitHash };
+            },
+            gazelleEntry(row, dl, id) {
+                return this.gazelleUnifiedEntry(row, dl, { tid: id });
+            },
+            gpwGroupTitle(root = document) {
+                return (DOM.qs('.group-info__name', root)?.textContent || DOM.qs('h2 a[href*="torrents.php?id="]', root)?.textContent || document.title.replace(/\s*::.*/, '')).replace(/\s+/g, ' ').trim();
+            },
+            gpwActualName(row, tid = '') {
+                const detail = tid ? DOM.qs(`#torrent_detail_${tid}, #torrent${tid}, #torrent_${tid}`) : null;
+                const text = `${row?.innerText || row?.textContent || ''}\n${detail?.innerText || detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
+                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|ts|m2ts|avi|iso)\b)/i)?.[1]?.trim()
+                    || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
+                    || '';
+            },
+            gazelleEntries(root = document) {
+                const title = this.gpwGroupTitle(root);
+                return DOM.qsa('tr.torrent_row, tr.TableTorrent-rowTitle', root).map(row => {
+                    const links = DOM.qsa('a[href*="action=download"]', row);
+                    const dl = links.find(link => !/([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || '')) || links[0];
+                    const fl = links.find(link => /([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || ''));
+                    const tid = this.gazelleTidFromLink(dl, 'id');
+                    const seed = DOM.qs('.TableTorrent-cellSeeders, .torrent_seeders, .seeders', row)?.textContent?.trim() || '';
+                    const leech = DOM.qs('.TableTorrent-cellLeechers, .torrent_leechers, .leechers', row)?.textContent?.trim() || '';
+                    const snatch = DOM.qs('.TableTorrent-cellSnatches, .torrent_snatched, .snatches, .snatched', row)?.textContent?.trim() || '';
+                    return this.gazelleUnifiedEntry(row, dl, {
+                        tid,
+                        title,
+                        format: DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '',
+                        actualName: this.gpwActualName(row, tid),
+                        size: DOM.qs('.TableTorrent-cellSize', row)?.textContent?.trim() || '',
+                        slc: seed || leech || snatch ? `${seed || 0}/${leech || 0}/${snatch || 0}` : '',
+                        flLink: fl?.href || fl?.getAttribute?.('href') || '',
+                        needsToken: Boolean(fl && dl === fl)
+                    });
+                }).filter(Boolean);
+            },
+            haidanEntries(root = document) {
+                const box = DOM.qs('.torrents.content-color', root) || root;
+                const rows = DOM.qsa('.torrent-wrap', box).filter(row => DOM.qs('a[href*="download.php"]', row));
+                const sources = rows.length ? rows : DOM.qsa('a[href*="download.php"]', box).map(dl => DOM.closest(dl, '.torrent-wrap') || DOM.closest(dl, 'tr') || dl.parentElement).filter(Boolean);
+                return sources.map(row => {
+                    const dl = DOM.qs('a[href*="download.php"]', row);
+                    const nums = DOM.qsa('div', row).filter(div => !DOM.qs('div', div) && /^\d{1,6}$/.test(String(div.textContent || '').trim())).slice(0, 3).map(div => div.textContent.trim());
+                    return this.gazelleUnifiedEntry(row, dl, {
+                        tid: this.gazelleTidFromLink(dl, 'id'),
+                        title: this.firstLineText(DOM.qs('.detail-info-items-block-content2', row), 120),
+                        format: DOM.qsa('a[href*="viewDetail"]', row).map(a => a.textContent.trim()).find(Boolean) || '',
+                        slc: nums.length ? `${nums[0] || 0}/${nums[1] || 0}/${nums[2] || 0}` : ''
+                    });
+                }).filter(Boolean);
+            },
+            gazelleHeader() {
+                return DOM.qs('tr.colhead_dark')
+                    || DOM.qs('table.TableTorrent tr')
+                    || DOM.qsa('tr').find(tr => /^\s*Torrents\s*$/i.test(tr.textContent || ''))
+                    || DOM.qs('tr');
+            },
+            orphusMount(label = defaultLabel) {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                if (tid) {
+                    const dl = DOM.qs(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = DOM.closest(dl, 'tr.torrent_row') || DOM.qs(`#torrent${tid}, #torrent_${tid}`);
+                    return row ? Mount.tableColspanAfter(row, label) : Mount.afterNode(DOM.qs('h2') || document.body);
+                }
+                const header = this.gazelleHeader();
+                return header ? Mount.tableColspanAfter(header, label) : Mount.afterNode(DOM.qs('h2') || document.body);
+            },
+            gpwMount(label = defaultLabel) {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                const header = DOM.qs('table.TableTorrent tr') || this.gazelleHeader();
+                if (header) return Mount.tableColspanAfter(header, label);
+                if (tid) {
+                    const dl = DOM.qs(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = this.gpwTorrentRow(tid) || DOM.closest(dl, 'tr');
+                    return row ? Mount.tableColspanAfter(row, label) : Mount.afterNode(DOM.qs(`#torrent${tid}`) || document.body);
+                }
+                return Mount.afterNode(document.body);
+            },
+            haidanMount(label = defaultLabel) {
+                const header = DOM.qs('.torrents.content-color')?.firstElementChild;
+                return Mount.inlineAfter(header || DOM.qs('.detail-info-title') || DOM.qs('.detail-info-body') || document.body, label);
+            },
+            gpwTorrentRow(tid = new URLSearchParams(location.search).get('torrentid')) {
+                if (!tid) return null;
+                return DOM.qs(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
+                    || DOM.closest(DOM.qs(`#torrent_details a[href*="id=${tid}"]`), 'tr');
+            },
+            extractExplicitHash(root = document) {
+                return `${root?.innerText || ''}\n${root?.textContent || ''}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || '';
+            }
+        };
+
         const SITE_FAMILIES = Object.freeze({
             'totheglory': 'custom-ttg',
             'hdsky': 'nexusphp',
@@ -252,7 +412,9 @@
             'iptorrents': 'custom-ipt',
             'filelist': 'tbsource',
             'hudbt': 'custom-hudbt',
+            'orpheus': 'custom-gazelle',
             'greatposterwall': 'custom-gpw',
+            'haidan': 'custom-gazelle',
             'hhclub': 'custom-hhclub',
             'bangumi': 'public-bt',
             'bangumi-moe': 'public-bt',
@@ -263,6 +425,14 @@
             'generic': 'unknown',
             'generic-nexusphp': 'nexusphp'
         });
+
+        function needsDownloadForHash(info = {}) {
+            const host = String(info.host || info.hostname || '').replace(/^www\./i, '').toLowerCase();
+            const siteId = String(info.id || info.siteId || '').toLowerCase();
+            const family = info.family || SITE_FAMILIES[siteId] || SITE_FAMILIES[host] || SITE_FAMILIES[host.split('.')[0]] || '';
+            const explicitHash = info.explicitHash || info.extra?.explicitHash || '';
+            return /gazelle|gpw/.test(family) && !/^[a-fA-F0-9]{40}$/.test(String(explicitHash)) && info.extra?.needsToken === true;
+        }
 
         function tableMount(siteId, row, label) {
             if (!row) return null;
@@ -290,6 +460,85 @@
                     family: this.family(adapter),
                     anchorReason
                 });
+            }
+        };
+
+        const GazellePicker = {
+            COLUMNS: [
+                { k: 'title', t: '标题', align: 'left', wrap: true },
+                { k: 'format', t: '格式', align: 'left', wrap: true },
+                { k: 'size', t: '体积', align: 'right' },
+                { k: 'slc', t: 'S/L/C', align: 'center' },
+                { k: 'tid', t: 'ID', align: 'right' }
+            ],
+            style: '.pt-gazelle-picker{position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}.pt-gazelle-picker-panel{width:min(860px,96vw);max-height:86vh;overflow:auto;background:#fff;color:#222;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.25);font-size:14px}.pt-gazelle-picker-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid #e5e7eb}.pt-gazelle-picker-title{font-weight:700;font-size:16px}.pt-gazelle-picker-close{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#666}.pt-gazelle-picker-table{width:100%;border-collapse:collapse}.pt-gazelle-picker-table th{position:sticky;top:49px;background:#f7f9fb;z-index:1}.pt-gazelle-picker-table th,.pt-gazelle-picker-table td{padding:9px 10px;border-bottom:1px solid #eef1f4;vertical-align:top}.pt-gazelle-picker-table tbody tr:hover{background:#f5faff}.pt-gazelle-picker-wrap{white-space:normal;word-break:break-word}.pt-gazelle-picker-action{background:#2775b6;color:#fff;border:0;border-radius:4px;padding:6px 10px;cursor:pointer;white-space:nowrap}.pt-gazelle-picker-action:hover{background:#1f669f}',
+            ensureStyle() {
+                const id = `${NS}-gazelle-picker-style`;
+                let style = document.getElementById(id);
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = id;
+                    style.textContent = this.style;
+                    document.head.appendChild(style);
+                }
+            },
+            buildPanel({ title = '选择种子', rows = [], actionLabel = '选择', onAction = () => {} } = {}) {
+                this.ensureStyle();
+                const overlay = document.createElement('div');
+                overlay.className = 'pt-gazelle-picker';
+                const panel = document.createElement('div');
+                panel.className = 'pt-gazelle-picker-panel';
+                const head = document.createElement('div');
+                head.className = 'pt-gazelle-picker-head';
+                const caption = document.createElement('div');
+                caption.className = 'pt-gazelle-picker-title';
+                caption.textContent = title;
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'pt-gazelle-picker-close';
+                close.textContent = '×';
+                close.addEventListener('click', () => overlay.remove());
+                head.append(caption, close);
+                const table = document.createElement('table');
+                table.className = 'pt-gazelle-picker-table';
+                const thead = document.createElement('thead');
+                const header = document.createElement('tr');
+                this.COLUMNS.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col.t;
+                    th.style.textAlign = col.align || 'left';
+                    header.appendChild(th);
+                });
+                const actionTh = document.createElement('th');
+                actionTh.textContent = '操作';
+                actionTh.style.textAlign = 'center';
+                header.appendChild(actionTh);
+                thead.appendChild(header);
+                const tbody = document.createElement('tbody');
+                rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    this.COLUMNS.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row?.[col.k] == null ? '' : String(row[col.k]);
+                        td.style.textAlign = col.align || 'left';
+                        if (col.wrap) td.className = 'pt-gazelle-picker-wrap';
+                        tr.appendChild(td);
+                    });
+                    const actionTd = document.createElement('td');
+                    actionTd.style.textAlign = 'center';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'pt-gazelle-picker-action';
+                    btn.textContent = actionLabel;
+                    btn.addEventListener('click', () => onAction(row, btn));
+                    actionTd.appendChild(btn);
+                    tr.appendChild(actionTd);
+                    tbody.appendChild(tr);
+                });
+                table.append(thead, tbody);
+                panel.append(head, table);
+                overlay.appendChild(panel);
+                return overlay;
             }
         };
 
@@ -528,6 +777,6 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime };
+        return { DOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
     // <pt-common:end>

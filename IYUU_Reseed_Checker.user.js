@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.5
+// @version      1.1.11
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -10,7 +10,9 @@
 // @match        https://*.m-team.io/detail/*
 // @match        https://*.m-team.vip/detail/*
 // @match        https://hdcity.city/t-*
-// @include      /^https:\/\/greatposterwall\.com\/torrents\.php\?(?=[^#]*\bid=)(?=[^#]*\btorrentid=)[^#]*(?:#.*)?$/
+// @include      /^https:\/\/greatposterwall\.com\/torrents\.php\?(?=[^#]*\bid=)[^#]*(?:#.*)?$/
+// @exclude      /^https?:\/\/([^/]+\.)?orpheus\.network\//
+// @include      /^https?:\/\/([^/]+\.)?haidan\.(cc|video)\/details\.php\?(?=[^#]*\bgroup_id=)[^#]*(?:#.*)?$/
 // @match        https://iptorrents.com/torrent.php?id=*
 // @match        https://eiga.moi/torrents/*
 // @include      /^https:\/\/hd-space\.org\/index\.php\?(?=[^#]*\bpage=torrent-details\b)(?=[^#]*\bid=)[^#]*(?:#.*)?$/
@@ -40,6 +42,9 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
+// - 1.1.9: 增强 IYUU 查询重试与部分成功展示，修正站点选择灰色语义并补强 Haidan 本地域名复写。
+// - 1.1.8: 调整 GPW/Haidan 插入 UI 为左对齐 label｜按钮，并为 IYUU 索引本地视图补充站点改址复写。
+// - 1.1.6: 复用公共 Gazelle 适配器，新增 Orpheus/Haidan/GPW group 页选择查询。
 // - 1.1.5: 补齐 IYUU 私有站特殊详情页匹配，避免在公共 BT 站点注入，并收紧 IPT 匹配到详情页。
 // - 1.1.4: 使用 IYUU 文档站图标作为脚本图标。
 // - 1.1.3: 增强 lazy 详情页注入，恢复缓存/自动查询并限制 Monika 只匹配数字种子详情页。
@@ -61,7 +66,7 @@
         sites: 'iyuu_reseed_sites_index', sitesTime: 'iyuu_reseed_sites_index_time', sid: 'iyuu_reseed_sid_sha1',
         sidTime: 'iyuu_reseed_sid_sha1_time', sidKey: 'iyuu_reseed_sid_sha1_key', result: 'iyuu_reseed_result_cache',
         mteamKey: 'iyuu_reseed_mteam_api_key', configured: 'iyuu_reseed_configured_once', autoQuery: 'iyuu_reseed_auto_query',
-        debug: 'iyuu_debug',
+        gazelleDl: 'iyuu_reseed_gazelle_download_enabled', debug: 'iyuu_debug',
         mpUrl: 'moviepilotUrl', mpUser: 'moviepilotUser', mpPass: 'moviepilotPassword', mpAuthMode: 'moviepilotAuthMode', mpApiKey: 'moviepilotApiKey'
     };
     const COLORS = { primary: '#2775b6', secondary: '#e6702e', success: '#5bb053', warn: '#c54640', info: '#677489' };
@@ -153,8 +158,16 @@
         json(k, d) { try { const v = this.get(k, ''); return v ? JSON.parse(v) : d; } catch (_) { return d; } }
     };
 
+    const SITE_OVERRIDES = {
+        38: { base_url: 'pt.hdupt.com', domain: 'pt.hdupt.com', host: 'pt.hdupt.com', site: 'hdupt' },
+        'pt.hdupt.net': { base_url: 'pt.hdupt.com', domain: 'pt.hdupt.com', host: 'pt.hdupt.com', site: 'hdupt' },
+        56: { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
+        'haidan.video': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
+        'haidan.cc': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' }
+    };
+
     const Config = {
-        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false, debug: false,
+        token: '', owned: [], zmpt: true, mteamKey: '', autoQuery: false, gazelleDl: false, debug: false,
         load() {
             this.token = Store.get(KEYS.token, '');
             this.owned = Store.json(KEYS.owned, []);
@@ -162,14 +175,16 @@
             Store.set(KEYS.zmpt, true);
             this.mteamKey = Store.get(KEYS.mteamKey, '');
             this.autoQuery = Boolean(Store.get(KEYS.autoQuery, false));
+            this.gazelleDl = Boolean(Store.get(KEYS.gazelleDl, false));
             this.debug = debugEnabled();
         },
-        save({ token, owned, mteamKey, autoQuery, debug }) {
+        save({ token, owned, mteamKey, autoQuery, gazelleDl, debug }) {
             Store.set(KEYS.token, String(token || '').trim());
             Store.set(KEYS.owned, JSON.stringify((owned || []).map(String)));
             Store.set(KEYS.zmpt, true);
             Store.set(KEYS.mteamKey, String(mteamKey || '').trim());
             Store.set(KEYS.autoQuery, Boolean(autoQuery));
+            Store.set(KEYS.gazelleDl, Boolean(gazelleDl));
             Store.set(KEYS.debug, Boolean(debug));
             Store.set(KEYS.configured, true);
             Store.del(KEYS.sid); Store.del(KEYS.sidTime); Store.del(KEYS.sidKey);
@@ -211,6 +226,7 @@
                 .iyuu-body label{margin:0;color:#4b5563;font-size:12px}
                 .iyuu-check-line{display:flex!important;align-items:center;gap:6px;font-weight:600}
                 .iyuu-check-line input{margin:0}
+                .iyuu-check-line small{display:block;margin-top:3px;color:${COLORS.info};font-weight:400;line-height:1.35}
                 .iyuu-body input[type=text],.iyuu-body input[type=password],.iyuu-body select{box-sizing:border-box;width:100%;height:32px;margin:0;padding:6px 8px;border:1px solid #cfd6df;border-radius:4px;background:#fff;color:#222;font-size:13px}
                 .iyuu-body input:focus,.iyuu-body select:focus{border-color:${COLORS.primary};outline:none;box-shadow:0 0 0 2px rgba(39,117,182,.14)}
                 .iyuu-secret-field{position:relative;width:100%;min-width:0}
@@ -228,11 +244,16 @@
                 .iyuu-site-toolbar input{flex:1 1 180px;min-width:160px}
                 .iyuu-site-toolbar button{flex:0 0 auto}
                 .iyuu-site-grid{display:flex;gap:7px;flex-wrap:wrap;max-height:240px;overflow:auto;border:1px solid #dfe4ea;border-radius:6px;background:#fff;padding:8px}
-                .iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #d6dde5;border-radius:4px;background:#fff;color:#8a94a3;cursor:pointer;font-size:12px;opacity:.75}
-                .iyuu-site-chip:hover{border-color:${COLORS.primary}}
+                .iyuu-site-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1px solid #cfd6df;border-radius:4px;background:#f1f3f5;color:#6b7280;cursor:pointer;font-size:12px;opacity:.72}
+                .iyuu-site-chip:hover{border-color:#9aa4b2;background:#e9ecef;color:#4b5563;opacity:.9}
                 .iyuu-site-chip.selected{border-color:${COLORS.success};background:${COLORS.success};color:#fff;opacity:1;font-weight:600}
                 .iyuu-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin:0 -16px;padding:10px 16px;background:#f6f7f9;border-top:1px solid #dfe4ea}
                 .iyuu-actions button{margin:0}
+                .iyuu-picker{width:100%;margin-top:8px;padding:8px;border:1px solid #dfe4ea;border-radius:6px;background:#fff;box-sizing:border-box;overflow-x:auto;color:#333}
+                .iyuu-picker-title{font-weight:700;margin-bottom:6px;color:#1f2933}
+                .iyuu-picker-table{width:100%;border-collapse:collapse;font-size:12px}
+                .iyuu-picker-table th,.iyuu-picker-table td{border:1px solid #dfe4ea;padding:5px 6px;text-align:left;vertical-align:top}
+                .iyuu-picker-table th{background:#f6f7f9;font-weight:700;white-space:nowrap}
                 @media(max-width:720px){.iyuu-site-toolbar button{flex:1 1 calc(50% - 8px)}.iyuu-site-toolbar input{flex-basis:100%}.iyuu-inline{grid-template-columns:1fr}.iyuu-body{padding:12px 12px 0}.iyuu-actions{margin:0 -12px;padding:10px 12px}}
             `);
         },
@@ -297,12 +318,13 @@
             let sites = await SiteIndex.get(false).catch(() => []);
             const bg = document.createElement('div'); bg.className = 'iyuu-modal-bg';
             const modal = document.createElement('div'); modal.className = 'iyuu-modal';
-            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label>${this.secretInput('iyuuToken')}</div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label>${this.secretInput('iyuuMteamKey')}</div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label>${this.secretInput('iyuuMpPass')}</div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label>${this.secretInput('iyuuMpApiKey')}</div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
+            modal.innerHTML = `<h2>IYUU 配置</h2><div class="iyuu-body"><section class="iyuu-section"><h3 class="iyuu-section-title">基础设置</h3><div class="iyuu-field"><label for="iyuuToken">IYUU Token</label>${this.secretInput('iyuuToken')}</div><div class="iyuu-field"><label for="iyuuMteamKey">M-Team API Key（可选）</label>${this.secretInput('iyuuMteamKey')}</div><label class="iyuu-check-line"><input id="iyuuAutoQuery" type="checkbox"> 自动查询（默认关闭，命中缓存时不会重复请求）</label><label class="iyuu-check-line"><input id="iyuuGazelleDl" type="checkbox"> <span><b>允许使用 FL（消耗令牌）</b><small>Gazelle 站点（如 GPW）部分种子只有 FL 下载链接，使用会消耗下载令牌；关闭时这类种子将跳过并提示。DL 链接和 Haidan 不受影响。</small></span></label><label class="iyuu-check-line"><input id="iyuuDebugLog" type="checkbox"> 调试日志</label></section><section class="iyuu-section"><h3 class="iyuu-section-title">MoviePilot 联动</h3><div class="iyuu-field"><label for="iyuuMpUrl">MoviePilot 地址</label><input id="iyuuMpUrl" type="text"></div><div class="iyuu-field"><label for="iyuuMpAuth">认证方式</label><select id="iyuuMpAuth"><option value="password">用户名密码</option><option value="apikey">API Key</option></select></div><div id="iyuuMpPasswordFields"><div class="iyuu-field"><label for="iyuuMpUser">用户名</label><input id="iyuuMpUser" type="text"></div><div class="iyuu-field"><label for="iyuuMpPass">密码</label>${this.secretInput('iyuuMpPass')}</div></div><div id="iyuuMpApiKeyFields"><div class="iyuu-field"><label for="iyuuMpApiKey">API Key</label>${this.secretInput('iyuuMpApiKey')}</div></div></section><section class="iyuu-section"><h3 class="iyuu-section-title">索引站点</h3><div class="iyuu-site-toolbar"><input id="iyuuSiteSearch" type="text" placeholder="搜索名称 / 域名 / 别名"><button id="iyuuRefreshSites">刷新索引</button><button id="iyuuDetectSites">从 MP 选择</button><button id="iyuuDetectLogin">选择已登录</button><button id="iyuuAllSites">全选</button><button id="iyuuClearSites">清空</button><button id="iyuuClearCache">清缓存</button><button id="iyuuResetConfig">重置</button></div><div id="iyuuSiteGrid" class="iyuu-site-grid"></div></section><div class="iyuu-actions"><button class="iyuu-cancel">关闭</button><button class="iyuu-save">保存</button></div></div>`;
             bg.appendChild(modal); document.body.appendChild(bg);
             this.bindSecretToggles(modal);
             modal.querySelector('#iyuuToken').value = Config.token;
             modal.querySelector('#iyuuMteamKey').value = Config.mteamKey;
             modal.querySelector('#iyuuAutoQuery').checked = Config.autoQuery;
+            modal.querySelector('#iyuuGazelleDl').checked = Config.gazelleDl;
             modal.querySelector('#iyuuDebugLog').checked = Config.debug;
             modal.querySelector('#iyuuMpUrl').value = Store.get(KEYS.mpUrl, 'http://127.0.0.1:3000');
             modal.querySelector('#iyuuMpAuth').value = Store.get(KEYS.mpAuthMode, 'password');
@@ -329,6 +351,7 @@
                 token: tokenInput.value,
                 mteamKey: modal.querySelector('#iyuuMteamKey').value,
                 autoQuery: modal.querySelector('#iyuuAutoQuery').checked,
+                gazelleDl: modal.querySelector('#iyuuGazelleDl').checked,
                 debug: modal.querySelector('#iyuuDebugLog').checked,
                 owned: [...selected]
             });
@@ -350,18 +373,16 @@
     }) => {
         const NS = 'pt-helper';
         const Native = {
-            querySelector: Document.prototype.querySelector,
-            querySelectorAll: Document.prototype.querySelectorAll,
             closest: Element.prototype.closest
         };
         const DOM = {
             ns: NS,
             productId,
             qs(selector, root = document) {
-                try { return Native.querySelector.call(root, selector); } catch (_) { return null; }
+                try { return typeof root?.querySelector === 'function' ? root.querySelector(selector) : null; } catch (_) { return null; }
             },
             qsa(selector, root = document) {
-                try { return Array.from(Native.querySelectorAll.call(root, selector)); } catch (_) { return []; }
+                try { return typeof root?.querySelectorAll === 'function' ? Array.from(root.querySelectorAll(selector)) : []; } catch (_) { return []; }
             },
             closest(node, selector) {
                 try { return node ? Native.closest.call(node, selector) : null; } catch (_) { return null; }
@@ -435,6 +456,7 @@
 
         const Mount = {
             afterNode(target) { return { type: 'div-after', target }; },
+            inlineAfter(target, label = defaultLabel) { return { type: 'inline-after', target, label }; },
             tableRowAfter(target, label = defaultLabel) { return { type: 'table-row-after', target, label }; },
             tableColspanAfter(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-after', target, label, colspan }; },
             tableColspanBefore(target, label = defaultLabel, colspan = 0) { return { type: 'table-colspan-before', target, label, colspan }; },
@@ -469,6 +491,7 @@
                 if (m.type === 'table-row-after') return this.tableRow(m, contentNode);
                 if (m.type === 'table-colspan-after') return this.tableColspan(m, contentNode);
                 if (m.type === 'table-colspan-before') return this.tableColspan(m, contentNode, true);
+                if (m.type === 'inline-after') return this.renderInlineAfter(m, contentNode);
                 if (m.type === 'block-after') return this.block(m, contentNode);
                 if (m.type === 'ant-row-after') return this.antRow(m, contentNode);
                 if (m.type === 'grid-pair-after') return this.gridPair(m, contentNode);
@@ -514,23 +537,41 @@
                 const td = document.createElement('td');
                 const table = ref?.closest?.('table');
                 const label = document.createElement('span');
-                label.style.cssText = 'display:inline-block;min-width:72px;font-weight:700;margin-right:8px;vertical-align:middle;';
-                label.textContent = `${labelOf(m)}：`;
+                const separator = document.createElement('span');
+                label.style.cssText = 'font-weight:700;vertical-align:middle;';
+                label.textContent = labelOf(m);
+                separator.textContent = '｜';
                 contentNode.style.display = 'inline-flex';
                 contentNode.style.alignItems = 'center';
                 contentNode.style.flexWrap = 'wrap';
                 contentNode.style.gap = contentNode.style.gap || '6px';
                 contentNode.style.verticalAlign = 'middle';
                 td.colSpan = m.colspan || Math.max(1, ...[...(table?.rows || [])].map(r => r.cells.length));
-                td.style.paddingLeft = '12px';
-                td.style.paddingTop = '10px';
-                td.style.paddingBottom = '10px';
-                td.append(label, contentNode);
+                td.style.padding = '6px 8px';
+                td.style.textAlign = 'left';
+                td.append(label, separator, contentNode);
                 tr.appendChild(td);
                 if (before && ref?.before) ref.before(tr);
                 else if (ref?.after) ref.after(tr);
                 else (m.target || document.body).after(tr);
                 return tr;
+            },
+            renderInlineAfter(m, contentNode) {
+                const wrap = document.createElement('div');
+                const label = document.createElement('span');
+                const separator = document.createElement('span');
+                wrap.style.cssText = 'display:flex;justify-content:flex-start;align-items:center;gap:4px;flex-wrap:wrap;padding:4px 6px;text-align:left;width:100%;margin-left:0;align-self:stretch;';
+                label.style.fontWeight = '700';
+                label.textContent = labelOf(m);
+                separator.textContent = '｜';
+                contentNode.style.display = 'inline-flex';
+                contentNode.style.alignItems = 'center';
+                contentNode.style.flexWrap = 'wrap';
+                contentNode.style.gap = contentNode.style.gap || '6px';
+                contentNode.style.marginLeft = '0';
+                wrap.append(label, separator, contentNode);
+                m.target.after(wrap);
+                return wrap;
             },
             block(m, contentNode) {
                 const block = document.createElement('div');
@@ -582,6 +623,148 @@
             }
         };
 
+        const GazelleSites = {
+            isOrpheusHost() { return /(^|\.)orpheus\.network$/i.test(location.hostname); },
+            isGpwHost() { return location.hostname === 'greatposterwall.com'; },
+            isHaidanHost() { return /(^|\.)haidan\.(cc|video)$/i.test(location.hostname); },
+            orphusMatches() { return this.isOrpheusHost() && location.pathname === '/torrents.php' && new URLSearchParams(location.search).has('id'); },
+            gpwMatches() {
+                const params = new URLSearchParams(location.search);
+                return this.isGpwHost() && location.pathname === '/torrents.php' && params.has('id') && !params.has('action');
+            },
+            haidanMatches() { return this.isHaidanHost() && location.pathname === '/details.php' && new URLSearchParams(location.search).has('group_id'); },
+            gazelleTidFromLink(link, param = 'id') {
+                const href = link?.href || link?.getAttribute?.('href') || '';
+                try { return new URL(href, location.origin).searchParams.get(param) || ''; } catch (_) { return ''; }
+            },
+            parseSize(text) {
+                const match = String(text || '').replace(/iB/gi, 'B').toUpperCase().match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB)/);
+                if (!match) return 0;
+                return Number(match[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024 }[match[2]] || 1);
+            },
+            firstLineText(node, limit = 120) {
+                const text = String(node?.innerText || node?.textContent || '').split(/\n|◎/).map(s => s.trim()).find(Boolean) || '';
+                return text.replace(/\s+/g, ' ').trim().slice(0, limit);
+            },
+            async haidanActualName(tid) {
+                if (!tid) return '';
+                try {
+                    const res = await fetch(new URL(`torrent_info.php?id=${encodeURIComponent(tid)}`, location.origin).href, { credentials: 'include' });
+                    const html = await res.text();
+                    const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                    return text.match(/- \[name\] \(String\) \[\d+\] :\s*(.*?)(?:\s*- \[piece length\]|\s*- \[pieces\]|\s*- \[private\]|$)/i)?.[1]?.trim() || '';
+                } catch (_) { return ''; }
+            },
+            gazelleUnifiedEntry(row, dl, opts = {}) {
+                if (!row || !dl) return null;
+                const tid = opts.tid || this.gazelleTidFromLink(dl, opts.tidParam || 'id');
+                if (!tid) return null;
+                const text = String(row.textContent || '').replace(/\s+/g, ' ').trim();
+                const title = String(opts.title || '').trim() || this.firstLineText(DOM.qs('.detail-info-items-block-content2', row), 120) || `torrentid ${tid}`;
+                const format = String(opts.format || '').trim()
+                    || DOM.qs('.torrent_format, .format', row)?.textContent?.trim()
+                    || text.match(/\b(FLAC|MP3|AAC|AC3|DTS|Blu-?ray|WEB-?DL|WEBRip|Encode|Remux|DVD|HDTV|x264|x265|H\.?264|H\.?265)\b/i)?.[0]
+                    || '';
+                const size = String(opts.size || text.match(/\b\d+(?:\.\d+)?\s*[TGMK]i?B\b/i)?.[0] || '').trim();
+                const slc = String(opts.slc || '').trim();
+                const downloadLink = opts.downloadLink || dl.href || dl.getAttribute?.('href') || '';
+                const flLink = String(opts.flLink || '').trim();
+                const needsToken = Boolean(opts.needsToken);
+                const explicitHash = this.extractExplicitHash(row);
+                const actualName = String(opts.actualName || '').trim();
+                return { tid, title, format, actualName, size, sizeBytes: this.parseSize(size), slc, active: slc, downloadLink, flLink, needsToken, explicitHash };
+            },
+            gazelleEntry(row, dl, id) {
+                return this.gazelleUnifiedEntry(row, dl, { tid: id });
+            },
+            gpwGroupTitle(root = document) {
+                return (DOM.qs('.group-info__name', root)?.textContent || DOM.qs('h2 a[href*="torrents.php?id="]', root)?.textContent || document.title.replace(/\s*::.*/, '')).replace(/\s+/g, ' ').trim();
+            },
+            gpwActualName(row, tid = '') {
+                const detail = tid ? DOM.qs(`#torrent_detail_${tid}, #torrent${tid}, #torrent_${tid}`) : null;
+                const text = `${row?.innerText || row?.textContent || ''}\n${detail?.innerText || detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
+                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|ts|m2ts|avi|iso)\b)/i)?.[1]?.trim()
+                    || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
+                    || '';
+            },
+            gazelleEntries(root = document) {
+                const title = this.gpwGroupTitle(root);
+                return DOM.qsa('tr.torrent_row, tr.TableTorrent-rowTitle', root).map(row => {
+                    const links = DOM.qsa('a[href*="action=download"]', row);
+                    const dl = links.find(link => !/([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || '')) || links[0];
+                    const fl = links.find(link => /([?&])usetoken=1(?:&|$)/.test(link.href || link.getAttribute?.('href') || ''));
+                    const tid = this.gazelleTidFromLink(dl, 'id');
+                    const seed = DOM.qs('.TableTorrent-cellSeeders, .torrent_seeders, .seeders', row)?.textContent?.trim() || '';
+                    const leech = DOM.qs('.TableTorrent-cellLeechers, .torrent_leechers, .leechers', row)?.textContent?.trim() || '';
+                    const snatch = DOM.qs('.TableTorrent-cellSnatches, .torrent_snatched, .snatches, .snatched', row)?.textContent?.trim() || '';
+                    return this.gazelleUnifiedEntry(row, dl, {
+                        tid,
+                        title,
+                        format: DOM.qs('span.TorrentTitle', row)?.textContent?.trim() || '',
+                        actualName: this.gpwActualName(row, tid),
+                        size: DOM.qs('.TableTorrent-cellSize', row)?.textContent?.trim() || '',
+                        slc: seed || leech || snatch ? `${seed || 0}/${leech || 0}/${snatch || 0}` : '',
+                        flLink: fl?.href || fl?.getAttribute?.('href') || '',
+                        needsToken: Boolean(fl && dl === fl)
+                    });
+                }).filter(Boolean);
+            },
+            haidanEntries(root = document) {
+                const box = DOM.qs('.torrents.content-color', root) || root;
+                const rows = DOM.qsa('.torrent-wrap', box).filter(row => DOM.qs('a[href*="download.php"]', row));
+                const sources = rows.length ? rows : DOM.qsa('a[href*="download.php"]', box).map(dl => DOM.closest(dl, '.torrent-wrap') || DOM.closest(dl, 'tr') || dl.parentElement).filter(Boolean);
+                return sources.map(row => {
+                    const dl = DOM.qs('a[href*="download.php"]', row);
+                    const nums = DOM.qsa('div', row).filter(div => !DOM.qs('div', div) && /^\d{1,6}$/.test(String(div.textContent || '').trim())).slice(0, 3).map(div => div.textContent.trim());
+                    return this.gazelleUnifiedEntry(row, dl, {
+                        tid: this.gazelleTidFromLink(dl, 'id'),
+                        title: this.firstLineText(DOM.qs('.detail-info-items-block-content2', row), 120),
+                        format: DOM.qsa('a[href*="viewDetail"]', row).map(a => a.textContent.trim()).find(Boolean) || '',
+                        slc: nums.length ? `${nums[0] || 0}/${nums[1] || 0}/${nums[2] || 0}` : ''
+                    });
+                }).filter(Boolean);
+            },
+            gazelleHeader() {
+                return DOM.qs('tr.colhead_dark')
+                    || DOM.qs('table.TableTorrent tr')
+                    || DOM.qsa('tr').find(tr => /^\s*Torrents\s*$/i.test(tr.textContent || ''))
+                    || DOM.qs('tr');
+            },
+            orphusMount(label = defaultLabel) {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                if (tid) {
+                    const dl = DOM.qs(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = DOM.closest(dl, 'tr.torrent_row') || DOM.qs(`#torrent${tid}, #torrent_${tid}`);
+                    return row ? Mount.tableColspanAfter(row, label) : Mount.afterNode(DOM.qs('h2') || document.body);
+                }
+                const header = this.gazelleHeader();
+                return header ? Mount.tableColspanAfter(header, label) : Mount.afterNode(DOM.qs('h2') || document.body);
+            },
+            gpwMount(label = defaultLabel) {
+                const tid = new URLSearchParams(location.search).get('torrentid');
+                const header = DOM.qs('table.TableTorrent tr') || this.gazelleHeader();
+                if (header) return Mount.tableColspanAfter(header, label);
+                if (tid) {
+                    const dl = DOM.qs(`a[href*="action=download"][href*="id=${tid}"]`);
+                    const row = this.gpwTorrentRow(tid) || DOM.closest(dl, 'tr');
+                    return row ? Mount.tableColspanAfter(row, label) : Mount.afterNode(DOM.qs(`#torrent${tid}`) || document.body);
+                }
+                return Mount.afterNode(document.body);
+            },
+            haidanMount(label = defaultLabel) {
+                const header = DOM.qs('.torrents.content-color')?.firstElementChild;
+                return Mount.inlineAfter(header || DOM.qs('.detail-info-title') || DOM.qs('.detail-info-body') || document.body, label);
+            },
+            gpwTorrentRow(tid = new URLSearchParams(location.search).get('torrentid')) {
+                if (!tid) return null;
+                return DOM.qs(`#torrent${tid}, #torrent_${tid}, #torrent_detail_${tid}`)
+                    || DOM.closest(DOM.qs(`#torrent_details a[href*="id=${tid}"]`), 'tr');
+            },
+            extractExplicitHash(root = document) {
+                return `${root?.innerText || ''}\n${root?.textContent || ''}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || '';
+            }
+        };
+
         const SITE_FAMILIES = Object.freeze({
             'totheglory': 'custom-ttg',
             'hdsky': 'nexusphp',
@@ -595,7 +778,9 @@
             'iptorrents': 'custom-ipt',
             'filelist': 'tbsource',
             'hudbt': 'custom-hudbt',
+            'orpheus': 'custom-gazelle',
             'greatposterwall': 'custom-gpw',
+            'haidan': 'custom-gazelle',
             'hhclub': 'custom-hhclub',
             'bangumi': 'public-bt',
             'bangumi-moe': 'public-bt',
@@ -606,6 +791,14 @@
             'generic': 'unknown',
             'generic-nexusphp': 'nexusphp'
         });
+
+        function needsDownloadForHash(info = {}) {
+            const host = String(info.host || info.hostname || '').replace(/^www\./i, '').toLowerCase();
+            const siteId = String(info.id || info.siteId || '').toLowerCase();
+            const family = info.family || SITE_FAMILIES[siteId] || SITE_FAMILIES[host] || SITE_FAMILIES[host.split('.')[0]] || '';
+            const explicitHash = info.explicitHash || info.extra?.explicitHash || '';
+            return /gazelle|gpw/.test(family) && !/^[a-fA-F0-9]{40}$/.test(String(explicitHash)) && info.extra?.needsToken === true;
+        }
 
         function tableMount(siteId, row, label) {
             if (!row) return null;
@@ -633,6 +826,85 @@
                     family: this.family(adapter),
                     anchorReason
                 });
+            }
+        };
+
+        const GazellePicker = {
+            COLUMNS: [
+                { k: 'title', t: '标题', align: 'left', wrap: true },
+                { k: 'format', t: '格式', align: 'left', wrap: true },
+                { k: 'size', t: '体积', align: 'right' },
+                { k: 'slc', t: 'S/L/C', align: 'center' },
+                { k: 'tid', t: 'ID', align: 'right' }
+            ],
+            style: '.pt-gazelle-picker{position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:24px}.pt-gazelle-picker-panel{width:min(860px,96vw);max-height:86vh;overflow:auto;background:#fff;color:#222;border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.25);font-size:14px}.pt-gazelle-picker-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid #e5e7eb}.pt-gazelle-picker-title{font-weight:700;font-size:16px}.pt-gazelle-picker-close{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#666}.pt-gazelle-picker-table{width:100%;border-collapse:collapse}.pt-gazelle-picker-table th{position:sticky;top:49px;background:#f7f9fb;z-index:1}.pt-gazelle-picker-table th,.pt-gazelle-picker-table td{padding:9px 10px;border-bottom:1px solid #eef1f4;vertical-align:top}.pt-gazelle-picker-table tbody tr:hover{background:#f5faff}.pt-gazelle-picker-wrap{white-space:normal;word-break:break-word}.pt-gazelle-picker-action{background:#2775b6;color:#fff;border:0;border-radius:4px;padding:6px 10px;cursor:pointer;white-space:nowrap}.pt-gazelle-picker-action:hover{background:#1f669f}',
+            ensureStyle() {
+                const id = `${NS}-gazelle-picker-style`;
+                let style = document.getElementById(id);
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = id;
+                    style.textContent = this.style;
+                    document.head.appendChild(style);
+                }
+            },
+            buildPanel({ title = '选择种子', rows = [], actionLabel = '选择', onAction = () => {} } = {}) {
+                this.ensureStyle();
+                const overlay = document.createElement('div');
+                overlay.className = 'pt-gazelle-picker';
+                const panel = document.createElement('div');
+                panel.className = 'pt-gazelle-picker-panel';
+                const head = document.createElement('div');
+                head.className = 'pt-gazelle-picker-head';
+                const caption = document.createElement('div');
+                caption.className = 'pt-gazelle-picker-title';
+                caption.textContent = title;
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'pt-gazelle-picker-close';
+                close.textContent = '×';
+                close.addEventListener('click', () => overlay.remove());
+                head.append(caption, close);
+                const table = document.createElement('table');
+                table.className = 'pt-gazelle-picker-table';
+                const thead = document.createElement('thead');
+                const header = document.createElement('tr');
+                this.COLUMNS.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col.t;
+                    th.style.textAlign = col.align || 'left';
+                    header.appendChild(th);
+                });
+                const actionTh = document.createElement('th');
+                actionTh.textContent = '操作';
+                actionTh.style.textAlign = 'center';
+                header.appendChild(actionTh);
+                thead.appendChild(header);
+                const tbody = document.createElement('tbody');
+                rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    this.COLUMNS.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row?.[col.k] == null ? '' : String(row[col.k]);
+                        td.style.textAlign = col.align || 'left';
+                        if (col.wrap) td.className = 'pt-gazelle-picker-wrap';
+                        tr.appendChild(td);
+                    });
+                    const actionTd = document.createElement('td');
+                    actionTd.style.textAlign = 'center';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'pt-gazelle-picker-action';
+                    btn.textContent = actionLabel;
+                    btn.addEventListener('click', () => onAction(row, btn));
+                    actionTd.appendChild(btn);
+                    tr.appendChild(actionTd);
+                    tbody.appendChild(tr);
+                });
+                table.append(thead, tbody);
+                panel.append(head, table);
+                overlay.appendChild(panel);
+                return overlay;
             }
         };
 
@@ -871,11 +1143,11 @@
             }
         };
 
-        return { DOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime };
+        return { DOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
     // <pt-common:end>
 
-    const { DOM: PTDOM, Mount, SITE_FAMILIES, tableMount, AutoFeedAnchors, AdapterRuntime } = createPTCommon({
+    const { DOM: PTDOM, Mount, SITE_FAMILIES, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker } = createPTCommon({
         defaultLabel: 'IYUU',
         productId: 'iyuu',
         gridLabelClass: 'iyuu-grid-label',
@@ -883,7 +1155,7 @@
     });
 
     const HTTP = {
-        allowed(raw) { try { const u = new URL(raw, location.origin); const h = u.hostname; if (h === '2025.iyuu.cn' || h === 'zmpt.cc' || h === 'api.m-team.cc' || h === location.hostname || /(^|\.)m-team\.(cc|io|vip)$/.test(h) || h === 'bangumi.moe' || h === 'totheglory.im') return true; const mp = MoviePilot.cfg().url; if (mp && h === new URL(mp).hostname.toLowerCase()) return true; return Store.json(KEYS.sites, []).some(s => { const host = SiteIndex.host(s); return host && (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }); } catch (_) { return false; } },
+        allowed(raw) { try { const u = new URL(raw, location.origin); const h = u.hostname; if (h === '2025.iyuu.cn' || h === 'zmpt.cc' || h === 'api.m-team.cc' || h === location.hostname || /(^|\.)m-team\.(cc|io|vip)$/.test(h) || h === 'bangumi.moe' || h === 'totheglory.im') return true; const mp = MoviePilot.cfg().url; if (mp && h === new URL(mp).hostname.toLowerCase()) return true; return SiteIndex.applyOverrides(Store.json(KEYS.sites, [])).some(s => { const host = SiteIndex.host(s); return host && (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)); }); } catch (_) { return false; } },
         request({ method = 'GET', url, data, headers = {}, responseType = 'json', allowStatuses = [] }) {
             const full = new URL(url, location.origin).href;
             if (!this.allowed(full)) return Promise.reject(new Error('请求被白名单拦截'));
@@ -906,17 +1178,25 @@
     const SiteIndex = {
         async get(force, tokenOverride = '') {
             const ts = Number(Store.get(KEYS.sitesTime, 0)); const cached = Store.json(KEYS.sites, []);
-            if (!force && cached.length && Date.now() - ts < 7 * 864e5) return cached;
-            const token = tokenOverride || Config.token; if (!token) return cached;
+            if (!force && cached.length && Date.now() - ts < 7 * 864e5) return this.applyOverrides(cached);
+            const token = tokenOverride || Config.token; if (!token) return this.applyOverrides(cached);
             let last = null;
             for (let i = 0; i < 3; i++) {
                 const res = await HTTP.request({ url: `${API_BASE}/reseed/sites/index`, headers: { Token: token, Accept: 'application/json' } });
                 log('sites index response', res); last = this.parse(res);
-                if (last.length) { Store.set(KEYS.sites, JSON.stringify(last)); Store.set(KEYS.sitesTime, Date.now()); return last; }
+                if (last.length) { Store.set(KEYS.sites, JSON.stringify(last)); Store.set(KEYS.sitesTime, Date.now()); return this.applyOverrides(last); }
                 await wait(1000 + i * 700);
             }
-            if (cached.length) return cached;
+            if (cached.length) return this.applyOverrides(cached);
             throw new Error('站点索引为空，请稍后重试或检查 Token');
+        },
+        applyOverrides(list) {
+            return (list || []).map(site => {
+                const sid = String(site?.id || site?.sid || '');
+                const host = this.host(site);
+                const override = SITE_OVERRIDES[sid] || SITE_OVERRIDES[host];
+                return override ? Object.assign({}, site, override) : site;
+            });
         },
         parse(res) {
             const raw = res?.data?.sites || res?.data?.site_list || res?.data?.siteList || res?.data?.list || res?.data || res?.sites || res?.list || res;
@@ -1082,8 +1362,8 @@
                 torrentId,
                 icon: raw.icon || raw.logo || raw.favicon || SiteIndex.icon(meta),
                 count: this.count(raw, source),
-                url: SiteIndex.detailUrl(meta, torrentId, raw.url || raw.page_url || raw.link || raw.zmpt_data?.url || ''),
-                downloadUrl: SiteIndex.downloadUrl(meta, torrentId, raw.download_url || raw.downloadUrl || raw.down_url || raw.zmpt_data?.download_url || '')
+                url: SiteIndex.detailUrl(meta, torrentId, raw.url || raw.page_url || raw.link || raw.zmpt_data?.url || '') || SiteIndex.detailUrl(meta, torrentId, ''),
+                downloadUrl: SiteIndex.downloadUrl(meta, torrentId, raw.download_url || raw.downloadUrl || raw.down_url || raw.zmpt_data?.download_url || '') || SiteIndex.downloadUrl(meta, torrentId, '')
             };
         },
         mergeBySid(target, next) {
@@ -1097,10 +1377,19 @@
 
     const InfoHash = {
         async extract(info) {
+            if (info.extra) info.extra.gazelleSkipped = false;
+            const explicitHash = info.extra?.explicitHash || '';
+            if (explicitHash && this.valid(explicitHash)) return explicitHash.toLowerCase();
             const magnetHash = this.fromMagnet(info.downloadLink);
             if (magnetHash) { log('hash from magnet', magnetHash); return magnetHash; }
             const specialHash = await this.fromSpecial(info);
             if (specialHash) { log('hash from special site/torrent', specialHash); return specialHash; }
+            if (needsDownloadForHash({ ...info, explicitHash }) && /([?&])usetoken=1(?:&|$)/.test(info.downloadLink || '') && !Config.gazelleDl) {
+                info.extra = info.extra || {};
+                info.extra.gazelleSkipped = true;
+                log('gazelle FL disabled, skip hash', info);
+                return '';
+            }
             const torrentUrl = info.downloadLink || this.findTorrentUrl();
             log('torrent url candidate', torrentUrl);
             const torrentHash = await this.fromTorrent(torrentUrl).catch(e => { log('torrent hash failed', e.message); return ''; });
@@ -1115,7 +1404,26 @@
         base32ToHex(s) { const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'; let bits = ''; String(s).toUpperCase().replace(/=+$/, '').split('').forEach(c => { const v = alpha.indexOf(c); if (v >= 0) bits += v.toString(2).padStart(5, '0'); }); let out = ''; for (let i = 0; i + 4 < bits.length; i += 4) out += parseInt(bits.slice(i, i + 4), 2).toString(16); return out.slice(0, 40).toLowerCase(); },
         async fromSpecial(info) { if (info._bangumiId) { const r = await HTTP.request({ url: `https://bangumi.moe/api/v2/torrent/${info._bangumiId}` }); if (r?.magnet) { info.downloadLink = r.magnet; return this.fromMagnet(r.magnet); } } if (/m-team\.(cc|io|vip)/.test(location.hostname)) { const link = await this.mteamLink(); if (link) { info.downloadLink = link; return await this.fromTorrent(link); } } return ''; },
         async mteamLink() { const id = location.pathname.match(/\/detail\/(\d+)/)?.[1]; if (!id || !Config.mteamKey) return ''; const res = await HTTP.request({ method: 'POST', url: `${MTEAM_API_BASE}/torrent/genDlToken`, data: `id=${encodeURIComponent(id)}`, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-api-key': Config.mteamKey }, responseType: 'json' }); return res?.data || ''; },
-        async fromTorrent(url) { if (!url || url.startsWith('magnet:')) return ''; const buf = await HTTP.request({ url, responseType: 'arraybuffer' }); const bytes = new Uint8Array(buf); const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160)); if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } } const range = this.infoRange(bytes); return range ? await Crypto.sha1Hex(bytes.slice(range[0], range[1])) : ''; },
+        async fromTorrent(url) {
+            if (!url || url.startsWith('magnet:')) return '';
+            let bytes;
+            try {
+                const sameOrigin = (() => { try { return new URL(url, location.origin).origin === location.origin; } catch (_) { return false; } })();
+                if (sameOrigin) {
+                    const res = await fetch(url, { credentials: 'include' });
+                    if (!res.ok) throw new Error(`下载 HTTP ${res.status}`);
+                    bytes = new Uint8Array(await res.arrayBuffer());
+                } else {
+                    const buf = await HTTP.request({ url, responseType: 'arraybuffer' });
+                    bytes = new Uint8Array(buf);
+                }
+            } catch (e) { throw new Error(`下载种子失败：${e?.message || e}`); }
+            const head = new TextDecoder('utf-8').decode(bytes.slice(0, 160));
+            if (/^\s*\{/.test(head)) { try { const json = JSON.parse(new TextDecoder().decode(bytes)); throw new Error(json?.message || json?.msg || '下载链接未返回种子文件'); } catch (e) { if (e?.message) throw e; throw new Error('下载链接未返回种子文件'); } }
+            if (/^\s*<!doctype html|<html|<head/i.test(head)) throw new Error('下载被 Cloudflare/登录拦截，请用带 passkey 的 HTTPS 链接');
+            const range = this.infoRange(bytes);
+            return range ? await Crypto.sha1Hex(bytes.slice(range[0], range[1])) : '';
+        },
         findTorrentUrl() {
             const selectors = [
                 'a[href*="download.php"]',
@@ -1124,6 +1432,11 @@
                 'a[href*="/dl/"]',
                 'a[href*="download?id="]'
             ];
+            const all = [];
+            for (const sel of selectors) all.push(...document.querySelectorAll(sel));
+            const score = a => { const h = String(a.href || ''); if (!h || h.startsWith('magnet:')) return -1; let s = 0; if (/^https:/i.test(h)) s += 2; if (/passkey=/i.test(h)) s += 2; if (/https=1/i.test(h)) s += 1; return s; };
+            const best = [...new Set(all)].map(a => ({ a, s: score(a) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a;
+            if (best?.href) return best.href;
             for (const sel of selectors) {
                 const link = firstOf(document.querySelectorAll(sel), a => !String(a.href || '').startsWith('magnet:'));
                 if (link?.href) return link.href;
@@ -1174,7 +1487,10 @@
                 }
             }
         },
-        async query(hash, retried = false) {
+        retryableQueryError(message) {
+            return /(?:HTTP\s*)?(?:429|5\d\d)|请求超时|timeout|network|Failed to fetch|NetworkError|频率|限额|过于频繁|稍后/i.test(String(message || ''));
+        },
+        async query(hash, retried = false, attempt = 1) {
             if (!Config.token) return { ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] };
             let sid_sha1 = '';
             try {
@@ -1193,11 +1509,30 @@
             const hashes = Array.from(new Set([hash.toLowerCase()])).sort();
             const sha1 = await Crypto.sha1Hex(JSON.stringify(hashes));
             const params = new URLSearchParams({ hash: JSON.stringify(hashes), sha1, sid_sha1, timestamp: String(Math.floor(Date.now() / 1000)), version: '8.2.0' });
-            log('IYUU query params', { hashes, sha1, sid_sha1: `${String(sid_sha1).slice(0, 8)}...` });
-            const raw = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/index/index`, headers: { Token: Config.token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: params.toString(), allowStatuses: [400, 404] });
+            log('IYUU query params', { hashes, sha1, sid_sha1: `${String(sid_sha1).slice(0, 8)}...`, attempt });
+            let raw;
+            try {
+                raw = await HTTP.request({ method: 'POST', url: `${API_BASE}/reseed/index/index`, headers: { Token: Config.token, 'Content-Type': 'application/x-www-form-urlencoded' }, data: params.toString(), allowStatuses: [400, 404] });
+            } catch (e) {
+                const msg = e?.message || 'IYUU 查询失败';
+                if (attempt < 2 && this.retryableQueryError(msg)) {
+                    const delay = 1200 * attempt;
+                    log(`IYUU query retry after ${delay}ms`, msg);
+                    await wait(delay);
+                    return this.query(hash, retried, attempt + 1);
+                }
+                throw e;
+            }
             log('IYUU query response', raw);
             if (raw?.msg === '未查询到可辅种数据') return { ok: true, source: 'iyuu', sites: [] };
             const retriableServerError = raw?.code === 400 && /站点缓存哈希值无效|Server internal error/i.test(String(raw?.msg || ''));
+            const retryableHttpError = raw && raw.code !== undefined && raw.code !== 0 && this.retryableQueryError(`${raw.code} ${raw.msg || ''}`);
+            if (retryableHttpError && attempt < 2) {
+                const delay = 1200 * attempt;
+                log(`IYUU query API retry after ${delay}ms`, raw?.msg || raw?.code || '');
+                await wait(delay);
+                return this.query(hash, retried, attempt + 1);
+            }
             if (retriableServerError && !retried) {
                 Store.del(KEYS.sid);
                 Store.del(KEYS.sidTime);
@@ -1249,13 +1584,27 @@
             log('IYUU fallback query response', raw);
             const data = this.items(raw);
             log('IYUU fallback parsed items', data);
-            const index = SiteIndex.bySid(await SiteIndex.get(false));
-            return { ok: true, source: 'fallback', sites: data.map((item, idx) => ReseedSite.build({ source: 'fallback', raw: item, index, fallbackSid: `fallback-${idx}` })).filter(Boolean) };
+            const list = await SiteIndex.get(false);
+            const index = SiteIndex.bySid(list);
+            const ownedSet = new Set((Config.owned || []).map(String));
+            const ownedHosts = new Set(list.filter(s => ownedSet.has(String(s.id || s.sid))).map(s => SiteIndex.host(s)).filter(Boolean));
+            const sites = data.map((item, idx) => {
+                const realSid = String(item?.sid || item?.site_id || item?.site || '');
+                if (ownedSet.size && realSid && !ownedSet.has(realSid)) return null;
+                const built = ReseedSite.build({ source: 'fallback', raw: item, index, fallbackSid: `fallback-${idx}` });
+                if (!built) return null;
+                if (ownedSet.size) {
+                    const host = SiteIndex.host(built);
+                    if (!host || (!ownedHosts.has(host) && !ownedHosts.has(String(item?.sid || item?.site_id || '')))) return null;
+                }
+                return built;
+            }).filter(Boolean);
+            return { ok: true, source: 'fallback', sites };
         }
     };
 
     const ResultCache = {
-        _data: null, version: 'site-dedupe-v2', okTtl: 6 * 3600e3, emptyTtl: 3600e3, max: 500,
+        _data: null, version: 'site-dedupe-v2', okTtl: 6 * 3600e3, partialTtl: 3600e3, emptyTtl: 3600e3, max: 500,
         _load() { if (this._data) return this._data; try { const raw = Store.get(KEYS.result, '{}'); this._data = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); } catch (_) { this._data = {}; } return this._data; },
         _persist() { try { Store.set(KEYS.result, JSON.stringify(this._data || {})); } catch (e) { log('result cache write failed', e.message); } },
         sidKey() { return Config.owned.map(Number).filter(Boolean).sort((a, b) => a - b).join(','); },
@@ -1263,11 +1612,12 @@
         normalizeUrl(url) { try { const u = new URL(url || location.href, location.origin); u.hash = ''; return u.href; } catch (_) { return String(url || ''); } },
         pageKey(input = '') { return `page:${this.normalizeUrl(typeof input === 'string' ? input : '')}|${this.sidKey()}`; },
         siteKeys(payload) { return (payload?.sites || []).map(s => s.url).filter(Boolean).map(url => this.pageKey(url)); },
-        getKey(key) { const data = this._load(); const item = data[key]; if (!item || item.version !== this.version) return null; const ttl = item.empty ? this.emptyTtl : this.okTtl; if (Date.now() - (item.ts || 0) > ttl) { delete data[key]; this._persist(); return null; } return item.payload || null; },
+        _ttlOf(item) { return item?.empty ? this.emptyTtl : (item?.partial ? this.partialTtl : this.okTtl); },
+        getKey(key) { const data = this._load(); const item = data[key]; if (!item || item.version !== this.version) return null; const ttl = this._ttlOf(item); if (Date.now() - (item.ts || 0) > ttl) { delete data[key]; this._persist(); return null; } return item.payload || null; },
         get(hash) { return this.getKey(this.key(hash)); },
         getPage(url = '') { return this.getKey(this.pageKey(url)); },
-        set(hash, payload) { if (!hash || !payload) return; const data = this._load(); const item = { payload, ts: Date.now(), version: this.version, empty: !(payload.sites || []).length }; data[this.key(hash)] = item; data[this.pageKey()] = item; this.siteKeys(payload).forEach(k => { data[k] = item; }); this._prune(); this._persist(); },
-        _prune() { const data = this._data || {}; const now = Date.now(); Object.keys(data).forEach(k => { const item = data[k] || {}; const ttl = item.empty ? this.emptyTtl : this.okTtl; if (now - (item.ts || 0) > ttl) delete data[k]; }); const keys = Object.keys(data); if (keys.length > this.max) keys.map(k => ({ k, ts: data[k]?.ts || 0 })).sort((a, b) => a.ts - b.ts).slice(0, keys.length - this.max).forEach(({ k }) => delete data[k]); },
+        set(hash, payload) { if (!hash || !payload) return; const data = this._load(); const item = { payload, ts: Date.now(), version: this.version, empty: !(payload.sites || []).length, partial: Boolean(payload.partial) }; data[this.key(hash)] = item; data[this.pageKey()] = item; this.siteKeys(payload).forEach(k => { data[k] = item; }); this._prune(); this._persist(); },
+        _prune() { const data = this._data || {}; const now = Date.now(); Object.keys(data).forEach(k => { const item = data[k] || {}; const ttl = this._ttlOf(item); if (now - (item.ts || 0) > ttl) delete data[k]; }); const keys = Object.keys(data); if (keys.length > this.max) keys.map(k => ({ k, ts: data[k]?.ts || 0 })).sort((a, b) => a.ts - b.ts).slice(0, keys.length - this.max).forEach(({ k }) => delete data[k]); },
         clear() { this._data = {}; Store.del(KEYS.result); UI.toast('辅种查询缓存已清空'); },
         size() { return Object.keys(this._load()).length; }
     };
@@ -1282,7 +1632,7 @@
     };
 
     const isCurrentHostInCachedIndex = () => {
-        const indexedSites = Store.json(KEYS.sites, []);
+        const indexedSites = SiteIndex.applyOverrides(Store.json(KEYS.sites, []));
         if (!indexedSites.length) return true;
         const matched = SiteIndex.hasCurrent(indexedSites);
         if (!matched) log('当前站点不在 IYUU 站点索引缓存中，跳过 IYUU 入口', location.hostname);
@@ -1530,19 +1880,35 @@
         },
         {
             id: 'greatposterwall',
-            matches: () => location.hostname === 'greatposterwall.com' && location.pathname === '/torrents.php' && new URLSearchParams(location.search).get('torrentid'),
+            matches: () => GazelleSites.gpwMatches(),
             ...AdapterRuntime.withMount(
-                () => {
-                    const tid = new URLSearchParams(location.search).get('torrentid');
-                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
-                    const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr');
-                    return row ? Mount.tableColspanAfter(row, 'IYUU') : Mount.afterNode(document.querySelector(`#torrent${tid}`) || document.body);
-                },
+                () => GazelleSites.gpwMount('IYUU'),
                 mount => {
                     const tid = new URLSearchParams(location.search).get('torrentid');
-                    const dl = document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`);
-                    const row = AutoFeedAnchors.gpwTorrentRow() || dl?.closest('tr');
-                    return Helpers.info({ id: 'greatposterwall', name: document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim(), description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount });
+                    const name = document.title.replace(/\s*::\s*Great Poster Wall.*/i, '').trim();
+                    const entries = GazelleSites.gazelleEntries();
+                    if (entries.length > 1) return Helpers.info({ id: 'greatposterwall', name, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: name, currentTid: tid || '' } });
+                    const entry = entries.find(item => item.tid === tid) || entries[0] || {};
+                    const dl = entry.downloadLink ? null : (document.querySelector(`a[href*="action=download"][href*="id=${tid}"]`) || (entry.tid ? document.querySelector(`a[href*="action=download"][href*="id=${entry.tid}"]`) : null));
+                    const row = GazelleSites.gpwTorrentRow(tid) || dl?.closest('tr');
+                    return Helpers.info({ id: 'greatposterwall', name, description: document.title, downloadLink: entry.downloadLink || dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entry.tid || '', needsToken: entry.needsToken === true, flLink: entry.flLink || '' } });
+                }
+            )
+        },
+        {
+            id: 'haidan',
+            matches: () => GazelleSites.haidanMatches(),
+            ...AdapterRuntime.withMount(
+                () => GazelleSites.haidanMount('IYUU'),
+                mount => {
+                    const tid = new URLSearchParams(location.search).get('torrent_id');
+                    const title = Helpers.text('.detail-info-title') || document.title.trim();
+                    const entries = GazelleSites.haidanEntries();
+                    if (entries.length > 1) return Helpers.info({ id: 'haidan', name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
+                    const dl = document.querySelector(`a[href*="download.php"][href*="id=${tid}"]`) || (entries[0]?.downloadLink ? document.querySelector(`a[href*="download.php"][href*="id=${entries[0].tid}"]`) : null);
+                    const row = dl?.closest('.torrent-wrap') || dl?.closest('tr') || dl?.closest('.torrent,.torrent-row') || dl?.parentElement;
+                    const explicitHash = GazelleSites.extractExplicitHash(row);
+                    return Helpers.info({ id: 'haidan', name: title, description: document.title, downloadLink: dl?.href || entries[0]?.downloadLink || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || entries[0]?.tid || '', explicitHash: explicitHash || entries[0]?.explicitHash || '' } });
                 }
             )
         },
@@ -1605,7 +1971,9 @@
                 mount => {
                     const rows = [...document.querySelectorAll('.rowhead,.heading')];
                     const nameRow = rows[0];
-                    const nameLink = nameRow?.nextElementSibling?.querySelector('a') || document.querySelector('a[href^="magnet:"],a[href*="download"],a[href*=".torrent"]');
+                    const candidates = [...document.querySelectorAll('a[href*="download"],a[href*=".torrent"],a[href^="magnet:"]')];
+                    const score = a => { const h = String(a.href || ''); if (!h) return -1; let s = 0; if (/^https:/i.test(h)) s += 2; if (/passkey=/i.test(h)) s += 2; if (/download\.php|\/download|\.torrent/i.test(h)) s += 1; return s; };
+                    const nameLink = nameRow?.nextElementSibling?.querySelector('a') || candidates.map(a => ({ a, s: score(a) })).filter(x => x.s >= 0).sort((x, y) => y.s - x.s)[0]?.a || null;
                     return Helpers.info({ id: 'generic', name: nameLink?.textContent?.replace(/\.torrent$/i, '').trim() || document.title, downloadLink: nameLink?.href || '', sizeText: document.body.innerText, mount });
                 }
             )
@@ -1624,6 +1992,22 @@
         setQueryButton(btn, status, title = '') {
             btn.textContent = UI.actionText('查询', status);
             if (title) btn.title = title;
+        },
+        async checkOrPick(box, btn, info) {
+            if (info.extra?.groupMode === false) {
+                await this.check(box, btn, info);
+                return;
+            }
+            const liveEntries = GazelleSites.gpwMatches() ? GazelleSites.gazelleEntries() : (GazelleSites.haidanMatches() ? GazelleSites.haidanEntries() : []);
+            const liveInfo = liveEntries.length > 1
+                ? { ...info, extra: { ...(info.extra || {}), groupMode: true, entries: liveEntries, groupTitle: info.extra?.groupTitle || info.name, currentTid: info.extra?.tid || '' } }
+                : info;
+            box._iyuuLastInfo = liveInfo;
+            if (liveInfo.extra?.groupMode) {
+                this.showPicker(box, btn, liveInfo);
+                return;
+            }
+            await this.check(box, btn, liveInfo);
         },
         injectLazy(adapter) {
             const mount = adapter?.findMount?.();
@@ -1665,14 +2049,17 @@
                     return;
                 }
                 try {
+                    if (box._iyuuLastInfo?.extra?.groupMode === false) {
+                        await this.checkOrPick(box, btn, box._iyuuLastInfo);
+                        return;
+                    }
                     const info = await adapter.getInfo(mount);
                     if (!info?.name) {
                         this.setQueryButton(btn, '失败', '未能获取种子信息');
                         UI.toast('未能获取种子信息');
                         return;
                     }
-                    box._iyuuLastInfo = { ...info, mount };
-                    await this.check(box, btn, box._iyuuLastInfo);
+                    await this.checkOrPick(box, btn, { ...info, mount });
                 } catch (e) {
                     const message = e?.message || '查询失败';
                     this.setQueryButton(btn, '失败', message);
@@ -1687,6 +2074,7 @@
                 const info = await adapter.getInfo(mount);
                 if (!info?.name) return;
                 box._iyuuLastInfo = { ...info, mount };
+                if (info.extra?.groupMode) return;
                 await this.restore(box, btn, box._iyuuLastInfo, adapter.id === 'm-team' ? false : Config.autoQuery);
             } catch (e) {
                 log('lazy restore skipped', e?.message || e);
@@ -1699,22 +2087,49 @@
                 return true;
             }
             const box = document.createElement('div'); box.className = 'iyuu-row-box pt-helper-root pt-helper-root-iyuu';
-            const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」'); btn.onclick = e => { e.preventDefault(); e.stopPropagation(); this.check(box, btn, info); };
+            const btn = document.createElement('button'); btn.className = 'iyuu-btn iyuu-check-btn'; this.setQueryButton(btn, '未查询', '配置请从 Tampermonkey 菜单打开「配置 IYUU」'); btn.onclick = async e => { e.preventDefault(); e.stopPropagation(); try { await this.checkOrPick(box, btn, box._iyuuLastInfo?.extra?.groupMode === false ? box._iyuuLastInfo : info); } catch (err) { const message = err?.message || '查询失败'; this.setQueryButton(btn, '失败', message); UI.toast(`查询失败：${message}`); } };
             const multi = document.createElement('label'); multi.className = 'iyuu-chip iyuu-site-choice'; const multiInput = document.createElement('input'); multiInput.type = 'checkbox'; multiInput.className = 'iyuu-multi-toggle'; multi.append(multiInput, document.createTextNode('多选'));
             multiInput.onchange = e => { e.stopPropagation(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); if (box._iyuuResult) this.render(box, btn, box._iyuuResult, info, box._iyuuCached); };
             box.append(btn, multi); AdapterRuntime.mountRoot({ id: info.id || '' }, info.mount, box, info.mount?.type || '');
             this.restore(box, btn, info, Config.autoQuery);
             return true;
         },
-        async restore(box, btn, info, auto = false) { try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (e) { log('restore skipped', e?.message || e); } },
+        showPicker(box, btn, info) {
+            const entries = info.extra?.entries || [];
+            box.querySelectorAll('.iyuu-picker,.iyuu-result,.iyuu-error').forEach(n => n.remove());
+            document.querySelectorAll('.pt-gazelle-picker').forEach(n => n.remove());
+            if (!entries.length) { UI.toast('未找到可选择的种子条目'); return; }
+            const panel = GazellePicker.buildPanel({
+                title: `选择种子（共 ${entries.length} 个）`,
+                rows: entries,
+                actionLabel: '选择并查询',
+                onAction: (entry, actionBtn) => {
+                    const pickedInfo = {
+                        id: info.id,
+                        name: `${info.extra?.groupTitle || info.name} [tid=${entry.tid}]`,
+                        description: entry.detail || entry.title || info.description || info.name,
+                        downloadLink: entry.downloadLink || '',
+                        size: entry.sizeBytes || Helpers.size(entry.size || ''),
+                        mount: info.mount,
+                        extra: { ...(info.extra || {}), groupMode: false, tid: entry.tid, explicitHash: entry.explicitHash || '', needsToken: entry.needsToken === true, flLink: entry.flLink || '' }
+                    };
+                    box._iyuuLastInfo = pickedInfo;
+                    actionBtn.closest('.pt-gazelle-picker')?.remove();
+                    this.check(box, btn, pickedInfo);
+                }
+            });
+            document.body.appendChild(panel);
+        },
+        async restore(box, btn, info, auto = false) { if (info.extra?.groupMode) return; try { const pageCached = ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } if (auto) { const hash = await InfoHash.extract(info); if (!hash) return; const cached = ResultCache.get(hash); if (cached) { btn.dataset.done = '1'; this.render(box, btn, cached, info, true); ResultCache.set(hash, cached); return; } if (!btn.disabled) this.check(box, btn, info); } } catch (e) { log('restore skipped', e?.message || e); } },
         openTab(url) { if (!url) { UI.toast('未找到链接'); return; } if (typeof GM_openInTab === 'function') GM_openInTab(url, { active: false, insert: true }); else window.open(url, '_blank', 'noopener'); },
         download(url) {
             if (!url) { UI.toast('未找到下载链接'); return; }
             if (url.startsWith('magnet:')) { UI.toast('磁力链接，已在新标签打开'); this.openTab(url); return; }
+            if (/details\.php|\/detail\/|torrents\.php\?id=/i.test(url)) { UI.toast('该站点缺少下载链接，已打开详情页'); this.openTab(url); return; }
             try { const a = document.createElement('a'); a.href = url; a.download = (url.split('/').pop() || 'download').split('?')[0] || 'download.torrent'; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { UI.toast(`下载失败：${e.message}，改为打开链接`); this.openTab(url); }
         },
         async resolveDownloadUrl(site) {
-            if (!SiteIndex.isMTeam(site)) return site.downloadUrl;
+            if (!SiteIndex.isMTeam(site)) return site.downloadUrl || SiteIndex.downloadUrl(site, site?.torrentId) || '';
             if (!Config.mteamKey) throw new Error('未配置 M-Team API Key，无法下载馒头种子');
             const id = site.torrentId || String(site.url || '').match(/\/detail\/(\d+)/)?.[1] || String(site.downloadUrl || '').match(/[?&](?:id|tid)=(\d+)/)?.[1];
             if (!id) throw new Error(`${site.name || '馒头'} 缺少种子 ID`);
@@ -1728,13 +2143,42 @@
             if (!sites.length) { UI.toast('未勾选可下载站点'); return; }
             try {
                 const urls = [];
-                for (const site of sites) { const url = await this.resolveDownloadUrl(site); if (url) urls.push(url); }
-                if (!urls.length) { UI.toast('选中站点缺少下载链接'); return; }
+                const missing = [];
+                for (const site of sites) { const url = await this.resolveDownloadUrl(site); if (url) urls.push(url); else missing.push(SiteIndex.name(site)); }
+                if (!urls.length) { UI.toast(missing.length ? `${missing.join('、')} 缺少下载链接` : '选中站点缺少下载链接'); return; }
+                if (missing.length) UI.toast(`${missing.join('、')} 缺少下载链接，已跳过`);
                 if (urls.length === 1) { this.download(urls[0]); UI.toast('已触发下载 1 个站点种子'); return; }
                 urls.forEach((url, i) => setTimeout(() => this.openTab(url), i * 500)); UI.toast(`已分批打开 ${urls.length} 个站点下载链接`);
             } catch (e) { UI.toast(e?.message || '下载失败'); }
         },
-        async check(box, btn, info) { const force = btn.dataset.done === '1'; btn.disabled = true; this.setQueryButton(btn, '查询中'); btn.dataset.done = ''; box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove()); try { const pageCached = force ? null : ResultCache.getPage(info); if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; } const hash = await InfoHash.extract(info); if (!hash) throw new Error('未找到 Hash'); const cached = force ? null : ResultCache.get(hash); const result = cached || await this.fetch(hash); if (result?.sites?.length || !result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false)) ResultCache.set(hash, result); btn.dataset.done = '1'; this.render(box, btn, result, info, Boolean(cached)); } catch (e) { this.setQueryButton(btn, '失败', e.message || '查询失败'); const err = UI.tag(e.message || '查询失败', COLORS.warn); err.classList.add('iyuu-error'); box.appendChild(err); UI.toast(`查询失败：${e.message || '未知错误'}`); } finally { btn.disabled = false; } },
+        async check(box, btn, info) {
+            const force = btn.dataset.done === '1';
+            btn.disabled = true;
+            this.setQueryButton(btn, '查询中');
+            btn.dataset.done = '';
+            box.querySelectorAll('.iyuu-result,.iyuu-error').forEach(n => n.remove());
+            try {
+                const pageCached = force ? null : ResultCache.getPage(info);
+                if (pageCached) { btn.dataset.done = '1'; this.render(box, btn, pageCached, info, true); return; }
+                const hash = await InfoHash.extract(info);
+                if (!hash) throw new Error(info.extra?.gazelleSkipped ? '需开启 FL（消耗令牌）' : '未找到 Hash');
+                const cached = force ? null : ResultCache.get(hash);
+                const result = cached || await this.fetch(hash);
+                const iyuuFailed = result?.sources?.some?.(s => s?.source === 'iyuu' && s?.ok === false);
+                if (result?.sites?.length) ResultCache.set(hash, result);
+                btn.dataset.done = '1';
+                this.render(box, btn, result, info, Boolean(cached));
+            } catch (e) {
+                const gazelleSkipped = Boolean(info.extra?.gazelleSkipped);
+                const message = e.message || '查询失败';
+                console.warn(`[${SCRIPT_NAME}] 查询失败`, { message, gazelleSkipped, info: { id: info.id, name: info.name, extra: info.extra, downloadLink: info.downloadLink } });
+                this.setQueryButton(btn, gazelleSkipped ? '需开启 FL（消耗令牌）' : '失败', message);
+                const err = UI.tag(message, COLORS.warn);
+                err.classList.add('iyuu-error');
+                box.appendChild(err);
+                UI.toast(`查询失败：${message}`);
+            } finally { btn.disabled = false; }
+        },
         siteKeys(s) {
             const keys = new Set();
             const add = (type, value) => { const v = String(value || '').trim().toLowerCase(); if (v) keys.add(`${type}:${v}`); };
@@ -1777,14 +2221,43 @@
             });
             return items;
         },
-        async fetch(hash) { log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt }); const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })]; if (Config.zmpt) tasks.push(Fallback.query(hash)); const settled = await Promise.allSettled(tasks); const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] }); log('fetch result sources', sources); return { hash, sources, sites: this.mergeSites(sources.flatMap(s => s.sites || [])) }; },
+        async fetch(hash) {
+            log('fetch sources', { hash, iyuu: Boolean(Config.token), fallback: Config.zmpt });
+            const tasks = [Config.token ? IYUU.query(hash) : Promise.resolve({ ok: false, source: 'iyuu', error: '未配置 IYUU Token', sites: [] })];
+            if (Config.zmpt) tasks.push(Fallback.query(hash));
+            const settled = await Promise.allSettled(tasks);
+            const sources = settled.map((r, i) => r.status === 'fulfilled' ? r.value : { ok: false, source: i ? 'fallback' : 'iyuu', error: r.reason?.message || '查询失败', sites: [] });
+            const sites = this.mergeSites(sources.flatMap(s => s.sites || []));
+            const primary = firstOf(sources, s => s.source === 'iyuu');
+            const partial = Boolean(sites.length && primary?.ok === false && primary.error);
+            log('fetch result sources', sources);
+            return { hash, sources, sites, partial };
+        },
         render(box, btn, result, info, cached = false) {
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
             box._iyuuResult = result; box._iyuuCached = cached;
             const wrap = document.createElement('span'); wrap.className = 'iyuu-result iyuu-row-box';
-            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = firstOf(result.sources, s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const error = !hasSites && primary?.ok === false && primary.error ? primary.error : '';
+            const selected = box._iyuuSelected || new Set(result.sites); const multi = Boolean(box.querySelector('.iyuu-multi-toggle')?.checked); const primary = firstOf(result.sources, s => s.source === 'iyuu'); const hasSites = Boolean(result.sites.length); const primaryError = primary?.ok === false && primary.error ? primary.error : ''; const error = !hasSites && primaryError ? primaryError : '';
+            if (hasSites && primaryError) console.warn(`[${SCRIPT_NAME}] IYUU 主源失败（已用兜底结果）：${primaryError}`);
             this.setQueryButton(btn, error ? '失败' : `${result.sites.length}站${cached ? ' 缓存' : ''}`, error || '重新查询');
-            if (!result.sites.length) wrap.append(UI.tag('暂无辅种', COLORS.info));
+            if (hasSites) {
+                const iyuuOk = primary?.ok !== false && (primary?.sites || []).length;
+                const zmptOk = (result.sources || []).some(s => s?.source === 'fallback' && s?.ok && (s?.sites || []).length);
+                const srcLabel = iyuuOk ? 'IYUU' : (zmptOk ? 'ZMPT' : '');
+                if (srcLabel) wrap.append(UI.tag(`来源:${srcLabel}${cached ? ' 缓存' : ''}`, COLORS.info));
+            }
+            if (!result.sites.length) {
+                const srcErrors = (result.sources || []).filter(s => s?.ok === false && s?.error).map(s => `${s.error}（${s.source === 'iyuu' ? 'IYUU' : (s.source === 'fallback' ? 'ZMPT' : s.source)}）`);
+                if (srcErrors.length) srcErrors.forEach(msg => wrap.append(UI.tag(msg, COLORS.warn)));
+                else wrap.append(UI.tag('暂无辅种', COLORS.info));
+            }
+            if (info.extra?.groupMode === false && (info.extra?.entries || []).length > 1) {
+                const reselect = document.createElement('button');
+                reselect.className = 'iyuu-btn';
+                reselect.textContent = '重选种子';
+                reselect.onclick = e => { e.preventDefault(); e.stopPropagation(); this.showPicker(box, btn, { ...info, extra: { ...(info.extra || {}), groupMode: true } }); };
+                wrap.append(reselect);
+            }
             result.sites.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
             if (multi && result.sites.length) { const all = document.createElement('button'); all.className = 'iyuu-btn'; all.textContent = '全选'; all.onclick = e => { e.preventDefault(); e.stopPropagation(); result.sites.forEach(s => selected.add(s)); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const none = document.createElement('button'); none.className = 'iyuu-btn'; none.textContent = '清空'; none.onclick = e => { e.preventDefault(); e.stopPropagation(); selected.clear(); box.querySelectorAll('.iyuu-result').forEach(n => n.remove()); this.render(box, btn, result, info, cached); }; const dl = document.createElement('button'); dl.className = 'iyuu-btn'; dl.textContent = '下载种子'; dl.onclick = e => { e.preventDefault(); e.stopPropagation(); this.downloadSelected(selected); }; const open = document.createElement('button'); open.className = 'iyuu-btn'; open.textContent = '打开选中'; open.onclick = e => { e.preventDefault(); e.stopPropagation(); const urls = [...selected].filter(s => s.url); if (!urls.length) { UI.toast('未勾选可跳转站点'); return; } urls.forEach(s => this.openTab(s.url)); UI.toast(`已打开 ${urls.length} 个站点`); }; wrap.append(all, none, dl, open); }
             box.appendChild(wrap);
