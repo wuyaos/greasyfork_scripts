@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.15
+// @version      1.1.16
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -2492,16 +2492,16 @@
             }
             visible.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
             this.renderMultiActions(wrap, box, btn, result, info, cached, selected, visible);
+            box.appendChild(wrap);
             if (pickedLabel) {
                 const entries = info.extra?.entries || [];
                 const entryIdx = entries.length > 1 ? (entries.findIndex(e => String(e?.tid) === String(info.extra?.tid)) + 1) : 0;
                 const seedDiv = document.createElement('div');
-                seedDiv.style.cssText = 'width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;';
+                seedDiv.style.cssText = 'flex-basis:100%;width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;';
                 seedDiv.textContent = entryIdx > 0 ? `第 ${entryIdx} 个种子：${pickedLabel}` : `种子：${pickedLabel}`;
                 seedDiv.title = `当前缓存对应的种子：${pickedLabel}`;
-                wrap.appendChild(seedDiv);
+                box.appendChild(seedDiv);
             }
-            box.appendChild(wrap);
         },
         renderMultiActions(wrap, box, btn, result, info, cached, selected, visible) {
             if (!box.querySelector('.iyuu-multi-toggle')?.checked || !visible.length) return;
