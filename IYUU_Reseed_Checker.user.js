@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.14
+// @version      1.1.15
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -687,15 +687,17 @@
             gpwActualName(row, tid = '') {
                 const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
                 if (!detail) return '';
-                // 精确找含「详情 |」的元素，只取它的 textContent
-                const candidates = DOM.qsa('*', detail);
-                for (const el of candidates) {
-                    if (el.children.length > 0) continue;
-                    const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-                    if (/详情\s*[|｜]/i.test(t) && t.length < 300) {
-                        const m = t.match(/详情\s*[|｜]\s*(.+?)(?:\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)(?![\w.-])|$)/i);
-                        if (m) return m[1].trim() + (t.match(/\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)/i)?.[0] || '');
-                        return t.replace(/^.*?详情\s*[|｜]\s*/i, '').trim().slice(0, 120);
+                const mi = DOM.qs('.is-mediainfo', detail);
+                if (mi) {
+                    // 取媒体信息容器里第一个含「详情 |」的 div（不含 hidden pre）
+                    const divs = DOM.qsa('div', mi);
+                    for (const div of divs) {
+                        if (div.classList?.contains('hidden')) continue;
+                        const t = String(div.textContent || '').replace(/\s+/g, ' ').trim();
+                        if (/详情\s*[|｜]/i.test(t)) {
+                            const m = t.match(/详情\s*[|｜]\s*(.+)/i);
+                            if (m) return m[1].trim();
+                        }
                     }
                 }
                 return '';
@@ -2481,15 +2483,6 @@
             if (!visible.length && !srcErrors.length) wrap.append(UI.tag('暂无辅种', COLORS.info));
             const isGazelleSite = ['greatposterwall', 'haidan'].includes(info.id) || /gazelle|gpw/i.test(SITE_FAMILIES[info.id] || SITE_FAMILIES[location.hostname.replace(/^www\./, '')] || '');
             const pickedLabel = isGazelleSite ? (info.extra?.actualName || info.extra?.title || info.name || (info.extra?.tid ? `tid=${info.extra?.tid}` : '')) : '';
-            if (pickedLabel) {
-                const entries = info.extra?.entries || [];
-                const entryIdx = entries.length > 1 ? (entries.findIndex(e => String(e?.tid) === String(info.extra?.tid)) + 1) : 0;
-                const seedDiv = document.createElement('div');
-                seedDiv.style.cssText = 'width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;';
-                seedDiv.textContent = entryIdx > 0 ? `第 ${entryIdx} 个种子：${pickedLabel}` : `种子：${pickedLabel}`;
-                seedDiv.title = `当前缓存对应的种子：${pickedLabel}`;
-                wrap.appendChild(seedDiv);
-            }
             if (info.extra?.groupMode === false && (info.extra?.entries || []).length > 1) {
                 const reselect = document.createElement('button');
                 reselect.className = 'iyuu-btn';
@@ -2499,6 +2492,15 @@
             }
             visible.forEach(s => wrap.append(UI.siteChip(s, selected, multi)));
             this.renderMultiActions(wrap, box, btn, result, info, cached, selected, visible);
+            if (pickedLabel) {
+                const entries = info.extra?.entries || [];
+                const entryIdx = entries.length > 1 ? (entries.findIndex(e => String(e?.tid) === String(info.extra?.tid)) + 1) : 0;
+                const seedDiv = document.createElement('div');
+                seedDiv.style.cssText = 'width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;';
+                seedDiv.textContent = entryIdx > 0 ? `第 ${entryIdx} 个种子：${pickedLabel}` : `种子：${pickedLabel}`;
+                seedDiv.title = `当前缓存对应的种子：${pickedLabel}`;
+                wrap.appendChild(seedDiv);
+            }
             box.appendChild(wrap);
         },
         renderMultiActions(wrap, box, btn, result, info, cached, selected, visible) {
