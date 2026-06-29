@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.11
+// @version      3.5.12
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -2611,8 +2611,8 @@
             finalHtml += UI.renderActionButton('识别', '成功', CONSTANTS.COLORS.SECONDARY, 'idle', '重新识别');
             const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;`;
             finalHtml += `<button class="mp-download-button" style="${buttonStyle}">推送到MP</button>`;
-            const pickedLabel = torrentInfo.extra?.actualName || torrentInfo.extra?.title || torrentInfo.name || torrentInfo.extra?.tid || '';
-            if (pickedLabel) finalHtml += UI.renderTag(`种子：${pickedLabel}`, CONSTANTS.COLORS.INFO);
+            const isGazelleSite = ['greatposterwall', 'haidan'].includes(torrentInfo.id) || /gazelle|gpw/i.test(torrentInfo.family || SITE_FAMILIES[torrentInfo.id] || SITE_FAMILIES[location.hostname.replace(/^www\./, '')] || '');
+            const pickedLabel = isGazelleSite ? (torrentInfo.extra?.actualName || torrentInfo.extra?.title || torrentInfo.name || torrentInfo.extra?.tid || '') : '';
             if (torrentInfo.extra?.groupMode === false && (torrentInfo.extra?.entries || []).length > 1) {
                 finalHtml += `<button type="button" class="mp-reselect-torrent" style="background-color:${CONSTANTS.COLORS.SECONDARY}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;">重选种子</button>`;
             }
@@ -2632,6 +2632,7 @@
             finalHtml += meta_info.video_encode ? UI.renderTag(meta_info.video_encode, CONSTANTS.COLORS.INFO) : '';
             finalHtml += meta_info.audio_encode ? UI.renderTag(meta_info.audio_encode, CONSTANTS.COLORS.INFO) : '';
             finalHtml += meta_info.resource_team ? UI.renderTag(meta_info.resource_team, CONSTANTS.COLORS.PURPLE) : '';
+            if (pickedLabel) finalHtml += `<div style="width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;">种子：${UTILS.escapeHtml(pickedLabel)}</div>`;
 
             finalHtml += `</div>`;
             container.innerHTML = finalHtml;
