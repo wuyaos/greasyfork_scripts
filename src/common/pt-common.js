@@ -323,10 +323,19 @@
             },
             gpwActualName(row, tid = '') {
                 const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
-                const text = `${row?.textContent || ''}\n${detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg))/i)?.[1]?.trim()
-                    || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
-                    || '';
+                if (!detail) return '';
+                // 精确找含「详情 |」的元素，只取它的 textContent
+                const candidates = DOM.qsa('*', detail);
+                for (const el of candidates) {
+                    if (el.children.length > 0) continue;
+                    const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+                    if (/详情\s*[|｜]/i.test(t) && t.length < 300) {
+                        const m = t.match(/详情\s*[|｜]\s*(.+?)(?:\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)(?![\w.-])|$)/i);
+                        if (m) return m[1].trim() + (t.match(/\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)/i)?.[0] || '');
+                        return t.replace(/^.*?详情\s*[|｜]\s*/i, '').trim().slice(0, 120);
+                    }
+                }
+                return '';
             },
             gazelleEntries(root = document) {
                 const groupTitle = this.gpwGroupTitle(root);

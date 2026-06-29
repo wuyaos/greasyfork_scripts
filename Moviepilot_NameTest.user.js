@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.12
+// @version      3.5.13
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -834,10 +834,19 @@
             },
             gpwActualName(row, tid = '') {
                 const detail = tid ? (DOM.qs(`#torrent_detail_${tid}`) || DOM.qs(`#torrent_${tid}`) || DOM.qs(`#torrent${tid}`)) : null;
-                const text = `${row?.textContent || ''}\n${detail?.textContent || ''}`.replace(/\s+/g, ' ').trim();
-                return text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg))/i)?.[1]?.trim()
-                    || text.match(/(?:媒体信息[：:]\s*)?详情\s*[|｜]\s*([^|｜]+?)(?:\s{2,}|$)/i)?.[1]?.trim()
-                    || '';
+                if (!detail) return '';
+                // 精确找含「详情 |」的元素，只取它的 textContent
+                const candidates = DOM.qsa('*', detail);
+                for (const el of candidates) {
+                    if (el.children.length > 0) continue;
+                    const t = String(el.textContent || '').replace(/\s+/g, ' ').trim();
+                    if (/详情\s*[|｜]/i.test(t) && t.length < 300) {
+                        const m = t.match(/详情\s*[|｜]\s*(.+?)(?:\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)(?![\w.-])|$)/i);
+                        if (m) return m[1].trim() + (t.match(/\.(?:mkv|mp4|m4v|ts|m2ts|avi|iso|wmv|flv|mov|webm|vob|rmvb|rm|tp|evo|ogv|3gp|mpg|mpeg)/i)?.[0] || '');
+                        return t.replace(/^.*?详情\s*[|｜]\s*/i, '').trim().slice(0, 120);
+                    }
+                }
+                return '';
             },
             gazelleEntries(root = document) {
                 const groupTitle = this.gpwGroupTitle(root);
@@ -2611,7 +2620,7 @@
             finalHtml += UI.renderActionButton('识别', '成功', CONSTANTS.COLORS.SECONDARY, 'idle', '重新识别');
             const buttonStyle = `background-color:${CONSTANTS.COLORS.BTN_SAVE}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;`;
             finalHtml += `<button class="mp-download-button" style="${buttonStyle}">推送到MP</button>`;
-            const isGazelleSite = ['greatposterwall', 'haidan'].includes(torrentInfo.id) || /gazelle|gpw/i.test(torrentInfo.family || SITE_FAMILIES[torrentInfo.id] || SITE_FAMILIES[location.hostname.replace(/^www\./, '')] || '');
+            const isGazelleSite = /greatposterwall\.com|haidan\.(cc|video)/i.test(location.hostname) || /gazelle|gpw/i.test(SITE_FAMILIES[location.hostname.replace(/^www\./, '')] || '');
             const pickedLabel = isGazelleSite ? (torrentInfo.extra?.actualName || torrentInfo.extra?.title || torrentInfo.name || torrentInfo.extra?.tid || '') : '';
             if (torrentInfo.extra?.groupMode === false && (torrentInfo.extra?.entries || []).length > 1) {
                 finalHtml += `<button type="button" class="mp-reselect-torrent" style="background-color:${CONSTANTS.COLORS.SECONDARY}; color:white; border:none; border-radius:4px; font:inherit; line-height:1.45; font-weight:600; cursor:pointer; padding:.12em .6em;">重选种子</button>`;
@@ -2632,7 +2641,12 @@
             finalHtml += meta_info.video_encode ? UI.renderTag(meta_info.video_encode, CONSTANTS.COLORS.INFO) : '';
             finalHtml += meta_info.audio_encode ? UI.renderTag(meta_info.audio_encode, CONSTANTS.COLORS.INFO) : '';
             finalHtml += meta_info.resource_team ? UI.renderTag(meta_info.resource_team, CONSTANTS.COLORS.PURPLE) : '';
-            if (pickedLabel) finalHtml += `<div style="width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;">种子：${UTILS.escapeHtml(pickedLabel)}</div>`;
+            if (pickedLabel) {
+                const entries = torrentInfo.extra?.entries || [];
+                const entryIdx = entries.length > 1 ? (entries.findIndex(e => String(e?.tid) === String(torrentInfo.extra?.tid)) + 1) : 0;
+                const label = entryIdx > 0 ? `第 ${entryIdx} 个种子：${pickedLabel}` : `种子：${pickedLabel}`;
+                finalHtml += `<div style="width:100%;margin-top:6px;padding-top:4px;border-top:1px dashed #dfe4ea;font-size:11px;color:#94a3b8;line-height:1.4;text-align:left;">${UTILS.escapeHtml(label)}</div>`;
+            }
 
             finalHtml += `</div>`;
             container.innerHTML = finalHtml;
