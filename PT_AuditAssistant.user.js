@@ -224,7 +224,7 @@
   CollectorRegistry.register('title', {
     run(ctx) {
       const raw = clean($('#top')?.textContent || $('h1')?.textContent || document.title);
-      const stripped = raw.replace(/\s*(禁转|禁傳|禁止转载|禁止轉載|\((?:已审|已審|冻结|凍結|待定)\)|\[(?:免费|免費|50%|2X免费|2X免費|30%|VIP|置顶|置頂|热门|熱門)\])\s*/gi, ' ').trim();
+      const stripped = raw.replace(/\s*(禁转|禁傳|禁止转载|禁止轉載|\((?:已审|已審|冻结|凍結|待定)\)|\[(?:免费|免費|50%|2X免费|2X免費|30%|VIP|置顶|置頂|热门|熱門)\]|剩(?:余|餘)时(?:间|間)[：:]\s*[\d\s天時时分秒]+)\s*/gi, ' ').trim();
       ctx.title.raw = raw;
       ctx.title.clean = clean(stripped);
       ctx.title.lower = lower(ctx.title.clean);
@@ -302,8 +302,9 @@
       ctx.tags.raw = raw;
       const normalized = new Set();
       const map = Object.assign({}, defaultTagTextMap(), site.tagTextMap || {});
+      const compactRaw = raw.replace(/\s+/g, '');
       Object.keys(map).sort((a, b) => b.length - a.length).forEach(text => {
-        if (raw.includes(text)) normalized.add(map[text]);
+        if (raw.includes(text) || compactRaw.includes(text.replace(/\s+/g, ''))) normalized.add(map[text]);
       });
       ctx.tags.normalized = normalized;
       const flags = {};
@@ -604,7 +605,7 @@
   function defaultTagTextMap() {
     return {
       'HDR10+': 'hdr10Plus', 'HDR10 Plus': 'hdr10Plus', 'HDR10': 'hdr10', 'Dolby Vision': 'dolbyVision', '杜比视界': 'dolbyVision', '杜比視界': 'dolbyVision', 'HDR Vivid': 'hdrVivid', 'HDR': 'hdr',
-      '官方': 'official', '禁转': 'reseedProhibited', '禁傳': 'reseedProhibited', '驻站': 'resident', '駐站': 'resident', '完结': 'complete', '完結': 'complete', '分集': 'incomplete', '合集': 'collection',
+      '官方': 'official', '官种': 'official', '官種': 'official', '禁转': 'reseedProhibited', '禁傳': 'reseedProhibited', '驻站': 'resident', '駐站': 'resident', '完结': 'complete', '完結': 'complete', '分集': 'incomplete', '合集': 'collection',
       '国语': 'mandarin', '國語': 'mandarin', '粤语': 'cantonese', '粵語': 'cantonese', '中字': 'chineseSubtitle', '英字': 'englishSubtitle', 'VCB-Studio': 'vcbStudio', 'DIY': 'diy', '原盘': 'untouched', '原盤': 'untouched', 'Remux': 'remux', 'REMUX': 'remux',
       '大包': 'bigTorrent', '麒麟火': 'iceSeed', '方舟': 'arcProject', '高码': 'highBitrate', '高碼': 'highBitrate', '高帧': 'highFps', '高幀': 'highFps', '高分': 'highScore', '儿童': 'children', '兒童': 'children', '喜剧': 'comedy', '喜劇': 'comedy', 'Hares': 'hares'
     };
@@ -640,10 +641,13 @@
       else (outer || document.body).prepend(panel);
     },
     injectApprovalButtons(ctx, site) {
-      const make = where => el('a', { href: 'javascript:void(0)', class: `ptaa-approve ${getValue(BIG_BUTTON_KEY, false) ? 'ptaa-big' : ''}`, id: `${ID}-approve-${where}`, onclick: ev => { ev.preventDefault(); ApprovalGate.handle(ctx, site); } }, '✓ 一键通过');
       const action = ctx.approval.actionContainer || $('#outer') || document.body;
-      action.appendChild(make('action'));
-      document.body.appendChild(el('div', { style: 'position:fixed;right:12px;bottom:12px;z-index:10000' }, make('foot')));
+      const hasNativeApprove = $$('a', action).some(a => /一键通过/.test(a.textContent || '') && !a.classList.contains('ptaa-approve'));
+      if (!hasNativeApprove) {
+        const make = where => el('a', { href: 'javascript:void(0)', class: `ptaa-approve ${getValue(BIG_BUTTON_KEY, false) ? 'ptaa-big' : ''}`, id: `${ID}-approve-${where}`, onclick: ev => { ev.preventDefault(); ApprovalGate.handle(ctx, site); } }, '✓ 一键通过');
+        action.appendChild(make('action'));
+        document.body.appendChild(el('div', { style: 'position:fixed;right:12px;bottom:12px;z-index:10000' }, make('foot')));
+      }
       if (ctx.approval.nativeReviewLink) {
         ctx.approval.nativeReviewLink.addEventListener('click', ev => {
           ev.preventDefault();
