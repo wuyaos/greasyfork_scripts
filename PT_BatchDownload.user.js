@@ -13,6 +13,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      *
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-batch.png
 // @noframes
 // @license      MIT
 // @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js

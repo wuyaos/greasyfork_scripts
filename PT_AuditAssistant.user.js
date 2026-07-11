@@ -33,6 +33,7 @@
 // @license      MIT
 // @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js
 // @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-audit.png
 // @noframes
 // ==/UserScript==
 
