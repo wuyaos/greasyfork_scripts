@@ -11,7 +11,7 @@
 // @grant        none
 // @noframes
 // @license      MIT
-// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-oneclickclaim.svg
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-oneclickclaim.png
 // @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js
 // @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js
 // ==/UserScript==
