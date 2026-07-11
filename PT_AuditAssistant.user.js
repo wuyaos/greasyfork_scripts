@@ -45,7 +45,6 @@
   // Utilities
   const ID = 'pt-audit-assistant';
   const AUTO_APPROVAL_KEY = 'pt_audit_assistant_auto_approval';
-  const BIG_BUTTON_KEY = 'pt_audit_assistant_big_button';
   const AUTO_CLOSE_KEY = 'pt_audit_assistant_auto_close';
   const DEBUG_KEY = 'pt_audit_assistant_debug';
   const ONE_TIB = 1024 ** 4;
@@ -616,7 +615,7 @@
     init() {
       addStyle(`
 #${ID}-panel{font-size:13px;line-height:1.55;border-radius:6px;box-shadow:0 0 10px rgba(0,0,0,.35);padding:10px 14px;margin:8px 0;border:1px solid rgba(0,0,0,.18);background:#f6fff6;color:#1b5e20;z-index:9999;max-width:980px}
-#${ID}-panel.ptaa-error{background:#ffebee;color:#8a1111;border-color:#f44336}#${ID}-panel.ptaa-warning{background:#fff8db;color:#5f4300;border-color:#ffca28}#${ID}-panel .ptaa-title{font-weight:700;margin-bottom:6px}#${ID}-panel ul{margin:6px 0 6px 20px;padding:0}#${ID}-panel li{margin:2px 0}#${ID}-panel .ptaa-disclaimer{font-size:12px;opacity:.78;margin-top:6px}.ptaa-approve{display:inline-flex;align-items:center;gap:3px;margin:0 6px;padding:2px 6px;border-radius:4px;background:#2e7d32;color:#fff!important;text-decoration:none!important;font-weight:700}.ptaa-approve.ptaa-big{font-size:24px;padding:8px 14px}.ptaa-debug{white-space:pre-wrap;max-height:280px;overflow:auto;background:rgba(0,0,0,.06);padding:8px;border-radius:4px;margin-top:8px}`);
+#${ID}-panel.ptaa-error{background:#ffebee;color:#8a1111;border-color:#f44336}#${ID}-panel.ptaa-warning{background:#fff8db;color:#5f4300;border-color:#ffca28}#${ID}-panel .ptaa-title{font-weight:700;margin-bottom:6px}#${ID}-panel ul{margin:6px 0 6px 20px;padding:0}#${ID}-panel li{margin:2px 0}#${ID}-panel .ptaa-disclaimer{font-size:12px;opacity:.78;margin-top:6px}.ptaa-debug{white-space:pre-wrap;max-height:280px;overflow:auto;background:rgba(0,0,0,.06);padding:8px;border-radius:4px;margin-top:8px}`);
     },
     render(ctx, site) {
       const errors = ctx.findings.filter(f => f.severity === 'error');
@@ -641,13 +640,7 @@
       else (outer || document.body).prepend(panel);
     },
     injectApprovalButtons(ctx, site) {
-      const action = ctx.approval.actionContainer || $('#outer') || document.body;
-      const hasNativeApprove = $$('a', action).some(a => /一键通过/.test(a.textContent || '') && !a.classList.contains('ptaa-approve'));
-      if (!hasNativeApprove) {
-        const make = where => el('a', { href: 'javascript:void(0)', class: `ptaa-approve ${getValue(BIG_BUTTON_KEY, false) ? 'ptaa-big' : ''}`, id: `${ID}-approve-${where}`, onclick: ev => { ev.preventDefault(); ApprovalGate.handle(ctx, site); } }, '✓ 一键通过');
-        action.appendChild(make('action'));
-        document.body.appendChild(el('div', { style: 'position:fixed;right:12px;bottom:12px;z-index:10000' }, make('foot')));
-      }
+      // 不主动注入「一键通过」按钮，只对原生审核链接绑定拦截门（若存在）。
       if (ctx.approval.nativeReviewLink) {
         ctx.approval.nativeReviewLink.addEventListener('click', ev => {
           ev.preventDefault();
@@ -740,7 +733,6 @@
   function registerMenu() {
     if (typeof GM_registerMenuCommand !== 'function') return;
     GM_registerMenuCommand(`${getValue(AUTO_APPROVAL_KEY, false) ? '关闭' : '开启'}自动审批（默认关）`, () => { setValue(AUTO_APPROVAL_KEY, !getValue(AUTO_APPROVAL_KEY, false)); location.reload(); });
-    GM_registerMenuCommand(`${getValue(BIG_BUTTON_KEY, false) ? '关闭' : '开启'}审核按钮放大`, () => { setValue(BIG_BUTTON_KEY, !getValue(BIG_BUTTON_KEY, false)); location.reload(); });
     GM_registerMenuCommand(`${getValue(AUTO_CLOSE_KEY, false) ? '关闭' : '开启'}自动关闭页面`, () => { setValue(AUTO_CLOSE_KEY, !getValue(AUTO_CLOSE_KEY, false)); location.reload(); });
     GM_registerMenuCommand(`${getValue(DEBUG_KEY, false) ? '关闭' : '开启'}显示调试信息(ctx 快照)`, () => { setValue(DEBUG_KEY, !getValue(DEBUG_KEY, false)); location.reload(); });
   }
