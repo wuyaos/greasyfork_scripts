@@ -8,6 +8,7 @@
 *   **[Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js)**: PT站种子名称识别，推送moviepilots，支持默认关闭的自动查询和识别缓存
 *   **[IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js)**: IYUU辅种检测助手，支持手动/自动查询、站点选择、详情页跳转、多选打开和选中站点种子下载
 *   **[PT_OneClickClaim](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js)**: PT一键认领增强脚本，支持按标题表达式、体积、多选 IP、多选客户端筛选当前做种并预览后批量认领
+*   **[PT_AuditAssistant](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js)**: 聚合 PT 审种助手（PandaPT/QingWaPT/HDKylin/CS财神/LongPT），注册表驱动的模块化审种规则引擎，支持标题/元数据/MediaInfo/截图/标签一致性校验与 LongPT 高码/高帧/高分规则，默认只提示不自动审批
 *   **[Zhuque_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js)**: 朱雀种子搜索页批量下载脚本，支持关键字、体积、做种、下载和优惠筛选，按条件勾选后下载当前勾选种子
 *   **[PT_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js)**: 通用 PT 当前页批量下载脚本，支持关键字、体积、做种数、优惠、做种状态筛选，支持浏览器直下 ZIP 打包和 qBittorrent / Transmission 推送
 *   **[Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js)**: Bangumi增强脚本：显示中文标题，优化放送日历(仿B站番剧时间表)
