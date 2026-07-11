@@ -50,16 +50,13 @@
   const DEBUG_KEY = 'pt_audit_assistant_debug';
   const ONE_TIB = 1024 ** 4;
   const DEFAULT_COLLECTORS = ['title', 'desc', 'siteMeta', 'tags', 'mediainfo', 'screenshots', 'size', 'approvalLink'];
-  const DEFAULT_PARSERS = ['title', 'mediainfo', 'dbLinks', 'doubanScore', 'tags', 'size', 'derived'];
+  const DEFAULT_PARSERS = ['title', 'mediainfo', 'dbLinks', 'doubanScore', 'derived'];
 
   function $(selector, root) { return (root || document).querySelector(selector); }
   function $$(selector, root) { return Array.from((root || document).querySelectorAll(selector)); }
   function clean(text) { return String(text || '').replace(/ /g, ' ').replace(/[ \t\r\n]+/g, ' ').trim(); }
   function lower(text) { return String(text || '').toLowerCase(); }
   function hasChinese(text) { return /[一-鿿]/.test(String(text || '')); }
-  function escapeHtml(text) {
-    return String(text == null ? '' : text).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
-  }
   function el(tag, attrs, ...kids) {
     const node = document.createElement(tag);
     Object.entries(attrs || {}).forEach(([key, value]) => {
@@ -460,8 +457,6 @@
       if (isFinite(score) && score >= 0 && score <= 10) ctx.doubanScore = score;
     }
   });
-  ParserRegistry.register('tags', { run() {} });
-  ParserRegistry.register('size', { run() {} });
   ParserRegistry.register('derived', {
     run(ctx, site) {
       const group = `${ctx.siteMeta.groupSelected} ${ctx.title.clean}`;
@@ -625,7 +620,6 @@
     render(ctx, site) {
       const errors = ctx.findings.filter(f => f.severity === 'error');
       const warnings = ctx.findings.filter(f => f.severity === 'warning');
-      const infos = ctx.findings.filter(f => f.severity === 'info');
       const cls = errors.length ? 'ptaa-error' : (warnings.length ? 'ptaa-warning' : 'ptaa-ok');
       const title = errors.length ? `检测到 ${errors.length} 个错误` : (warnings.length ? `检测到 ${warnings.length} 个警告` : '此种子未检测到错误');
       const panel = el('div', { id: `${ID}-panel`, class: cls }, el('div', { class: 'ptaa-title', text: `PT_AuditAssistant：${title}` }));
