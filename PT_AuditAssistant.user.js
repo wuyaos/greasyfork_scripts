@@ -425,11 +425,12 @@
       const fps = parseFps(video || raw);
       if (br != null) ctx.parsed.bitrateMbps = br;
       if (fps != null) ctx.parsed.fps = fps;
-      const hasHdr10Plus = /SMPTE\s*ST\s*2094|HDR10\+/i.test(video);
-      const hasDolbyVision = /Dolby\s*Vision|dvhe\.|dvh1\./i.test(video);
+      const videoClean = video.replace(/^Encoding settings\s*:.*$/gmi, '');
+      const hasHdr10Plus = /SMPTE\s*ST\s*2094|HDR10\+/i.test(videoClean);
+      const hasDolbyVision = /Dolby\s*Vision|dvhe\.|dvh1\./i.test(videoClean);
       if (hasHdr10Plus) ctx.parsed.isHdr10Plus = true;
       if (hasDolbyVision) ctx.parsed.isDolbyVision = true;
-      if (/HDR10|HDR\s*10|ST\s*2086|\bHLG\b|Transfer characteristics\s*[:：]\s*PQ/i.test(video) || hasHdr10Plus || hasDolbyVision) ctx.parsed.isHdr = true;
+      if (/\bHDR10\b|HDR\s*10|ST\s*2086|\bHLG\b|Transfer characteristics\s*[:：]\s*PQ/i.test(videoClean) || hasHdr10Plus || hasDolbyVision) ctx.parsed.isHdr = true;
       const all = `${raw}\n${ctx.desc.text}`;
       ctx.parsed.hasMandarinAudio = /Audio[\s\S]{0,500}(?:Language\s*[:：]\s*(?:Chinese|Mandarin|国语|普通话|中文)|Title\s*[:：].*(?:Mandarin|国语|普通话))/i.test(all);
       ctx.parsed.hasCantoneseAudio = /Audio[\s\S]{0,500}(?:Language\s*[:：]\s*(?:Cantonese|粤语|粵語)|Title\s*[:：].*(?:Cantonese|粤语|粵語))/i.test(all);

@@ -6,20 +6,20 @@
 
 ## 目录
 
-| 脚本 | 版本 | 简述 | 图标 |
-|---|---|---|---|
-| [Moviepilot_AutoLogin](#moviepilot_autologin) | 1.3.1 | MoviePilot 自动登录 | <img src="icon/moviepilot-autologin.png" width="24" alt="icon"> |
-| [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.14 | PT 站种子名称识别，推送 MoviePilot | <img src="icon/moviepilot.png" width="24" alt="icon"> |
-| [IYUU_Reseed_Checker](#iyuu_reseed_checker) | 1.1.16 | IYUU 辅种检测助手 | <img src="icon/iyuu-reseed.png" width="24" alt="icon"> |
-| [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.2 | PT 一键认领增强脚本 | <img src="icon/pt-oneclickclaim.png" width="24" alt="icon"> |
-| [PT_AuditAssistant](#pt_auditassistant) | 0.1.0 | 聚合 PT 审种助手 | <img src="icon/pt-audit.png" width="24" alt="icon"> |
-| [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.1 | 朱雀搜索页批量下载 | <img src="icon/zhuque-batch.png" width="24" alt="icon"> |
-| [PT_BatchDownload](#pt_batchdownload) | 0.2.0 | 通用 PT 当前页批量下载 | <img src="icon/pt-batch.png" width="24" alt="icon"> |
-| [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.0 | Bangumi 中文标题与放送日历增强 | <img src="icon/bangumi.png" width="24" alt="icon"> |
-| [AI_WebSummary](#ai_websummary) | 2.0.5 | 使用 AI 总结网页内容 | <img src="icon/ai.png" width="24" alt="icon"> |
-| [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0 | 替换 NicePT 分类图标 | <img src="icon/nicept.png" width="24" alt="icon"> |
-| [Local_Debug_Loader](#local_debug_loader) | 0.2.3 | 本地调试入口 | |
-| [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.2 | GitHub Releases 页面导航增强 | <img src="icon/github-releases.png" width="24" alt="icon"> |
+| 脚本 | 版本 | 简述 | 图标 | 安装 |
+|---|---|---|---|---|
+| [Moviepilot_AutoLogin](#moviepilot_autologin) | 1.3.1 | MoviePilot 自动登录 | <img src="icon/moviepilot-autologin.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_AutoLogin.user.js) |
+| [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.14 | PT 站种子名称识别，推送 MoviePilot | <img src="icon/moviepilot.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js) |
+| [IYUU_Reseed_Checker](#iyuu_reseed_checker) | 1.1.16 | IYUU 辅种检测助手 | <img src="icon/iyuu-reseed.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js) |
+| [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.2 | PT 一键认领增强脚本 | <img src="icon/pt-oneclickclaim.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js) |
+| [PT_AuditAssistant](#pt_auditassistant) | 0.1.0 | 聚合 PT 审种助手 | <img src="icon/pt-audit.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js) |
+| [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.1 | 朱雀搜索页批量下载 | <img src="icon/zhuque-batch.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js) |
+| [PT_BatchDownload](#pt_batchdownload) | 0.2.0 | 通用 PT 当前页批量下载 | <img src="icon/pt-batch.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js) |
+| [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.0 | Bangumi 中文标题与放送日历增强 | <img src="icon/bangumi.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js) |
+| [AI_WebSummary](#ai_websummary) | 2.0.5 | 使用 AI 总结网页内容 | <img src="icon/ai.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js) |
+| [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0 | 替换 NicePT 分类图标 | <img src="icon/nicept.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js) |
+| [Local_Debug_Loader](#local_debug_loader) | 0.2.3 | 本地调试入口 | | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Local_Debug_Loader.user.js) |
+| [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.2 | GitHub Releases 页面导航增强 | <img src="icon/github-releases.png" width="24" alt="icon"> | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/GitHubReleases_NavigationEnhancer.user.js) |
 
 ---
 
