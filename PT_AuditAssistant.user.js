@@ -481,7 +481,7 @@
     if (start < 0) return '';
     const out = [];
     for (let i = start; i < lines.length; i++) {
-      if (i > start && /^\s*(Audio|Text|Menu|General|音频|音頻|文本|菜单|菜單|概要)\s*(?:#\d+)?\s*$/i.test(lines[i])) break;
+      if (i > start && /^\s*(Audio|Text|Menu|General|音频|音頻|文本|菜单|菜單|概要)\s*(?:#\d+)?\s*(?:[:：].*)?$/i.test(lines[i])) break;
       out.push(lines[i]);
     }
     return out.join('\n');
