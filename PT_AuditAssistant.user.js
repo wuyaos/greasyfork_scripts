@@ -149,7 +149,7 @@
         (ids || this.list()).forEach(id => {
           const item = items.get(id);
           if (!item) return;
-          const out = item.run ? item.run(ctx, site) : item(ctx, site);
+          const out = item.run(ctx, site);
           if (Array.isArray(out)) results.push(...out);
         });
         return results;
@@ -203,7 +203,7 @@
 
   function createContext() {
     return {
-      title: { raw: '', clean: '', lower: '', hasChinese: false, hasComplete: false, isEpisode: false, isSeasonPack: false, positions: {} },
+      title: { raw: '', clean: '', lower: '', hasChinese: false, hasComplete: false, isEpisode: false, isSeasonPack: false, positions: {}, audioToken: '', hasAudioChannel: false },
       desc: { text: '', lower: '', html: '', containsMediainfo: false, containsForbidReseed: false },
       mediainfo: { raw: '', compact: '', kind: 'empty', empty: true, containsBBCode: false, unparsed: false },
       screenshots: { urls: [], count: 0, images: [] },
@@ -213,8 +213,8 @@
       parsed: { source: '', medium: '', codec: '', audio: '', resolution: '', resolutionHeight: null, hdr: '', isHdr: false, isHdr10: false, isHdr10Plus: false, isDolbyVision: false, fps: null, bitrateMbps: null, audioLanguages: [], textLanguages: [], hasMandarinAudio: false, hasCantoneseAudio: false, hasChineseSubtitle: false, hasEnglishSubtitle: false },
       dbLinks: { hasAny: false, hasImdb: false, hasDouban: false, hasTmdb: false, hasBangumi: false, urls: [] },
       doubanScore: null,
-      derived: { officialSeed: false, officialMusicSeed: false, godDramaSeed: false, vcbStudioSeed: false, haresSeed: false },
-      approval: { hasReviewLink: false, actionContainer: null, nativeReviewLink: null },
+      derived: { officialSeed: false, officialMusicSeed: false, godDramaSeed: false, vcbStudioSeed: false, haresSeed: false, isDIY: false },
+      approval: { actionContainer: null, nativeReviewLink: null },
       findings: [],
       debug: {}
     };
@@ -288,24 +288,34 @@
   CollectorRegistry.register('tags', {
     run(ctx, site) {
       const labelNames = site.fieldLabels?.tags || ['标签', '標籤'];
-      let raw = '';
+      let tagCell = null;
       $$('#outer tr').some(tr => {
         const cells = $$('td', tr);
         if (cells.length < 2) return false;
         const label = clean(cells[0].textContent).replace(/[：:]$/, '');
-        if (labelNames.includes(label)) {
-          raw = clean(cells[cells.length - 1].textContent);
-          return true;
-        }
+        if (labelNames.includes(label)) { tagCell = cells[cells.length - 1]; return true; }
         return false;
       });
-      ctx.tags.raw = raw;
+      // 自适应标签 DOM：span/a/div/li 叶子优先，回退整段文本；兼容各站彩色标签 chip 与纯文本写法。
+      let tagTexts = [];
+      if (tagCell) {
+        const leaves = tagCell.querySelectorAll('span, a, div, li');
+        if (leaves.length) tagTexts = Array.from(leaves).map(n => clean(n.textContent)).filter(Boolean);
+        else { const t = clean(tagCell.textContent); if (t) tagTexts = [t]; }
+      }
+      ctx.tags.raw = tagTexts.join(' ');
+      ctx.tags.tagTexts = tagTexts;
       const normalized = new Set();
       const map = Object.assign({}, defaultTagTextMap(), site.tagTextMap || {});
-      const compactRaw = raw.replace(/\s+/g, '');
-      Object.keys(map).sort((a, b) => b.length - a.length).forEach(text => {
-        if (raw.includes(text) || compactRaw.includes(text.replace(/\s+/g, ''))) normalized.add(map[text]);
-      });
+      // 归一化（去空白+小写）后逐个标签匹配，精确优先避免「HDR」子串误命中「HDR10」。
+      const norm = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+      const entries = Object.keys(map).map(k => ({ nkey: norm(k), id: map[k] })).sort((a, b) => b.nkey.length - a.nkey.length);
+      for (const text of tagTexts) {
+        const nt = norm(text);
+        if (!nt) continue;
+        const hit = entries.find(e => e.nkey === nt) || entries.find(e => nt.includes(e.nkey));
+        if (hit) normalized.add(hit.id);
+      }
       ctx.tags.normalized = normalized;
       const flags = {};
       normalized.forEach(tag => { flags[tag] = true; });
@@ -332,7 +342,6 @@
       ctx.mediainfo.empty = !clean(raw);
       ctx.mediainfo.kind = ctx.mediainfo.empty ? 'empty' : (/bdinfo/i.test(raw) ? 'bdinfo' : (/mediainfo|general|video|audio|text|视频|音频|文本/i.test(raw) ? 'mediainfo' : 'unknown'));
       ctx.mediainfo.containsBBCode = /\[(?:b|i|u|color|size|font|quote|code|img|url)(?:=|\])/i.test(raw);
-      ctx.mediainfo.unparsed = !ctx.mediainfo.empty && ctx.mediainfo.kind === 'unknown';
     }
   });
   CollectorRegistry.register('screenshots', {
@@ -387,7 +396,6 @@
     run(ctx) {
       const link = $$('a').find(a => /审核|審核|通过|通過|approval|review/i.test(a.textContent + ' ' + (a.href || '')) && /approval|review|audit|modtask|action/i.test(a.href || a.textContent));
       ctx.approval.nativeReviewLink = link || null;
-      ctx.approval.hasReviewLink = Boolean(link || getTorrentId());
     }
   });
 
@@ -407,7 +415,6 @@
       ctx.parsed.isHdr10 = !ctx.parsed.isHdr10Plus && /\bHDR10\b/i.test(t);
       ctx.parsed.isDolbyVision = /\bDV\b|Dolby\s*Vision/i.test(t);
       ctx.parsed.isHdr = ctx.parsed.isHdr10 || ctx.parsed.isHdr10Plus || ctx.parsed.isDolbyVision || /\bHDR\b/i.test(tl);
-      ctx.parsed.hdr = ctx.parsed.isHdr10Plus ? 'HDR10+' : (ctx.parsed.isDolbyVision ? 'Dolby Vision' : (ctx.parsed.isHdr10 ? 'HDR10' : (ctx.parsed.isHdr ? 'HDR' : '')));
       ctx.title.positions = {
         resolution: t.search(/\b(?:2160|1440|1080|720|576|480)[pi]\b|\b(?:4K|UHD)\b/i),
         source: t.search(/\b(?:BluRay|WEB[- ]?DL|WEBRip|HDTV|DVDRip|DVD)\b/i),
@@ -415,6 +422,12 @@
         audio: t.search(/\b(?:Atmos|TrueHD|DTS|DDP?\+?|AAC|FLAC|LPCM|AC3|EAC3)\b/i),
         hdr: t.search(/HDR10\+|HDR10|Dolby\s*Vision|\bDV\b|\bHDR\b/i)
       };
+      // 标题音频 token 与声道数（X.Y），用于声道数标示检查
+      const audioMatch = t.match(/\b(DD[P\+]?|FLAC|LPCM|AC3|AV3A|OPUS|TrueHD|DTS([: -]?X|-?HD ?(M|HR)A)?) ?(\d[ \.]?\d)?/);
+      if (audioMatch) {
+        ctx.title.audioToken = audioMatch[0];
+        ctx.title.hasAudioChannel = /\d[ \.]\d/.test(audioMatch[0]);
+      }
     }
   });
   ParserRegistry.register('mediainfo', {
@@ -446,7 +459,7 @@
       const text = `${ctx.desc.text}\n${urls.join('\n')}`;
       ctx.dbLinks.urls = urls.filter(u => /imdb|douban|themoviedb|tmdb|bangumi/i.test(u));
       ctx.dbLinks.hasImdb = /imdb\.com\/title\/tt\d+/i.test(text);
-      ctx.dbLinks.hasDouban = /douban\.com\/subject\/\d+|豆瓣/i.test(text);
+      ctx.dbLinks.hasDouban = /douban\.com\/subject\/\d+/i.test(text);
       ctx.dbLinks.hasTmdb = /themoviedb\.org|tmdb/i.test(text);
       ctx.dbLinks.hasBangumi = /bangumi\.tv|bgm\.tv/i.test(text);
       ctx.dbLinks.hasAny = ctx.dbLinks.hasImdb || ctx.dbLinks.hasDouban || ctx.dbLinks.hasTmdb || ctx.dbLinks.hasBangumi;
@@ -469,6 +482,8 @@
       ctx.derived.godDramaSeed = /GodDramas/i.test(group);
       ctx.derived.vcbStudioSeed = /VCB[- ]?Studio/i.test(group) || isTagSet(ctx, 'vcbStudio');
       ctx.derived.haresSeed = /Hares/i.test(group) || isTagSet(ctx, 'hares');
+      // DIY 资源：标题命中 DIY 制作组或副标题含 DIY
+      ctx.derived.isDIY = /[-@](BHYS|sGnb|SPM|HDSky|HDHome|D[Ii]Y|UBits)\b/i.test(ctx.title.clean) || /DIY/.test(ctx.siteMeta.subtitle);
     }
   });
 
@@ -516,7 +531,6 @@
   // Rules
   function finding(severity, code, message, meta) { return [{ severity, code, message, meta }]; }
   RuleRegistry.register('requiredSubtitle', { run: ctx => ctx.siteMeta.subtitle ? [] : finding('error', 'SUBTITLE_REQUIRED', '副标题必填') });
-  RuleRegistry.register('requiredCategory', { run: ctx => ctx.siteMeta.categoryId ? [] : finding('error', 'CATEGORY_REQUIRED', '分类未选择或采集失败') });
   RuleRegistry.register('requiredMedium', { run: ctx => ctx.parsed.medium || ctx.debug.metaSelections?.medium ? [] : finding('error', 'MEDIUM_REQUIRED', '媒介信息缺失或无法解析') });
   RuleRegistry.register('requiredVideoCodec', { run: ctx => ctx.parsed.codec || ctx.debug.metaSelections?.codec ? [] : finding('error', 'VIDEO_CODEC_REQUIRED', '视频编码缺失或无法解析') });
   RuleRegistry.register('requiredResolution', { run: ctx => ctx.parsed.resolution || ctx.debug.metaSelections?.resolution ? [] : finding('error', 'RESOLUTION_REQUIRED', '分辨率缺失或无法解析') });
@@ -530,7 +544,6 @@
       return errors;
     }
   });
-  RuleRegistry.register('descNoMediainfo', { run: ctx => ctx.desc.containsMediainfo ? finding('warning', 'DESC_CONTAINS_MEDIAINFO', '简介中疑似混入 MediaInfo，请确认是否应填入 MediaInfo 栏') : [] });
   RuleRegistry.register('screenshotMinCount', { run: (ctx, site, params) => ctx.screenshots.count >= (params.min || 1) ? [] : finding(params.severity || 'error', 'SCREENSHOT_MIN_COUNT', `截图数量不足，要求至少 ${params.min || 1} 张，当前 ${ctx.screenshots.count} 张`) });
   // DOM-only image validation; no HEAD probing to avoid extra cross-origin request volume.
   RuleRegistry.register('screenshotValid', {
@@ -554,17 +567,27 @@
   RuleRegistry.register('dbLinkRequired', { run: (ctx, site, params) => ctx.dbLinks.hasAny ? [] : finding(params.severity || 'error', 'DB_LINK_REQUIRED', '简介中未检测到 IMDb / 豆瓣 / TMDB / Bangumi 链接或信息') });
   RuleRegistry.register('officialLabelConsistency', {
     run(ctx) {
-      if (ctx.derived.officialSeed && !isTagSet(ctx, 'official')) return finding('warning', 'OFFICIAL_LABEL_MISSING', '疑似官组资源但未选择官方标签');
-      if (!ctx.derived.officialSeed && isTagSet(ctx, 'official')) return finding('warning', 'OFFICIAL_LABEL_EXTRA', '选择了官方标签，但标题/制作组未识别为本站官组');
-      return [];
+      const out = [];
+      if (ctx.derived.officialSeed && !isTagSet(ctx, 'official')) out.push({ severity: 'warning', code: 'OFFICIAL_LABEL_MISSING', message: '疑似官组资源但未选择官方标签' });
+      if (!ctx.derived.officialSeed && isTagSet(ctx, 'official')) out.push({ severity: 'warning', code: 'OFFICIAL_LABEL_EXTRA', message: '选择了官方标签，但标题/制作组未识别为本站官组' });
+      if (ctx.derived.officialSeed && !ctx.siteMeta.groupSelected) out.push({ severity: 'error', code: 'OFFICIAL_GROUP_MISSING', message: '官组资源未选择制作组' });
+      return out;
     }
   });
   RuleRegistry.register('hdrTagsMatchMediainfo', {
     run(ctx) {
       const out = [];
-      if (ctx.parsed.isHdr10Plus && !isTagSet(ctx, 'hdr10Plus')) out.push({ severity: 'error', code: 'HDR10PLUS_TAG_MISSING', message: 'MediaInfo/标题检测到 HDR10+，但未选择 HDR10+ 标签' });
-      else if ((ctx.parsed.isHdr10 || ctx.parsed.isHdr) && !ctx.parsed.isHdr10Plus && !isTagSet(ctx, 'hdr') && !isTagSet(ctx, 'hdr10')) out.push({ severity: 'warning', code: 'HDR_TAG_MISSING', message: '检测到 HDR 信息，但未选择 HDR/HDR10 标签' });
-      if (ctx.parsed.isDolbyVision && !isTagSet(ctx, 'dolbyVision')) out.push({ severity: 'error', code: 'DV_TAG_MISSING', message: '检测到 Dolby Vision/DV，但未选择杜比视界标签' });
+      const isHdr10Plus = ctx.parsed.isHdr10Plus, isHdr10 = ctx.parsed.isHdr10, isDV = ctx.parsed.isDolbyVision, isHdrAny = ctx.parsed.isHdr;
+      const hasHdrTag = isTagSet(ctx, 'hdr') || isTagSet(ctx, 'hdr10') || isTagSet(ctx, 'hdr10Plus') || isTagSet(ctx, 'dolbyVision') || isTagSet(ctx, 'hdrVivid');
+      // HDR 整体双向：检测到 HDR 但无任何 HDR 系列标签 / 有 HDR 标签但未检测到
+      if (isHdrAny && !hasHdrTag) out.push({ severity: 'error', code: 'HDR_TAG_MISSING', message: 'MediaInfo/标题检测到 HDR，但未选择任何 HDR 系列标签' });
+      if (!isHdrAny && hasHdrTag) out.push({ severity: 'warning', code: 'HDR_TAG_EXTRA', message: '选择了 HDR 系列标签，但未识别到 HDR 信息' });
+      // HDR10+ 双向
+      if (isHdr10Plus && !isTagSet(ctx, 'hdr10Plus')) out.push({ severity: 'error', code: 'HDR10PLUS_TAG_MISSING', message: '检测到 HDR10+，但未选择 HDR10+ 标签' });
+      if (!isHdr10Plus && isTagSet(ctx, 'hdr10Plus')) out.push({ severity: 'error', code: 'HDR10PLUS_TAG_EXTRA', message: '选择了 HDR10+ 标签，但未识别到 HDR10+' });
+      // 杜比视界双向
+      if (isDV && !isTagSet(ctx, 'dolbyVision')) out.push({ severity: 'error', code: 'DV_TAG_MISSING', message: '检测到 Dolby Vision/DV，但未选择杜比视界标签' });
+      if (!isDV && isTagSet(ctx, 'dolbyVision')) out.push({ severity: 'error', code: 'DV_TAG_EXTRA', message: '选择了杜比视界标签，但未识别到 Dolby Vision' });
       return out;
     }
   });
@@ -598,18 +621,129 @@
   RuleRegistry.register('arcHaresConsistency', {
     run(ctx) {
       const out = [];
-      if (/Arc|方舟/i.test(ctx.title.clean + ctx.siteMeta.groupSelected) && !isTagSet(ctx, 'arcProject')) out.push({ severity: 'warning', code: 'ARC_TAG_MISSING', message: '疑似方舟资源，未选择方舟标签' });
+      if (/\bArc\b|方舟/i.test(ctx.title.clean + ctx.siteMeta.groupSelected) && !isTagSet(ctx, 'arcProject')) out.push({ severity: 'warning', code: 'ARC_TAG_MISSING', message: '疑似方舟资源，未选择方舟标签' });
       if (ctx.derived.haresSeed && !isTagSet(ctx, 'hares')) out.push({ severity: 'warning', code: 'HARES_TAG_MISSING', message: '疑似 Hares 资源，未选择 Hares 标签' });
       return out;
     }
   });
+  // 完结/分集/合集标签一致性（基于标题季集状态）
+  RuleRegistry.register('completeTagRequired', { run: ctx => ctx.title.isSeasonPack && ctx.title.hasComplete && !isTagSet(ctx, 'complete') ? finding('warning', 'COMPLETE_TAG_MISSING', '季包已标注 Complete，建议选择完结标签') : [] });
+  RuleRegistry.register('incompleteTagRequired', { run: ctx => ctx.title.isEpisode && !isTagSet(ctx, 'incomplete') && !isTagSet(ctx, 'complete') ? finding('warning', 'INCOMPLETE_TAG_MISSING', '分集剧集未选择分集标签') : [] });
+  RuleRegistry.register('collectionTagForbidden', { run: ctx => !ctx.title.isSeasonPack && isTagSet(ctx, 'collection') ? finding('warning', 'COLLECTION_TAG_EXTRA', '非季包资源选择了合集标签，请确认') : [] });
+  // 音轨/字幕语言 → 标签
+  RuleRegistry.register('audioLanguageTagConsistency', {
+    run(ctx) {
+      const out = [];
+      if (ctx.parsed.hasMandarinAudio && !isTagSet(ctx, 'mandarin')) out.push({ severity: 'warning', code: 'MANDARIN_TAG_MISSING', message: '检测到国语音轨，未选择国语标签' });
+      if (ctx.parsed.hasCantoneseAudio && !isTagSet(ctx, 'cantonese')) out.push({ severity: 'warning', code: 'CANTONESE_TAG_MISSING', message: '检测到粤语音轨，未选择粤语标签' });
+      if (ctx.parsed.hasChineseSubtitle && !isTagSet(ctx, 'chineseSubtitle')) out.push({ severity: 'warning', code: 'CHINESE_SUBTITLE_TAG_MISSING', message: '检测到中文字幕，未选择中字标签' });
+      return out;
+    }
+  });
+  // 制作组专属标签
+  RuleRegistry.register('vcbStudioTagRequired', { run: ctx => ctx.derived.vcbStudioSeed && !isTagSet(ctx, 'vcbStudio') ? finding('warning', 'VCB_STUDIO_TAG_MISSING', 'VCB-Studio 资源未选择 VCB-Studio 标签') : [] });
+  RuleRegistry.register('remuxTagRequired', { run: ctx => /remux/i.test(ctx.parsed.medium) && !isTagSet(ctx, 'remux') ? finding('warning', 'REMUX_TAG_MISSING', 'Remux 媒介未选择 Remux 标签') : [] });
+  // 标题命名写法规范（P→p / 4K→2160p / AC3→DD / 噪声词 / WEB·HDTV 编码大小写 / Atmos 位置）
+  RuleRegistry.register('titleNamingSpec', {
+    run(ctx) {
+      const t = ctx.title.clean, tl = ctx.title.lower;
+      const out = [];
+      if (/(480|720|1080|2160|4320)P\b/.test(t)) out.push({ severity: 'warning', code: 'TITLE_RES_P_CASE', message: '标题分辨率后缀 P 应改为小写 p' });
+      if (/\b4K\b/i.test(t) && !/2160p/i.test(t)) out.push({ severity: 'warning', code: 'TITLE_4K_SPELLING', message: '标题 4K 建议改为 2160p' });
+      if (/\bAC3\b/.test(t) && !/\bDD[P+]?\b/.test(t)) out.push({ severity: 'warning', code: 'TITLE_AC3_SPELLING', message: '标题 AC3 建议改为 DD' });
+      const noise = [];
+      if (/\bHQ\b/.test(t)) noise.push('HQ');
+      if (/\bFPS\b/i.test(t)) noise.push('FPS');
+      if (/\bEDR\b/.test(t)) noise.push('EDR');
+      if (/\bSDR\b/.test(t)) noise.push('SDR');
+      if (noise.length) out.push({ severity: 'warning', code: 'TITLE_NOISE_WORDS', message: `标题含多余规格词：${noise.join('、')}，建议删除` });
+      if (/WEB/i.test(t)) {
+        if (/\bHEVC\b|\bH265\b/.test(t) && !/H\.265/i.test(t)) out.push({ severity: 'warning', code: 'TITLE_WEB_CODEC_CASE', message: 'WEB 资源编码 HEVC/H265 应写为 H.265' });
+        if (/\bAVC\b|\bH264\b/.test(t) && !/H\.264/i.test(t)) out.push({ severity: 'warning', code: 'TITLE_WEB_CODEC_CASE', message: 'WEB 资源编码 AVC/H264 应写为 H.264' });
+      }
+      if (/HDTV/i.test(t)) {
+        if (/\bHEVC\b|H\.265/i.test(t) && !/\bH265\b/.test(t)) out.push({ severity: 'warning', code: 'TITLE_HDTV_CODEC_CASE', message: 'HDTV 资源编码 HEVC/H.265 应写为 H265' });
+        if (/\bAVC\b|H\.264/i.test(t) && !/\bH264\b/.test(t)) out.push({ severity: 'warning', code: 'TITLE_HDTV_CODEC_CASE', message: 'HDTV 资源编码 AVC/H.264 应写为 H264' });
+      }
+      if (/atmos.*truehd/.test(tl)) out.push({ severity: 'warning', code: 'TITLE_ATMOS_ORDER', message: '标题 Atmos 应置于 TrueHD/声道之后' });
+      return out;
+    }
+  });
+  // 标题 token 顺序：片源→分辨率→HDR→视频编码→音频编码
+  RuleRegistry.register('titleTokenOrder', {
+    run(ctx) {
+      const p = ctx.title.positions;
+      const out = [];
+      if (p.video >= 0 && p.source >= 0 && p.video < p.source) out.push({ severity: 'warning', code: 'TITLE_SOURCE_ORDER', message: '标题片源类型应置于视频编码之前' });
+      if (p.resolution >= 0 && p.source >= 0 && p.resolution > p.source) out.push({ severity: 'warning', code: 'TITLE_RESOLUTION_BEFORE_SOURCE', message: '标题分辨率应置于来源/媒介之前' });
+      if (p.video >= 0 && p.audio >= 0 && p.video > p.audio) out.push({ severity: 'warning', code: 'TITLE_VIDEO_BEFORE_AUDIO', message: '标题视频编码应置于音频编码之前' });
+      if (p.hdr >= 0 && p.video >= 0 && p.hdr > p.video) out.push({ severity: 'warning', code: 'TITLE_HDR_BEFORE_VIDEO', message: '标题 HDR 类型应置于视频编码之前' });
+      return out;
+    }
+  });
+  // 标题完整性：缺少分辨率/来源/视频编码/音频编码
+  RuleRegistry.register('titleCompleteness', {
+    run(ctx) {
+      const p = ctx.title.positions;
+      const out = [];
+      if (p.resolution < 0) out.push({ severity: 'warning', code: 'TITLE_MISSING_RESOLUTION', message: '标题缺少分辨率' });
+      if (p.source < 0) out.push({ severity: 'warning', code: 'TITLE_MISSING_SOURCE', message: '标题缺少来源/媒介' });
+      if (p.video < 0) out.push({ severity: 'warning', code: 'TITLE_MISSING_VIDEO_CODEC', message: '标题缺少视频编码' });
+      if (p.audio < 0) out.push({ severity: 'warning', code: 'TITLE_MISSING_AUDIO_CODEC', message: '标题缺少音频编码' });
+      return out;
+    }
+  });
+  // 音频编码必填
+  RuleRegistry.register('requiredAudioCodec', { run: ctx => ctx.parsed.audio || ctx.debug.metaSelections?.audio ? [] : finding('error', 'AUDIO_CODEC_REQUIRED', '音频编码缺失或无法解析') });
+  // MediaInfo 含 BBCode
+  RuleRegistry.register('mediainfoBbcodeError', { run: ctx => ctx.mediainfo.containsBBCode ? finding('error', 'MEDIAINFO_BBCODE', 'MediaInfo 含 BBCode 标签，应为纯文本') : [] });
+  // MediaInfo 类型与媒介一致性：蓝光原盘类应填 BDinfo，非蓝光应填 mediainfo
+  RuleRegistry.register('mediainfoTypeConsistency', {
+    run(ctx) {
+      if (ctx.mediainfo.empty) return [];
+      const isBD = /bluray|原盘|untouched/i.test(ctx.parsed.medium);
+      if (isBD && ctx.mediainfo.kind !== 'bdinfo') return finding('warning', 'MEDIAINFO_SHOULD_BE_BDINFO', '蓝光原盘类资源 MediaInfo 栏建议填写 BDinfo');
+      if (!isBD && ctx.mediainfo.kind === 'bdinfo') return finding('warning', 'MEDIAINFO_SHOULD_BE_MEDIAINFO', '非蓝光原盘资源 MediaInfo 栏建议填写 mediainfo');
+      return [];
+    }
+  });
+  // DIY/原生原盘标签互斥（蓝光原盘类）
+  RuleRegistry.register('diyUntouchedTagConsistency', {
+    run(ctx) {
+      if (ctx.mediainfo.kind !== 'bdinfo') return []; // 仅 BDinfo（蓝光原盘）适用
+      const isDIY = ctx.derived.isDIY, hasDIY = isTagSet(ctx, 'diy'), hasUntouched = isTagSet(ctx, 'untouched');
+      const out = [];
+      if (isDIY && !hasDIY) out.push({ severity: 'error', code: 'DIY_TAG_MISSING', message: 'DIY 资源未选择 DIY 标签' });
+      if (isDIY && hasUntouched) out.push({ severity: 'error', code: 'UNTOUCHED_TAG_EXTRA', message: 'DIY 资源不应选择原生原盘标签' });
+      if (!isDIY && !hasDIY && !hasUntouched) out.push({ severity: 'warning', code: 'BLURAY_TAG_MISSING', message: '蓝光原盘未选择原生或 DIY 标签' });
+      if (hasDIY && hasUntouched) out.push({ severity: 'error', code: 'DIY_UNTOUCHED_CONFLICT', message: '原生原盘与 DIY 标签只能选一个' });
+      return out;
+    }
+  });
+  // HLG 需添加 HDR 标签
+  RuleRegistry.register('hlgNeedsHdrTag', { run: ctx => /^(?!Encoding).*HLG/im.test(ctx.mediainfo.raw) && !isTagSet(ctx, 'hdr') && !isTagSet(ctx, 'hdrVivid') ? finding('warning', 'HLG_HDR_TAG_MISSING', 'MediaInfo 检测到 HLG，未选择 HDR 标签') : [] });
+  // 标题声道数标示（音频 token 后应有 X.Y 声道数）
+  RuleRegistry.register('titleAudioChannelRequired', { run: ctx => ctx.title.audioToken && !ctx.title.hasAudioChannel ? finding('warning', 'TITLE_AUDIO_CHANNEL_MISSING', '标题音频编码后未标示声道数（如 5.1）') : [] });
+  // 音乐类（音频分类）标题字段：采样频率 khz + 比特率 bit
+  RuleRegistry.register('musicTitleFields', {
+    run(ctx) {
+      const isMusic = ctx.siteMeta.categoryId === '408' || /音频|音頻/.test(ctx.siteMeta.categorySelected || '');
+      if (!isMusic) return [];
+      const out = [], tl = ctx.title.lower;
+      if (!/khz/.test(tl)) out.push({ severity: 'warning', code: 'MUSIC_SAMPLE_RATE_MISSING', message: '音频类资源主标题缺少采样频率（如 44.1kHz）' });
+      if (!/bit/.test(tl)) out.push({ severity: 'warning', code: 'MUSIC_BITRATE_MISSING', message: '音频类资源主标题缺少比特率（如 320kbps）' });
+      return out;
+    }
+  });
+  // DVD 来源分辨率错标检查（DVD 不应为 720p）
+  RuleRegistry.register('dvdResolutionCheck', { run: ctx => /\bDVD\b/i.test(ctx.title.clean) && ctx.parsed.resolutionHeight === 720 ? finding('warning', 'DVD_RESOLUTION_CHECK', 'DVD 来源资源标为 720p，请检查分辨率是否错标') : [] });
   RuleRegistry.register('longptDomDegraded', { run: ctx => (!ctx.title.clean || (!$('#outer') && !$('#kdescr'))) ? finding('info', 'DOM_DEGRADED', '页面 DOM 与默认 NexusPHP 选择器不完全匹配，部分检查已降级') : [] });
 
   function defaultTagTextMap() {
     return {
-      'HDR10+': 'hdr10Plus', 'HDR10 Plus': 'hdr10Plus', 'HDR10': 'hdr10', 'Dolby Vision': 'dolbyVision', '杜比视界': 'dolbyVision', '杜比視界': 'dolbyVision', 'HDR Vivid': 'hdrVivid', 'HDR': 'hdr',
+      'HDR10+': 'hdr10Plus', 'HDR10 Plus': 'hdr10Plus', 'HDR 10+': 'hdr10Plus', 'HDR10Plus': 'hdr10Plus', 'HDR10': 'hdr10', 'Dolby Vision': 'dolbyVision', '杜比视界': 'dolbyVision', '杜比視界': 'dolbyVision', 'HDR Vivid': 'hdrVivid', '菁彩HDR': 'hdrVivid', 'HDR': 'hdr',
       '官方': 'official', '官种': 'official', '官種': 'official', '禁转': 'reseedProhibited', '禁傳': 'reseedProhibited', '驻站': 'resident', '駐站': 'resident', '完结': 'complete', '完結': 'complete', '分集': 'incomplete', '合集': 'collection',
-      '国语': 'mandarin', '國語': 'mandarin', '粤语': 'cantonese', '粵語': 'cantonese', '中字': 'chineseSubtitle', '英字': 'englishSubtitle', 'VCB-Studio': 'vcbStudio', 'DIY': 'diy', '原盘': 'untouched', '原盤': 'untouched', 'Remux': 'remux', 'REMUX': 'remux',
+      '国语': 'mandarin', '國語': 'mandarin', '粤语': 'cantonese', '粵語': 'cantonese', '中字': 'chineseSubtitle', '英字': 'englishSubtitle', 'VCB-Studio': 'vcbStudio', 'DIY': 'diy', '原盘': 'untouched', '原盤': 'untouched', '原生': 'untouched', 'Untouched': 'untouched', 'Remux': 'remux', 'REMUX': 'remux',
       '大包': 'bigTorrent', '麒麟火': 'iceSeed', '方舟': 'arcProject', '高码': 'highBitrate', '高碼': 'highBitrate', '高帧': 'highFps', '高幀': 'highFps', '高分': 'highScore', '儿童': 'children', '兒童': 'children', '喜剧': 'comedy', '喜劇': 'comedy', 'Hares': 'hares'
     };
   }
@@ -693,6 +827,7 @@
       }
     }
   };
+  // 预留：自动审批 CSRF/POST 适配器，当前所有站点 approval.enabled=false，需站点开启并确认接口后才会调用。
   ApprovalRegistry.register('nexusPhpTokenPost', {
     async run(ctx, site) {
       const id = getTorrentId();
@@ -719,17 +854,18 @@
   });
 
   // SiteConfigs
+  function override(rules, id, patch) { return rules.map(r => r.id === id ? Object.assign({}, r, patch) : r); }
   function baseRules() {
     return [
-      { id: 'mediainfoRequired' }, { id: 'screenshotMinCount', params: { min: 1 } }, { id: 'screenshotValid', params: { severity: 'warning', minHeight: 24, timeout: 30000 } }, { id: 'dbLinkRequired', severity: 'warning', params: { severity: 'warning' } }, { id: 'officialLabelConsistency' }, { id: 'hdrTagsMatchMediainfo' }, { id: 'titleMediaMatches' }
+      { id: 'mediainfoRequired' }, { id: 'screenshotMinCount', params: { min: 1 } }, { id: 'screenshotValid', params: { severity: 'warning', minHeight: 24, timeout: 30000 } }, { id: 'dbLinkRequired', severity: 'warning', params: { severity: 'warning' } }, { id: 'officialLabelConsistency' }, { id: 'hdrTagsMatchMediainfo' }, { id: 'titleMediaMatches' }, { id: 'completeTagRequired' }, { id: 'incompleteTagRequired' }, { id: 'collectionTagForbidden' }, { id: 'audioLanguageTagConsistency' }, { id: 'vcbStudioTagRequired' }, { id: 'remuxTagRequired' }, { id: 'mediainfoBbcodeError' }, { id: 'mediainfoTypeConsistency' }, { id: 'musicTitleFields' }
     ];
   }
   function registerAllSites() {
     const common = { paths: [/^\/details\.php/i], collectors: DEFAULT_COLLECTORS, parsers: DEFAULT_PARSERS, approval: { enabled: false, adapter: 'nexusPhpTokenPost', modeStorageKey: AUTO_APPROVAL_KEY }, fieldLabels: { subtitle: ['副标题', '副標題'], tags: ['标签', '標籤'], basic: ['基本信息', '基本資料'], mediainfo: ['MediaInfo', 'Mediainfo', '媒体信息', '媒體信息', 'BDInfo'], action: ['行为', '行為'] } };
-    SiteRegistry.register('pandapt', Object.assign({}, common, { id: 'pandapt', name: 'PandaPT', hosts: ['pandapt.net'], reviewInfoPosition: 3, officialGroups: ['Panda', 'AilMWeb', 'AilMTV', 'AilMUpscale'], rules: baseRules() }));
-    SiteRegistry.register('qingwa', Object.assign({}, common, { id: 'qingwa', name: 'QingWaPT', hosts: ['qingwapt.com', 'new.qingwa.pro', 'qingwapt.org'], reviewInfoPosition: 3, officialGroups: ['frog', 'froge', 'frogweb', 'Loong@QingWa'], rules: baseRules().concat([{ id: 'titleChineseWarning' }, { id: 'titleCompleteRequiredForSeason' }, { id: 'titleHdr10PlusSpelling' }, { id: 'requiredMedium' }, { id: 'requiredVideoCodec' }, { id: 'requiredResolution' }, { id: 'forbidGroups', params: { groups: ['CMCT', 'WiKi', 'beAst'] } }]) }));
-    SiteRegistry.register('hdkylin', Object.assign({}, common, { id: 'hdkylin', name: 'HDKylin', hosts: ['hdkyl.in'], paths: [/^\/details\.php/i, /^\/web\/torrent-approval-page/i], reviewInfoPosition: 2, officialGroups: ['HDK', 'HDKMV', 'GodDramas'], tagTextMap: { '麒麟火': 'iceSeed' }, rules: baseRules().filter(r => r.id !== 'dbLinkRequired').concat([{ id: 'requiredSubtitle' }, { id: 'screenshotMinCount', params: { min: 2 } }, { id: 'bigTorrentWarning' }]) }));
-    SiteRegistry.register('cspt', Object.assign({}, common, { id: 'cspt', name: 'CSPT', hosts: ['cspt.top', 'cspt.cc', 'cspt.date'], reviewInfoPosition: 2, officialGroups: ['csweb', 'cspt', 'Hares', 'GodDramas'], tagTextMap: { '方舟': 'arcProject', 'Hares': 'hares', '儿童': 'children', '喜剧': 'comedy' }, suppressions: [{ when: { categoryIds: ['410', '419', '短剧', 'Playlet', 'short', 'shortdrama'], categoryTexts: ['短剧', 'Playlet', 'short', 'shortdrama'] }, exceptRules: ['requiredSubtitle', 'screenshotMinCount', 'screenshotValid', 'mediainfoRequired'] }], rules: baseRules().map(r => r.id === 'dbLinkRequired' ? Object.assign({}, r, { severity: 'error', params: { severity: 'error' } }) : r).concat([{ id: 'titleChineseForbidden' }, { id: 'requiredSubtitle' }, { id: 'screenshotMinCount', params: { min: 2 } }, { id: 'childrenComedyConsistency' }, { id: 'arcHaresConsistency' }, { id: 'bigTorrentWarning' }]) }));
+    SiteRegistry.register('pandapt', Object.assign({}, common, { id: 'pandapt', name: 'PandaPT', hosts: ['pandapt.net'], reviewInfoPosition: 3, officialGroups: ['Panda', 'AilMWeb', 'AilMTV', 'AilMUpscale'], suppressions: [{ when: { categoryIds: ['408'], categoryTexts: ['音频', '音頻'] }, exceptRules: ['musicTitleFields'] }, { when: { categoryIds: ['409'], categoryTexts: ['其他'] }, exceptRules: [] }], rules: baseRules().concat([{ id: 'titleNamingSpec' }, { id: 'titleTokenOrder' }, { id: 'titleCompleteness' }, { id: 'diyUntouchedTagConsistency' }, { id: 'hlgNeedsHdrTag' }, { id: 'titleAudioChannelRequired' }, { id: 'dvdResolutionCheck' }]) }));
+    SiteRegistry.register('qingwa', Object.assign({}, common, { id: 'qingwa', name: 'QingWaPT', hosts: ['qingwapt.com', 'new.qingwa.pro', 'qingwapt.org'], reviewInfoPosition: 3, officialGroups: ['frog', 'froge', 'frogweb', 'Loong@QingWa'], rules: baseRules().concat([{ id: 'titleChineseWarning' }, { id: 'titleCompleteRequiredForSeason' }, { id: 'titleHdr10PlusSpelling' }, { id: 'requiredMedium' }, { id: 'requiredVideoCodec' }, { id: 'requiredResolution' }, { id: 'requiredAudioCodec' }, { id: 'forbidGroups', params: { groups: ['CMCT', 'WiKi', 'beAst'] } }, { id: 'titleNamingSpec' }, { id: 'titleTokenOrder' }, { id: 'diyUntouchedTagConsistency' }, { id: 'hlgNeedsHdrTag' }, { id: 'titleAudioChannelRequired' }, { id: 'dvdResolutionCheck' }]) }));
+    SiteRegistry.register('hdkylin', Object.assign({}, common, { id: 'hdkylin', name: 'HDKylin', hosts: ['hdkyl.in'], paths: [/^\/details\.php/i, /^\/web\/torrent-approval-page/i], reviewInfoPosition: 2, officialGroups: ['HDK', 'HDKMV', 'GodDramas'], tagTextMap: { '麒麟火': 'iceSeed' }, rules: override(baseRules().filter(r => r.id !== 'dbLinkRequired'), 'screenshotMinCount', { params: { min: 2 } }).concat([{ id: 'requiredSubtitle' }, { id: 'bigTorrentWarning' }]) }));
+    SiteRegistry.register('cspt', Object.assign({}, common, { id: 'cspt', name: 'CSPT', hosts: ['cspt.top', 'cspt.cc', 'cspt.date'], reviewInfoPosition: 2, officialGroups: ['csweb', 'cspt', 'Hares', 'GodDramas'], tagTextMap: { '方舟': 'arcProject', 'Hares': 'hares', '儿童': 'children', '喜剧': 'comedy' }, suppressions: [{ when: { categoryIds: ['410', '419'], categoryTexts: ['短剧', 'Playlet', 'short', 'shortdrama'] }, exceptRules: ['requiredSubtitle', 'screenshotMinCount', 'screenshotValid', 'mediainfoRequired'] }], rules: override(baseRules().map(r => r.id === 'dbLinkRequired' ? Object.assign({}, r, { severity: 'error', params: { severity: 'error' } }) : r), 'screenshotMinCount', { params: { min: 2 } }).concat([{ id: 'titleChineseForbidden' }, { id: 'requiredSubtitle' }, { id: 'childrenComedyConsistency' }, { id: 'arcHaresConsistency' }, { id: 'bigTorrentWarning' }]) }));
     SiteRegistry.register('longpt', Object.assign({}, common, { id: 'longpt', name: 'LongPT', hosts: ['longpt.org'], reviewInfoPosition: 2, tagTextMap: { '高码': 'highBitrate', '高碼': 'highBitrate', '高帧': 'highFps', '高幀': 'highFps', '高分': 'highScore' }, rules: [{ id: 'longptDomDegraded' }, { id: 'screenshotValid', params: { severity: 'warning', minHeight: 24, timeout: 30000 } }, { id: 'highBitrate', params: { tag: 'highBitrate', thresholdsMbps: { 2160: 15, 1080: 9, 1440: 9 }, inclusive: false } }, { id: 'highFps', params: { thresholdFps: 60, tag: 'highFps' } }, { id: 'highScore', params: { threshold: 8, inclusive: false, tag: 'highScore' } }] }));
   }
 

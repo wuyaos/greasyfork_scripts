@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.2.0
+// @version      0.5.0
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
+// @match        *://*/torrents*
 // @run-at       document-idle
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
@@ -26,23 +27,133 @@
   const ID = 'ptbd-panel'
   const TOGGLE_ID = 'ptbd-toggle'
   const CUSTOM_SITES_KEY = 'ptbd_custom_sites'
-  const DOWNLOADER_KEY = 'ptbd_downloader'
   const DOWNLOADERS_KEY = 'ptbd_downloaders'
   const DEFAULT_PATHS = ['/userdetails.php', '/torrents.php', '/special.php']
+  // Unit3D 架构站点列表页 pathname（RESTful 路由，区别于 NexusPHP 的 .php）
+  const UNIT3D_LIST_PATH = '/torrents'
+  const UNIT3D_DL_SELECTOR = 'a[href*="/torrents/download/"]'
   const DEFAULT_DL = { id: '', name: '', type: 'qb', host: '', username: '', password: '', qbCategory: '', qbTags: '', qbSavePath: '', trDownloadDir: '', trLabels: '' }
   const UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 }
   const SIZE_UNITS = ['GiB', 'MiB', 'KiB', 'TiB']
-  const PROMOTIONS = [
-    ['all', '全部'],
-    ['normal', '普通'],
-    ['free', '免费'],
-    ['2up', '2X'],
-    ['free2up', '2X免费'],
-    ['50down', '50%'],
-    ['50down2up', '2X 50%'],
-    ['30down', '30%']
-  ]
   const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', isDownloading: false, ui: {}, filter: { delay: 1200 } }
+
+  // 站点适配器：基类提供通用检测基线与共享工具，子类内聚架构专属的列表页识别、种子提取与促销解析
+  class SiteAdapter {
+    constructor(name) { this.name = name }
+    isListPage() { return false }
+    listRoot() { return document.body }
+    extractTorrents() { return [] }
+    // 提取行的原始促销标记数组（空数组=普通），子类覆盖以读取架构特有标记
+    detectPromoTags(row) { return [] }
+    // 通用做种数检测
+    detectSeeders(row) { return detectSeeders(row) }
+    // 通用已下载状态检测
+    detectDownloaded(row) { return detectDownloaded(row) }
+  }
+  class NexusPHPAdapter extends SiteAdapter {
+    isListPage() { return isDefaultPath() || getCustomSites().some(pattern => matchPattern(pattern, location.href)) }
+    listRoot() { return document.querySelector('table.torrents, table.torrenttable, #torrenttable') || document.body }
+    extractTorrents() {
+      const items = []
+      const seen = new Set()
+      document.querySelectorAll('a[href*="download.php?id="]').forEach(link => {
+        const downloadUrl = absoluteUrl(link.getAttribute('href'))
+        const tid = new URL(downloadUrl).searchParams.get('id')
+        if (!tid || seen.has(tid)) return
+        seen.add(tid)
+        const row = findSeedRow(link) || link.closest('tr') || link.parentElement || link
+        const detailLink = row.querySelector(`a[href*="details.php?id=${cssEscape(tid)}"]`) || row.querySelector('a[href*="details.php?id="]') || document.querySelector(`a[href*="details.php?id=${cssEscape(tid)}"]`)
+        const rowText = clean(row.textContent)
+        const size = (rowText.match(/\d+(?:\.\d+)?\s*[TGMK]i?B/i) || [''])[0]
+        const title = clean(detailLink?.textContent || link.getAttribute('title') || link.textContent) || `Torrent ${tid}`
+        items.push({
+          tid, title, downloadUrl,
+          detailUrl: detailLink ? absoluteUrl(detailLink.getAttribute('href')) : '',
+          size: size || '-',
+          sizeBytes: parseSize(size),
+          seeders: this.detectSeeders(row),
+          promotion: this.detectPromoTags(row),
+          downloaded: this.detectDownloaded(row)
+        })
+      })
+      return items
+    }
+    // NexusPHP 促销标记多为单个 img：优先读 alt/title/文本，无文本时按 class 归一化兜底
+    detectPromoTags(row) {
+      const tags = []
+      const imgs = [...row.querySelectorAll('img[class], img[alt], img[title]')]
+      for (const img of imgs) {
+        const cls = img.className || ''
+        const alt = img.getAttribute('alt') || ''
+        const title = img.getAttribute('title') || ''
+        const src = img.getAttribute('src') || ''
+        const raw = `${cls} ${alt} ${title} ${src}`
+        if (/free2up|2upfree|2\s*x\s*free|free\s*2\s*x|2x\s*免费|免费\s*2x|2x\s*免費|免費\s*2x/i.test(raw)) tags.push('2X免费')
+        else if (/50down2up|2up50down|2\s*x.*50%|50%.*2\s*x/i.test(raw)) tags.push('2X 50%')
+        else if (/\bfree\b|免费|免費|pro_free/i.test(raw)) tags.push('免费')
+        else if (/2up|2\s*x|2x|双倍上传|雙倍上傳|doubleup|double\s*upload/i.test(raw)) tags.push('2X')
+        else if (/50down|50%|半价/i.test(raw)) tags.push('50%')
+        else if (/30down|30%|三折/i.test(raw)) tags.push('30%')
+      }
+      // 党 img 未覆盖时，扫描行文本兼底（含繁简体），避免遗漏纯文本型促销标记
+      if (!tags.length) {
+        const text = clean(row.textContent)
+        if (/free2up|2upfree|2\s*x\s*free|free\s*2\s*x|2x\s*免费|免费\s*2x|2x\s*免費|免費\s*2x/i.test(text)) tags.push('2X免费')
+        else if (/\bfree\b|免费|免費|pro_free/i.test(text)) tags.push('免费')
+        else if (/2up|2\s*x|2x|双倍上传|雙倍上傳|doubleup|double\s*upload/i.test(text)) tags.push('2X')
+        else if (/50down|50%|半价/i.test(text)) tags.push('50%')
+        else if (/30down|30%|三折/i.test(text)) tags.push('30%')
+      }
+      return [...new Set(tags)]
+    }
+  }
+  class Unit3DAdapter extends SiteAdapter {
+    isListPage() { return location.pathname === UNIT3D_LIST_PATH && !!document.querySelector(UNIT3D_DL_SELECTOR) }
+    listRoot() { return document.querySelector('table.data-table, [class*=torrent-search--list]') || document.body }
+    extractTorrents() {
+      const items = []
+      const seen = new Set()
+      document.querySelectorAll(UNIT3D_DL_SELECTOR).forEach(link => {
+        const href = link.getAttribute('href') || ''
+        const tid = (href.match(/\/torrents\/download\/(\d+)/) || [])[1]
+        if (!tid || seen.has(tid)) return
+        seen.add(tid)
+        const row = link.closest('tr') || link
+        const nameLink = row.querySelector(`a[href$="/torrents/${cssEscape(tid)}"]`) || row.querySelector('a[class*="__name"]')
+        const sizeCell = row.querySelector('[class*="__size"]')
+        const seederCell = row.querySelector('[class*="__seeders"]')
+        const sizeText = clean(sizeCell?.textContent) || clean(row.textContent)
+        const size = (sizeText.match(/\d+(?:\.\d+)?\s*[TGMK]i?B/i) || [''])[0]
+        const title = clean(nameLink?.textContent) || link.getAttribute('title') || `Torrent ${tid}`
+        items.push({
+          tid, title,
+          downloadUrl: absoluteUrl(href),
+          detailUrl: nameLink ? absoluteUrl(nameLink.getAttribute('href')) : '',
+          size: size || '-',
+          sizeBytes: parseSize(size),
+          seeders: seederCell ? toNumber(seederCell.textContent) : this.detectSeeders(row),
+          promotion: this.detectPromoTags(row),
+          downloaded: this.detectDownloaded(row)
+        })
+      })
+      return items
+    }
+    // Unit3D/darkland 促销为 FontAwesome <i> 图标：直接读取 title 原文作为标记，多标记自然组合
+    detectPromoTags(row) {
+      const tags = []
+      row.querySelectorAll('i.torrent-icons__freeleech, i[title*="免费"], i[title*="免費"]').forEach(icon => {
+        const title = clean(icon.getAttribute('title'))
+        if (title) tags.push(title)
+      })
+      row.querySelectorAll('i.torrent-icons__double-upload, i[title*="双倍上传"], i[title*="雙倍上傳"]').forEach(icon => {
+        const title = clean(icon.getAttribute('title'))
+        if (title) tags.push(title)
+      })
+      return [...new Set(tags)]
+    }
+  }
+  const adapters = [new Unit3DAdapter(), new NexusPHPAdapter()]
+  function getAdapter() { return adapters.find(a => a.isListPage()) }
 
   registerMenus()
   if (!shouldRun()) return
@@ -55,7 +166,7 @@
   }
 
   function shouldRun() {
-    return isDefaultPath() || getCustomSites().some(pattern => matchPattern(pattern, location.href))
+    return !!getAdapter()
   }
 
   function isDefaultPath() {
@@ -141,11 +252,22 @@
       ensureStyle()
       buildPanel()
       refreshTorrents()
-      setTimeout(refreshTorrents, 1000)
-      setTimeout(refreshTorrents, 3000)
+      watchListChanges()
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready)
     else ready()
+  }
+
+  // 监听种子列表 DOM 变化（动态加载/翻页）后重扫，替代固定 setTimeout 轮询
+  function watchListChanges() {
+    const adapter = getAdapter()
+    const root = adapter?.listRoot?.() || document.body
+    let timer = null
+    const observer = new MutationObserver(() => {
+      if (timer) return
+      timer = setTimeout(() => { timer = null; refreshTorrents() }, 600)
+    })
+    observer.observe(root, { childList: true, subtree: true })
   }
 
   function buildPanel() {
@@ -168,6 +290,7 @@
     state.ui.seedingStatus = select([['all', '全部'], ['seeding', '做种中'], ['not-seeding', '未做种']], 'all')
     state.ui.delay = input('number', '延迟(ms)', '1200')
     state.ui.status = el('span', { id: 'ptbd-status', class: 'ptbd-status' }, '待扫描')
+    state.ui.selectedSize = el('span', { class: 'ptbd-dl-status' }, '未选择')
     state.ui.downloaderSelect = downloaderSelect(downloaders)
     state.ui.downloaderStatus = el('span', { class: 'ptbd-dl-status' }, downloaderStatusText(downloaders.length))
     state.ui.tbody = el('tbody')
@@ -337,12 +460,13 @@
   function actionsRow() {
     state.ui.batchButton = button('下载已选', batchDownload, 'ptbd-btn ptbd-btn-primary')
     return el('div', { class: 'ptbd-actions' },
-      button('筛选', applyFilters, 'ptbd-btn ptbd-btn-check'),
+      button('筛选', () => applyFilters(), 'ptbd-btn ptbd-btn-check'),
       button('全选', () => selectVisible(true), 'ptbd-btn'),
       button('取消全选', () => selectVisible(false), 'ptbd-btn'),
       state.ui.batchButton,
       state.ui.downloaderStatus,
       state.ui.downloaderSelect,
+      state.ui.selectedSize,
       state.ui.status
     )
   }
@@ -356,7 +480,7 @@
           el('th', {}, '体积'),
           el('th', {}, '做种'),
           el('th', {}, '优惠'),
-          el('th', {}, '做种'),
+          el('th', {}, '已下载'),
           el('th', {}, '下载')
         )),
         state.ui.tbody
@@ -376,36 +500,14 @@
 
   function refreshTorrents() {
     state.torrents = extractTorrents()
-    fillMulti(state.ui.promotion, PROMOTIONS, selectedMulti(state.ui.promotion))
-    applyFilters()
+    // 筛选选项来自当前页扫描到的唯一促销标记（去重排序）
+    const tags = [...new Set(state.torrents.flatMap(item => item.promotion))].sort()
+    fillMulti(state.ui.promotion, tags.map(tag => [tag, tag]), selectedMulti(state.ui.promotion))
+    applyFilters(true)
   }
 
   function extractTorrents() {
-    const items = []
-    const seen = new Set()
-    document.querySelectorAll('a[href*="download.php?id="]').forEach(link => {
-      const downloadUrl = absoluteUrl(link.getAttribute('href'))
-      const tid = new URL(downloadUrl).searchParams.get('id')
-      if (!tid || seen.has(tid)) return
-      seen.add(tid)
-      const row = findSeedRow(link) || link.closest('tr') || link.parentElement || link
-      const detailLink = row.querySelector(`a[href*="details.php?id=${cssEscape(tid)}"]`) || row.querySelector('a[href*="details.php?id="]') || document.querySelector(`a[href*="details.php?id=${cssEscape(tid)}"]`)
-      const rowText = clean(row.textContent)
-      const size = (rowText.match(/\d+(?:\.\d+)?\s*[TGMK]i?B/i) || [''])[0]
-      const title = clean(detailLink?.textContent || link.getAttribute('title') || link.textContent) || `Torrent ${tid}`
-      items.push({
-        tid,
-        title,
-        downloadUrl,
-        detailUrl: detailLink ? absoluteUrl(detailLink.getAttribute('href')) : '',
-        size: size || '-',
-        sizeBytes: parseSize(size),
-        seeders: detectSeeders(row),
-        promotion: detectPromotion(row),
-        downloaded: detectDownloaded(row)
-      })
-    })
-    return items
+    return getAdapter()?.extractTorrents() || []
   }
 
   function findSeedRow(link) {
@@ -426,19 +528,6 @@
     return nums.length ? parseInt(nums[0], 10) : null
   }
 
-  function detectPromotion(row) {
-    const imgs = [...row.querySelectorAll('img')]
-    const imgText = imgs.map(img => `${img.className || ''} ${img.getAttribute('src') || ''} ${img.getAttribute('alt') || ''} ${img.getAttribute('title') || ''}`).join(' ')
-    const text = `${imgText} ${clean(row.textContent)}`
-    if (/free2up|2upfree|2\s*x\s*free|free\s*2\s*x|2x\s*免费|免费\s*2x/i.test(text)) return 'free2up'
-    if (/50down2up|2up50down|2\s*x.*50%|50%.*2\s*x/i.test(text)) return '50down2up'
-    if (/\bfree\b|免费|pro_free/i.test(text)) return 'free'
-    if (/2up|2\s*x|2x|双倍上传/i.test(text)) return '2up'
-    if (/50down|50%|半价/i.test(text)) return '50down'
-    if (/30down|30%|三折/i.test(text)) return '30down'
-    return 'normal'
-  }
-
   function detectDownloaded(row) {
     const statusRe = /seeding|leeching|做种中?|正在做种|已下载|下载中|正在下载|吸血中?/i
     const className = row.className || ''
@@ -451,11 +540,17 @@
     return false
   }
 
-  function applyFilters() {
+  function applyFilters(autoSelect = false) {
     const cfg = readFilters()
     state.filter = cfg
     state.filtered = state.torrents.filter(item => matchFilters(item, cfg))
-    state.selected = new Set(state.filtered.map(item => item.tid))
+    const visibleIds = new Set(state.filtered.map(item => item.tid))
+    if (autoSelect || !state.selected.size) {
+      state.selected = visibleIds
+    } else {
+      // 保留用户已勾选状态：仅在当前筛选结果内保留命中项，不覆盖手动取消
+      state.selected = new Set([...state.selected].filter(tid => visibleIds.has(tid)))
+    }
     renderTable()
     setStatus(`当前页 ${state.torrents.length} 个，筛选 ${state.filtered.length} 个`)
   }
@@ -479,7 +574,7 @@
     if (cfg.sizeMax != null && (item.sizeBytes == null || item.sizeBytes > cfg.sizeMax)) return false
     if (cfg.seedMin != null && (item.seeders == null || item.seeders < cfg.seedMin)) return false
     if (cfg.seedMax != null && (item.seeders == null || item.seeders > cfg.seedMax)) return false
-    if (cfg.promotions.length && !cfg.promotions.includes(item.promotion)) return false
+    if (cfg.promotions.length && !item.promotion.some(tag => cfg.promotions.includes(tag))) return false
     if (cfg.seedingStatus === 'seeding' && item.downloaded !== true) return false
     if (cfg.seedingStatus === 'not-seeding' && item.downloaded !== false) return false
     return true
@@ -487,6 +582,7 @@
 
   function renderTable() {
     state.ui.tbody.textContent = ''
+    updateSelectedSize()
     if (!state.filtered.length) {
       state.ui.tbody.append(el('tr', {}, el('td', { colspan: '7', class: 'ptbd-empty' }, '无匹配种子')))
       return
@@ -497,6 +593,7 @@
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) state.selected.add(item.tid)
         else state.selected.delete(item.tid)
+        updateSelectedSize()
       })
       const download = button('下载', () => downloadTorrent(item), 'ptbd-mini')
       state.ui.tbody.append(el('tr', {},
@@ -504,7 +601,7 @@
         el('td', {}, item.detailUrl ? el('a', { href: item.detailUrl, target: '_blank', rel: 'noopener' }, item.title) : item.title),
         el('td', {}, item.sizeBytes ? formatBytes(item.sizeBytes) : item.size),
         el('td', {}, item.seeders == null ? '-' : String(item.seeders)),
-        el('td', {}, promotionName(item.promotion)),
+        el('td', {}, item.promotion.length ? item.promotion.join(' + ') : '普通'),
         el('td', {}, item.downloaded ? '是' : '否'),
         el('td', {}, download)
       ))
@@ -515,6 +612,16 @@
     state.selected = checked ? new Set(state.filtered.map(item => item.tid)) : new Set()
     renderTable()
     setStatus(checked ? `已全选 ${state.selected.size} 个` : '已取消全选')
+  }
+
+  // 选中总体积：汇总当前筛选结果中已勾选种子的 sizeBytes，提示可能增加的下载量
+  function updateSelectedSize() {
+    if (!state.ui.selectedSize) return
+    const selected = state.filtered.filter(item => state.selected.has(item.tid))
+    const totalBytes = selected.reduce((sum, item) => sum + (item.sizeBytes || 0), 0)
+    state.ui.selectedSize.textContent = selected.length
+      ? `已选 ${selected.length} 个 · ${formatBytes(totalBytes)}`
+      : '未选择'
   }
 
   async function batchDownload() {
@@ -766,14 +873,6 @@
   function getDownloaders() {
     let list = []
     try { list = GM_getValue(DOWNLOADERS_KEY, []) } catch (error) {}
-    if (!Array.isArray(list) || !list.length) {
-      let old = {}
-      try { old = GM_getValue(DOWNLOADER_KEY, {}) } catch (error) {}
-      if (old && old.type && old.type !== 'none') {
-        list = [{ ...DEFAULT_DL, ...old, id: 'migrated-1', name: old.type === 'qb' ? 'qBittorrent' : 'Transmission' }]
-        GM_setValue(DOWNLOADERS_KEY, list)
-      }
-    }
     if (!Array.isArray(list)) return []
     let changed = false
     const normalized = list.map(item => {
@@ -1018,10 +1117,6 @@
       seen.add(item.tid)
       return true
     })
-  }
-
-  function promotionName(value) {
-    return PROMOTIONS.find(item => item[0] === value)?.[1] || '-'
   }
 
   function absoluteUrl(url) {
