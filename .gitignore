@@ -12,3 +12,5 @@ memory-bank/
 .omc
 .omx
 __pycache__
+
+.pi-loop.json.lock
