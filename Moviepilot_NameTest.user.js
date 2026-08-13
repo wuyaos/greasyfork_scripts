@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.14
+// @version      3.5.15
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -39,7 +39,7 @@
 // ==/UserScript==
 
 // changelog:
-// - 3.5.8: 调整 GPW/Haidan 插入 UI 为左对齐 label｜按钮。
+// - 3.5.15: Haidan 单种子详情页(group_id 空)从 DOM 提取真实 group_id 存入种子定位，与 IYUU 同步。
 // - 3.5.6: Gazelle DOM 解析改为复用 pt-common 公共实现，并保持 Orpheus/Haidan/GPW group 页选择识别。
 // - 3.5.5: 新增 Orpheus/Haidan Gazelle 适配器，支持 Gazelle group 页多种子选择识别。
 // - 3.5.4: 收紧公共 BT 与 GPW 匹配到详情页，避免首页/列表页误注入，IPT 匹配收紧到详情页。
@@ -927,6 +927,43 @@
             },
             extractExplicitHash(root = document) {
                 return `${root?.innerText || ''}\n${root?.textContent || ''}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || '';
+            },
+            // haidan 单种子详情页 URL 的 group_id 常为空，但页面内"添加评论"等链接带真实 group_id
+            haidanGroupIdFromDom(root = document) {
+                if (!this.isHaidanHost()) return '';
+                const link = DOM.qs('a[href*="group_id="][href*="type=torrent"]', root) || DOM.qs('a[href*="group_id="]', root);
+                const href = link?.href || link?.getAttribute?.('href') || '';
+                const m = href.match(/[?&]group_id=(\d+)/);
+                return m ? m[1] : '';
+            },
+            // 从 torrent_id 解析真实 group_id：优先当前页 DOM，失败则 fetch details.php?torrent_id={tid}
+            // origin 指定 haidan 站点源（跨站补全时传 https://www.haidan.cc）；fetcher 自定义请求函数
+            async haidanResolveGroupId(tid, { origin = '', fetcher = null } = {}) {
+                if (!tid) return '';
+                const fromDom = this.haidanGroupIdFromDom();
+                if (fromDom) return fromDom;
+                const base = origin || location.origin;
+                try {
+                    const url = new URL(`details.php?torrent_id=${encodeURIComponent(tid)}`, base).href;
+                    const html = typeof fetcher === 'function'
+                        ? await fetcher(url)
+                        : await (await fetch(url, { credentials: 'include' })).text();
+                    const m = String(html || '').match(/[?&]group_id=(\d+)/);
+                    return m ? m[1] : '';
+                } catch (_) { return ''; }
+            },
+            // 用 group_id + torrent_id 重构 haidan 详情页跳转链接，规范到 www.haidan.cc 并去掉敏感参数
+            rebuildHaidanDetailUrl(url, gid, tid) {
+                try {
+                    const u = new URL(url || 'https://www.haidan.cc/details.php', 'https://www.haidan.cc');
+                    u.host = 'www.haidan.cc';
+                    u.pathname = '/details.php';
+                    if (gid) u.searchParams.set('group_id', String(gid));
+                    if (tid) u.searchParams.set('torrent_id', String(tid));
+                    u.searchParams.delete('id');
+                    ['passkey', 'authkey', 'torrent_pass', 'usetoken', 'https'].forEach(k => u.searchParams.delete(k));
+                    return u.href;
+                } catch (_) { return url || ''; }
             }
         };
 
@@ -2142,8 +2179,10 @@
                 async mount => {
                     const tid = new URLSearchParams(window.location.search).get('torrent_id');
                     const title = BT_SITE_HELPERS.text('.detail-info-title') || document.title.trim();
+                    let groupId = GazelleSites.haidanGroupIdFromDom();
+                    if (!groupId && tid) groupId = await GazelleSites.haidanResolveGroupId(tid);
                     const entries = GazelleSites.haidanEntries();
-                    const groupInfo = BT_SITE_HELPERS.info({ name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
+                    const groupInfo = BT_SITE_HELPERS.info({ name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '', groupId: groupId || '' } });
                     if (entries.length > 1) return groupInfo;
                     const entry = entries.find(e => e.tid === tid) || entries[0];
                     if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
@@ -2152,7 +2191,7 @@
                     const explicitHash = GazelleSites.extractExplicitHash(row);
                     const actualName = GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(tid) : '';
                     const name = actualName || title;
-                    return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '' } });
+                    return BT_SITE_HELPERS.info({ name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '', groupId: groupId || '' } });
                 }
             )
         },

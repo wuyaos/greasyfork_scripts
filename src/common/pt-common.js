@@ -416,6 +416,43 @@
             },
             extractExplicitHash(root = document) {
                 return `${root?.innerText || ''}\n${root?.textContent || ''}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || '';
+            },
+            // haidan 单种子详情页 URL 的 group_id 常为空，但页面内"添加评论"等链接带真实 group_id
+            haidanGroupIdFromDom(root = document) {
+                if (!this.isHaidanHost()) return '';
+                const link = DOM.qs('a[href*="group_id="][href*="type=torrent"]', root) || DOM.qs('a[href*="group_id="]', root);
+                const href = link?.href || link?.getAttribute?.('href') || '';
+                const m = href.match(/[?&]group_id=(\d+)/);
+                return m ? m[1] : '';
+            },
+            // 从 torrent_id 解析真实 group_id：优先当前页 DOM，失败则 fetch details.php?torrent_id={tid}
+            // origin 指定 haidan 站点源（跨站补全时传 https://www.haidan.cc）；fetcher 自定义请求函数
+            async haidanResolveGroupId(tid, { origin = '', fetcher = null } = {}) {
+                if (!tid) return '';
+                const fromDom = this.haidanGroupIdFromDom();
+                if (fromDom) return fromDom;
+                const base = origin || location.origin;
+                try {
+                    const url = new URL(`details.php?torrent_id=${encodeURIComponent(tid)}`, base).href;
+                    const html = typeof fetcher === 'function'
+                        ? await fetcher(url)
+                        : await (await fetch(url, { credentials: 'include' })).text();
+                    const m = String(html || '').match(/[?&]group_id=(\d+)/);
+                    return m ? m[1] : '';
+                } catch (_) { return ''; }
+            },
+            // 用 group_id + torrent_id 重构 haidan 详情页跳转链接，规范到 www.haidan.cc 并去掉敏感参数
+            rebuildHaidanDetailUrl(url, gid, tid) {
+                try {
+                    const u = new URL(url || 'https://www.haidan.cc/details.php', 'https://www.haidan.cc');
+                    u.host = 'www.haidan.cc';
+                    u.pathname = '/details.php';
+                    if (gid) u.searchParams.set('group_id', String(gid));
+                    if (tid) u.searchParams.set('torrent_id', String(tid));
+                    u.searchParams.delete('id');
+                    ['passkey', 'authkey', 'torrent_pass', 'usetoken', 'https'].forEach(k => u.searchParams.delete(k));
+                    return u.href;
+                } catch (_) { return url || ''; }
             }
         };
 

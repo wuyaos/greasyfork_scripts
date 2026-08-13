@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         IYUU 辅种检测助手(自用)
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      1.1.16
+// @version      1.1.17
 // @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。
 // @author       ffwu & AI
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -43,7 +43,7 @@
 // output: 手动查询 IYUU 辅种结果，展示站点详情链接、多选跳转、下载入口，并从 MoviePilot 辅助选择拥有站点
 // pos: 独立 IYUU 辅种检测脚本，可复用 MoviePilot 配置选择站点，首次使用自动引导配置
 // changelog:
-// - 1.1.9: 增强 IYUU 查询重试与部分成功展示，修正站点选择灰色语义并补强 Haidan 本地域名复写。
+// - 1.1.17: 修复 Haidan 单种子详情页(group_id 空)辅种跳转链裸域重定向 &→&amp; 致空白，规范域名到 www.haidan.cc，按 torrent_id 归一化缓存并从 torrent_id 补全 group_id。
 // - 1.1.8: 调整 GPW/Haidan 插入 UI 为左对齐 label｜按钮，并为 IYUU 索引本地视图补充站点改址复写。
 // - 1.1.6: 复用公共 Gazelle 适配器，新增 Orpheus/Haidan/GPW group 页选择查询。
 // - 1.1.5: 补齐 IYUU 私有站特殊详情页匹配，避免在公共 BT 站点注入，并收紧 IPT 匹配到详情页。
@@ -160,9 +160,9 @@
     const SITE_OVERRIDES = {
         38: { base_url: 'pt.hdupt.com', domain: 'pt.hdupt.com', host: 'pt.hdupt.com', site: 'hdupt' },
         'pt.hdupt.net': { base_url: 'pt.hdupt.com', domain: 'pt.hdupt.com', host: 'pt.hdupt.com', site: 'hdupt' },
-        56: { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
-        'haidan.video': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
-        'haidan.cc': { base_url: 'haidan.cc', domain: 'haidan.cc', host: 'haidan.cc', site: 'haidan' },
+        56: { base_url: 'www.haidan.cc', domain: 'www.haidan.cc', host: 'www.haidan.cc', site: 'haidan' },
+        'haidan.video': { base_url: 'www.haidan.cc', domain: 'www.haidan.cc', host: 'www.haidan.cc', site: 'haidan' },
+        'haidan.cc': { base_url: 'www.haidan.cc', domain: 'www.haidan.cc', host: 'www.haidan.cc', site: 'haidan' },
         'pterclub.com': { base_url: 'pterclub.net', domain: 'pterclub.net', host: 'pterclub.net', site: 'pterclub' },
         'www.pterclub.com': { base_url: 'pterclub.net', domain: 'pterclub.net', host: 'pterclub.net', site: 'pterclub' }
     };
@@ -779,6 +779,43 @@
             },
             extractExplicitHash(root = document) {
                 return `${root?.innerText || ''}\n${root?.textContent || ''}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || '';
+            },
+            // haidan 单种子详情页 URL 的 group_id 常为空，但页面内"添加评论"等链接带真实 group_id
+            haidanGroupIdFromDom(root = document) {
+                if (!this.isHaidanHost()) return '';
+                const link = DOM.qs('a[href*="group_id="][href*="type=torrent"]', root) || DOM.qs('a[href*="group_id="]', root);
+                const href = link?.href || link?.getAttribute?.('href') || '';
+                const m = href.match(/[?&]group_id=(\d+)/);
+                return m ? m[1] : '';
+            },
+            // 从 torrent_id 解析真实 group_id：优先当前页 DOM，失败则 fetch details.php?torrent_id={tid}
+            // origin 指定 haidan 站点源（跨站补全时传 https://www.haidan.cc）；fetcher 自定义请求函数
+            async haidanResolveGroupId(tid, { origin = '', fetcher = null } = {}) {
+                if (!tid) return '';
+                const fromDom = this.haidanGroupIdFromDom();
+                if (fromDom) return fromDom;
+                const base = origin || location.origin;
+                try {
+                    const url = new URL(`details.php?torrent_id=${encodeURIComponent(tid)}`, base).href;
+                    const html = typeof fetcher === 'function'
+                        ? await fetcher(url)
+                        : await (await fetch(url, { credentials: 'include' })).text();
+                    const m = String(html || '').match(/[?&]group_id=(\d+)/);
+                    return m ? m[1] : '';
+                } catch (_) { return ''; }
+            },
+            // 用 group_id + torrent_id 重构 haidan 详情页跳转链接，规范到 www.haidan.cc 并去掉敏感参数
+            rebuildHaidanDetailUrl(url, gid, tid) {
+                try {
+                    const u = new URL(url || 'https://www.haidan.cc/details.php', 'https://www.haidan.cc');
+                    u.host = 'www.haidan.cc';
+                    u.pathname = '/details.php';
+                    if (gid) u.searchParams.set('group_id', String(gid));
+                    if (tid) u.searchParams.set('torrent_id', String(tid));
+                    u.searchParams.delete('id');
+                    ['passkey', 'authkey', 'torrent_pass', 'usetoken', 'https'].forEach(k => u.searchParams.delete(k));
+                    return u.href;
+                } catch (_) { return url || ''; }
             }
         };
 
@@ -1708,6 +1745,14 @@
                 const u = new URL(url || location.href, location.origin);
                 const path = u.pathname;
                 const q = new URLSearchParams();
+                if (/(^|\.)haidan\.(cc|video)$/i.test(u.hostname) && /\/details\.php$/i.test(path)) {
+                    // haidan 详情页 group_id 常为空，按 torrent_id/id 归一化，保证同一种子跨 URL 形式共享缓存
+                    const tid = u.searchParams.get('torrent_id') || u.searchParams.get('id');
+                    if (tid) q.set('torrent_id', tid);
+                    else if (u.searchParams.get('group_id')) q.set('group_id', u.searchParams.get('group_id'));
+                    else return '';
+                    return `https://www.haidan.cc${path}?${q.toString()}`;
+                }
                 if (/\/details\.php$/i.test(path) && u.searchParams.get('id')) {
                     q.set('id', u.searchParams.get('id'));
                 } else if (/\/torrents\.php$/i.test(path) && u.searchParams.get('id')) {
@@ -2020,8 +2065,10 @@
                 async mount => {
                     const tid = new URLSearchParams(location.search).get('torrent_id');
                     const title = Helpers.text('.detail-info-title') || document.title.trim();
+                    let groupId = GazelleSites.haidanGroupIdFromDom();
+                    if (!groupId && tid) groupId = await GazelleSites.haidanResolveGroupId(tid);
                     const entries = GazelleSites.haidanEntries();
-                    const groupInfo = Helpers.info({ id: 'haidan', name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '' } });
+                    const groupInfo = Helpers.info({ id: 'haidan', name: title, description: document.title, mount, extra: { groupMode: true, entries, groupTitle: title, currentTid: tid || '', groupId: groupId || '' } });
                     if (entries.length > 1) return groupInfo;
                     const entry = entries.find(e => e.tid === tid) || entries[0];
                     if (entry) return await Core.pickedInfoWithActualName(groupInfo, entry, mount);
@@ -2030,7 +2077,7 @@
                     const explicitHash = GazelleSites.extractExplicitHash(row);
                     const actualName = GazelleSites.isHaidanHost() ? await GazelleSites.haidanActualName(tid) : '';
                     const name = actualName || title;
-                    return Helpers.info({ id: 'haidan', name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '' } });
+                    return Helpers.info({ id: 'haidan', name, description: document.title, downloadLink: dl?.href || '', sizeText: row?.textContent || '', mount, extra: { tid: tid || '', actualName, title: '', groupTitle: title, explicitHash: explicitHash || '', groupId: groupId || '' } });
                 }
             )
         },
@@ -2347,6 +2394,7 @@
                 if (!hash) throw new Error(info.extra?.gazelleSkipped ? '需开启 FL（消耗令牌）' : '未找到 Hash');
                 const cached = force ? null : ResultCache.get(hash);
                 const result = cached || await this.fetch(hash);
+                if (!cached && result?.sites?.length) await this.enrichHaidanGroupId(result.sites);
                 this.injectCurrentSite(result, info);
                 if (result?.sites?.length) ResultCache.set(hash, result, info);
                 btn.dataset.done = '1';
@@ -2467,6 +2515,25 @@
             const partial = Boolean(sites.length && iyuuResult.ok === false && iyuuResult.error);
             log('fetch result sources', sources);
             return { hash, sources, sites, partial };
+        },
+        async enrichHaidanGroupId(sites) {
+            // haidan 辅种跳转链 group_id 常为空，跨站 fetch details.php?torrent_id={tid} 补全真实 group_id
+            const targets = (sites || []).filter(s => {
+                const host = SiteIndex.host(s) || '';
+                if (!/(^|\.)haidan\.(cc|video)$/i.test(host)) return false;
+                const u = String(s.url || '');
+                return /\/details\.php/.test(u) && !/[?&]group_id=(\d+)/.test(u);
+            });
+            if (!targets.length) return;
+            await Promise.all(targets.map(async s => {
+                const tid = s.torrentId || String(s.url || '').match(/[?&](?:torrent_id|id)=(\d+)/)?.[1] || '';
+                if (!tid) return;
+                const gid = await GazelleSites.haidanResolveGroupId(tid, {
+                    origin: 'https://www.haidan.cc',
+                    fetcher: url => HTTP.request({ url, responseType: 'text' }).catch(() => '')
+                });
+                if (gid) s.url = GazelleSites.rebuildHaidanDetailUrl(s.url, gid, tid);
+            }));
         },
         render(box, btn, result, info, cached = false) {
             if (box._iyuuResult !== result) box._iyuuSelected = new Set(result.sites);
