@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.5.0
-// @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。
+// @version      0.6.1
+// @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
 // @match        *://*/torrents*
@@ -33,7 +33,7 @@
   const UNIT3D_LIST_PATH = '/torrents'
   const UNIT3D_DL_SELECTOR = 'a[href*="/torrents/download/"]'
   const DEFAULT_DL = { id: '', name: '', type: 'qb', host: '', username: '', password: '', qbCategory: '', qbTags: '', qbSavePath: '', trDownloadDir: '', trLabels: '' }
-  const UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 }
+  const UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4, b: 1 }
   const SIZE_UNITS = ['GiB', 'MiB', 'KiB', 'TiB']
   const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', isDownloading: false, ui: {}, filter: { delay: 1200 } }
 
@@ -152,8 +152,92 @@
       return [...new Set(tags)]
     }
   }
-  const adapters = [new Unit3DAdapter(), new NexusPHPAdapter()]
-  function getAdapter() { return adapters.find(a => a.isListPage()) }
+  // Gazelle 架构站点（GGn）列表页：table.torrent_table 内 tr.group_torrent 行承载真实种子，grouped 列表页与单组详情页结构统一（后者无 username 列，cell 索引整体前置）。
+  // GGn 小体积种子以 B 为单位（如 "219.00 B"），但标题里版本串也含 B（如 "1.5.1B"），故体积列只在标题格之后的独立列内查找，且裸 B 要求整格即体积
+  const GAZELLE_TGMK_RE = /\d+(?:\.\d+)?\s*[TGMK]i?B/i
+  const GAZELLE_SIZE_RE = /\d+(?:\.\d+)?\s*(?:[TGMK]i?B|B)\b/i
+  class GazelleAdapter extends SiteAdapter {
+    isListPage() {
+      // Gazelle 架构（GGn/Anthelion 等）列表页与单组详情页结构统一，按 DOM 特征识别而非 hostname
+      if (location.pathname !== '/torrents.php') return false
+      // action=download 是 .torrent 二进制响应页，非列表
+      if (new URLSearchParams(location.search).get('action') === 'download') return false
+      return !!document.querySelector('table.torrent_table tr.group_torrent')
+    }
+    listRoot() {
+      return document.querySelector('table.torrent_table') || document.body
+    }
+    extractTorrents() {
+      const items = []
+      const seen = new Set()
+      const groupId = new URLSearchParams(location.search).get('id') || ''
+      document.querySelectorAll('table.torrent_table tr.group_torrent').forEach(row => {
+        const dl = [...row.querySelectorAll('a')].find(a => /(?:^|[?&])action=download(?:&|$|#)/.test(a.getAttribute('href') || ''))
+        if (!dl) return
+        const tid = new URL(dl.getAttribute('href'), location.href).searchParams.get('id')
+        if (!tid || seen.has(tid)) return
+        seen.add(tid)
+        // 首格菜单链接（DL/FL/RP/ED/PL）后紧跟长文本标题锚点；单组页标题锚点无 href，回退构造详情页
+        const cellLinks = [...(row.cells[0]?.querySelectorAll('a') || [])]
+        const nameLink = cellLinks.find(a => clean(a.textContent).length > 4)
+        const nameHref = nameLink ? absoluteUrl(nameLink.getAttribute('href') || '') : ''
+        const detailUrl = nameLink && /torrents\.php\?id=\d+&(?:[^#]*&)?torrentid=\d+/.test(nameLink.getAttribute('href') || '')
+          ? nameHref
+          : groupId ? absoluteUrl(`torrents.php?id=${groupId}&torrentid=${tid}`) : ''
+        const cells = [...row.cells]
+        // 体积列：跳过头格（菜单链接+标题，含版本串易误匹配），先找 TGMK 单位，未命中再找整格裸 B
+        let sizeIndex = cells.findIndex((cell, idx) => idx > 0 && GAZELLE_TGMK_RE.test(cell.textContent))
+        if (sizeIndex < 0) sizeIndex = cells.findIndex((cell, idx) => idx > 0 && /^\s*\d+(?:\.\d+)?\s*B\b/i.test(cell.textContent))
+        const size = sizeIndex >= 0 ? (clean(cells[sizeIndex].textContent).match(GAZELLE_SIZE_RE) || ['-'])[0] : '-'
+        items.push({
+          tid, title: clean(nameLink?.textContent) || `Torrent ${tid}`,
+          downloadUrl: absoluteUrl(dl.getAttribute('href')),
+          detailUrl,
+          size: size || '-',
+          sizeBytes: parseSize(size),
+          seeders: this.detectSeeders(row),
+          promotion: this.detectPromoTags(row),
+          downloaded: this.detectDownloaded(row)
+        })
+      })
+      return items
+    }
+    // GGn 做种数列紧跟体积列（单组页无 username 列时仍然成立）；体积列限定在标题格之后查找，避免版本串（如 "1.5.1B"）误当体积导致做种数回退到标题内数字
+    detectSeeders(row) {
+      const cells = row.cells ? [...row.cells] : []
+      let sizeIndex = cells.findIndex((cell, idx) => idx > 0 && GAZELLE_TGMK_RE.test(cell.textContent))
+      if (sizeIndex < 0) sizeIndex = cells.findIndex((cell, idx) => idx > 0 && /^\s*\d+(?:\.\d+)?\s*B\b/i.test(cell.textContent))
+      if (sizeIndex >= 0 && cells[sizeIndex + 1]) return toNumber(cells[sizeIndex + 1].textContent)
+      const nums = clean(row.textContent).match(/\b\d+\b/g) || []
+      return nums.length ? parseInt(nums[0], 10) : null
+    }
+    // Gazelle 促销：strong.torrent_label 的 class tl_free/tl_2x_free 等（GGn/Anthelion 通用）
+    detectPromoTags(row) {
+      const tags = []
+      row.querySelectorAll('strong.torrent_label, .torrent_label').forEach(label => {
+        const raw = `${label.className || ''} ${clean(label.textContent)}`
+        if (/tl_2x_free|2x\s*free|2x\s*免费/i.test(raw)) tags.push('2X免费')
+        else if (/tl_free|freeleech|免费/i.test(raw)) tags.push('免费')
+        else if (/tl_2x|double/i.test(raw)) tags.push('2X')
+        else if (/tl_50|50%/.test(raw)) tags.push('50%')
+      })
+      return [...new Set(tags)]
+    }
+  }
+  const unit3dAdapter = new Unit3DAdapter()
+  const gazelleAdapter = new GazelleAdapter()
+  const nexusAdapter = new NexusPHPAdapter()
+  const adapters = [unit3dAdapter, gazelleAdapter, nexusAdapter]
+  // 站点架构映射：hostname → adapter（已知站点硬编码优先，未命中按 adapters 顺序 DOM 兜底）
+  const SITE_ARCH_MAP = {
+    'anthelion.me': gazelleAdapter,
+    'gazellegames.net': gazelleAdapter
+  }
+  function getAdapter() {
+    const mapped = SITE_ARCH_MAP[location.hostname.replace(/^www\./, '').toLowerCase()]
+    if (mapped && mapped.isListPage()) return mapped
+    return adapters.find(a => a.isListPage())
+  }
 
   registerMenus()
   if (!shouldRun()) return
@@ -1072,7 +1156,7 @@
   }
 
   function parseSize(text) {
-    const match = String(text || '').match(/(\d+(?:\.\d+)?)\s*([TGMK]i?B)/i)
+    const match = String(text || '').match(/(\d+(?:\.\d+)?)\s*([TGMK]i?B|B)\b/i)
     if (!match) return null
     const value = parseFloat(match[1])
     const factor = UNIT_BYTES[match[2].toLowerCase()]
