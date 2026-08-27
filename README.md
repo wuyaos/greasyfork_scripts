@@ -14,7 +14,7 @@
 | <img src="icon/pt-oneclickclaim.png" width="24" alt=""> [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.2 | PT 一键认领增强脚本 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js) |
 | <img src="icon/pt-audit.png" width="24" alt=""> [PT_AuditAssistant](#pt_auditassistant) | 0.1.0 | 聚合 PT 审种助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js) |
 | <img src="icon/zhuque-batch.png" width="24" alt=""> [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.1 | 朱雀搜索页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js) |
-| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.5.0 | 通用 PT 当前页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js) |
+| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.6.1 | 通用 PT 当前页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js) |
 | <img src="icon/bangumi.png" width="24" alt=""> [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.0 | Bangumi 中文标题与放送日历增强 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js) |
 | <img src="icon/ai.png" width="24" alt=""> [AI_WebSummary](#ai_websummary) | 2.0.5 | 使用 AI 总结网页内容 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js) |
 | <img src="icon/nicept.png" width="24" alt=""> [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0 | 替换 NicePT 分类图标 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js) |
@@ -103,8 +103,8 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 
 <a id="pt_batchdownload"></a>
 ### [PT_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js)
-> 版本 0.5.0 · 作者 wuyaos & AI  
-> @match 站点范围：通用 PT 站 PHP 页面与 Unit3D 架构 `/torrents` 列表页（如 darkland.top）  
+> 版本 0.6.1 · 作者 wuyaos & AI  
+> @match 站点范围：通用 PT 站 PHP 页面、Unit3D 架构 `/torrents` 列表页（如 darkland.top）、Gazelle 架构（GGn/Anthelion 等）列表页  
 > 图标 <img src="icon/pt-batch.png" width="24" alt="icon">
 
 通用 PT 当前页批量下载脚本，用于从当前页面筛选种子并批量下载或推送到下载器。
