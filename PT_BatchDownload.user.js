@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.2
+// @version      0.6.5
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -227,7 +227,7 @@
   // MyAnonaMouse（MAM）：/tor/search.php 列表，下载 /tor/download.php/{hash}?tid={id}，详情 /t/{id}
   class MamAdapter extends SiteAdapter {
     isListPage() {
-      if (location.pathname !== '/tor/search.php') return false;
+      if (!['/tor/search.php', '/freeleech.php'].includes(location.pathname)) return false;
       return !!document.querySelector('a[href*="/tor/download.php/"]');
     }
     listRoot() { return document.querySelector('table') || document.body; }
@@ -238,7 +238,8 @@
         const href = link.getAttribute('href') || '';
         const row = link.closest('tr') || link.parentElement;
         const detailLink = row?.querySelector('a[href^="/t/"]');
-        const tid = (href.match(/[?&]tid=(\d+)/) || [])[1]
+        const tid = row?.dataset.tid
+          || (href.match(/[?&]tid=(\d+)/) || [])[1]
           || (detailLink?.getAttribute('href') || '').match(/\/t\/(\d+)/)?.[1] || '';
         if (!tid || seen.has(tid)) return;
         seen.add(tid);
@@ -262,8 +263,22 @@
     detectSeeders(row) {
       const cells = row.cells ? [...row.cells] : [];
       const sizeIndex = cells.findIndex(c => /\d+(?:\.\d+)?\s*[TGMK]i?B/i.test(c.textContent));
-      if (sizeIndex >= 0 && cells[sizeIndex + 2]) return toNumber(cells[sizeIndex + 2].textContent);
-      return null;
+      const cell = sizeIndex >= 0 ? cells[sizeIndex + 2] : null;
+      if (!cell) return null;
+      // MAM 做种/下种/完成在一个 cell 的多个 <p>：取第一个 p（seeder）
+      const p = cell.querySelector('p');
+      return toNumber(p ? p.textContent : cell.textContent);
+    }
+    // MAM 促销: img alt/title/src 含 freeleech→免费, 2x→2X 等
+    detectPromoTags(row) {
+      const tags = [];
+      row.querySelectorAll('img[src], img[alt], img[title]').forEach(img => {
+        const raw = `${img.className || ''} ${img.alt || ''} ${img.title || ''} ${img.src || ''}`;
+        if (/free2up|2upfree/i.test(raw)) tags.push('2X免费');
+        else if (/\bfree\b|freeleech|免费/i.test(raw)) tags.push('免费');
+        else if (/2up|\b2x\b|double/i.test(raw)) tags.push('2X');
+      });
+      return [...new Set(tags)];
     }
   }
   const unit3dAdapter = new Unit3DAdapter()
@@ -284,7 +299,13 @@
   }
 
   registerMenus()
-  if (!shouldRun()) return
+  if (!shouldRun()) {
+    // AJAX 站点（如 MAM freeleech.php）DOM 加载后重试
+    const obs = new MutationObserver(() => { if (shouldRun()) { obs.disconnect(); start(); } });
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 30000);
+    return;
+  }
   start()
 
   function registerMenus() {
