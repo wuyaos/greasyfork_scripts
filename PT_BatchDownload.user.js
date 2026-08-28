@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.1
+// @version      0.6.2
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -224,14 +224,58 @@
       return [...new Set(tags)]
     }
   }
+  // MyAnonaMouse（MAM）：/tor/search.php 列表，下载 /tor/download.php/{hash}?tid={id}，详情 /t/{id}
+  class MamAdapter extends SiteAdapter {
+    isListPage() {
+      if (location.pathname !== '/tor/search.php') return false;
+      return !!document.querySelector('a[href*="/tor/download.php/"]');
+    }
+    listRoot() { return document.querySelector('table') || document.body; }
+    extractTorrents() {
+      const items = [];
+      const seen = new Set();
+      document.querySelectorAll('a[href*="/tor/download.php/"]').forEach(link => {
+        const href = link.getAttribute('href') || '';
+        const row = link.closest('tr') || link.parentElement;
+        const detailLink = row?.querySelector('a[href^="/t/"]');
+        const tid = (href.match(/[?&]tid=(\d+)/) || [])[1]
+          || (detailLink?.getAttribute('href') || '').match(/\/t\/(\d+)/)?.[1] || '';
+        if (!tid || seen.has(tid)) return;
+        seen.add(tid);
+        const rowText = clean(row.textContent);
+        const size = (rowText.match(/\d+(?:\.\d+)?\s*[TGMK]i?B/i) || [''])[0];
+        const title = clean(detailLink?.textContent) || `Torrent ${tid}`;
+        items.push({
+          tid, title,
+          downloadUrl: absoluteUrl(href),
+          detailUrl: detailLink ? absoluteUrl(detailLink.getAttribute('href')) : '',
+          size: size || '-',
+          sizeBytes: parseSize(size),
+          seeders: this.detectSeeders(row),
+          promotion: this.detectPromoTags(row),
+          downloaded: this.detectDownloaded(row)
+        });
+      });
+      return items;
+    }
+    // MAM: 体积(sizeIndex) 后是时间 cell，做种在 sizeIndex+2
+    detectSeeders(row) {
+      const cells = row.cells ? [...row.cells] : [];
+      const sizeIndex = cells.findIndex(c => /\d+(?:\.\d+)?\s*[TGMK]i?B/i.test(c.textContent));
+      if (sizeIndex >= 0 && cells[sizeIndex + 2]) return toNumber(cells[sizeIndex + 2].textContent);
+      return null;
+    }
+  }
   const unit3dAdapter = new Unit3DAdapter()
   const gazelleAdapter = new GazelleAdapter()
+  const mamAdapter = new MamAdapter()
   const nexusAdapter = new NexusPHPAdapter()
-  const adapters = [unit3dAdapter, gazelleAdapter, nexusAdapter]
+  const adapters = [unit3dAdapter, gazelleAdapter, mamAdapter, nexusAdapter]
   // 站点架构映射：hostname → adapter（已知站点硬编码优先，未命中按 adapters 顺序 DOM 兜底）
   const SITE_ARCH_MAP = {
     'anthelion.me': gazelleAdapter,
-    'gazellegames.net': gazelleAdapter
+    'gazellegames.net': gazelleAdapter,
+    'myanonamouse.net': mamAdapter
   }
   function getAdapter() {
     const mapped = SITE_ARCH_MAP[location.hostname.replace(/^www\./, '').toLowerCase()]
