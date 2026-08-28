@@ -1,14 +1,19 @@
 // ==UserScript==
 // @name         Picix 卡片快捷操作
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.3.5
+// @version      0.4.5
 // @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。
 // @author       wuyaos & AI
 // @match        https://picix.us/*
 // @icon         https://picix.us/favicon.ico
 // @run-at       document-idle
 // @grant        GM_addStyle
+// @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // @grant        unsafeWindow
+// @connect      *
 // @noframes
 // @license      MIT
 // @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js
@@ -24,6 +29,74 @@
   const NS = 'picix-quick';
   const MOVIE_ID_RE = /\/Movies\/Detail\/(\d+)/;
   const LOCK_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V6a3 3 0 0 1 3-3z"/></svg>';
+
+  // 标题翻译（DeepLX）：菜单配置 URL + 开关，hover 时翻译，GM_setValue 持久化缓存
+  const CFG_URL_KEY = 'picix_deeplx_url';
+  const CFG_OPENAI_KEY = 'picix_openai_key';
+  const CFG_TRANS_ON_KEY = 'picix_trans_on';
+  const CFG_TRANS_SRC_KEY = 'picix_trans_src';
+  const TRANS_CACHE_KEY = 'picix_trans_cache';
+  function cfgDeeplxUrl() { return String(GM_getValue(CFG_URL_KEY, '') || '').trim(); }
+  function cfgOpenaiKey() { return String(GM_getValue(CFG_OPENAI_KEY, '') || '').trim(); }
+  function cfgTransOn() { return GM_getValue(CFG_TRANS_ON_KEY, true) !== false; }
+  function cfgTransSrc() { return String(GM_getValue(CFG_TRANS_SRC_KEY, 'google')) || 'google'; }
+  function openSettings() {
+    const bg = document.createElement('div');
+    bg.className = `${NS}-modal-bg`;
+    const m = document.createElement('div');
+    m.className = `${NS}-modal`;
+    m.innerHTML = `<h3>Picix 设置</h3>` +
+      `<label>翻译源<select id="${NS}-cfg-src"><option value="google" ${cfgTransSrc()==='google'?'selected':''}>Google（免费，易限流）</option><option value="deeplx" ${cfgTransSrc()==='deeplx'?'selected':''}>DeepLX（需URL）</option><option value="openai" ${cfgTransSrc()==='openai'?'selected':''}>OpenAI（需key）</option></select></label>` +
+      `<label>DeepLX 翻译 URL（含 token，DeepLX 源时必填）<input type="text" id="${NS}-cfg-url" value="${cfgDeeplxUrl()}"></label>` +
+      `<label>OpenAI API Key（OpenAI 源时必填，https://platform.openai.com/api-keys）<input type="text" id="${NS}-cfg-openai" value="${cfgOpenaiKey()}"></label>` +
+      `<label><input type="checkbox" id="${NS}-cfg-on" ${cfgTransOn() ? 'checked' : ''}> 启用标题翻译</label>` +
+      `<div class="${NS}-modal-btns"><button id="${NS}-cfg-save">保存并刷新</button><button id="${NS}-cfg-close">取消</button></div>`;
+    bg.append(m); document.body.append(bg);
+    bg.onclick = e => { if (e.target === bg) bg.remove(); };
+    m.querySelector(`#${NS}-cfg-close`).onclick = () => bg.remove();
+    m.querySelector(`#${NS}-cfg-save`).onclick = () => {
+      GM_setValue(CFG_URL_KEY, m.querySelector(`#${NS}-cfg-url`).value.trim());
+      GM_setValue(CFG_OPENAI_KEY, m.querySelector(`#${NS}-cfg-openai`).value.trim());
+      GM_setValue(CFG_TRANS_ON_KEY, m.querySelector(`#${NS}-cfg-on`).checked);
+      GM_setValue(CFG_TRANS_SRC_KEY, m.querySelector(`#${NS}-cfg-src`).value);
+      bg.remove();
+      location.reload();
+    };
+  }
+  GM_registerMenuCommand('Picix 设置', openSettings);
+  function gmRequest(opts) {
+    return new Promise(resolve => {
+      GM_xmlhttpRequest({ ...opts, timeout: 15000,
+        onload: res => { try { resolve(JSON.parse(res.responseText)); } catch (_) { resolve(null); } },
+        onerror: () => resolve(null), ontimeout: () => resolve(null)
+      });
+    });
+  }
+  async function translate(text) {
+    if (!text) return '';
+    let cache = {};
+    try { cache = GM_getValue(TRANS_CACHE_KEY, {}) || {}; } catch (_) {}
+    const ckey = `${cfgTransSrc()}\u0000${text}`;
+    if (cache[ckey]) return cache[ckey];
+    let t = '';
+    if (cfgTransSrc() === 'google') {
+      const r = await gmRequest({ method: 'GET', url: `https://translate.google.com/translate_a/single?client=gtx&sl=ja&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}` });
+      t = (r?.[0] || []).map(s => s?.[0] || '').join('');
+    } else if (cfgTransSrc() === 'openai') {
+      const key = cfgOpenaiKey();
+      if (!key) return '';
+      const r = await gmRequest({ method: 'POST', url: 'https://api.openai.com/v1/chat/completions', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }, data: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: '将日文翻译成中文，只输出译文' }, { role: 'user', content: text }] }) });
+      t = r?.choices?.[0]?.message?.content?.trim() || '';
+    } else {
+      const url = cfgDeeplxUrl();
+      if (!url) return '';
+      const r = await gmRequest({ method: 'POST', url, headers: { 'Content-Type': 'application/json' },
+        data: JSON.stringify({ text, source_lang: 'auto', target_lang: 'ZH' }) });
+      t = r?.data || '';
+    }
+    if (t) { cache[ckey] = t; try { GM_setValue(TRANS_CACHE_KEY, cache); } catch (_) {} }
+    return t;
+  }
 
   function getPageApi() {
     try {
@@ -165,6 +238,20 @@
       }));
       if (d.isUnlock) { const u = overlay.querySelector('[data-kind=unlock]'); u.dataset.done = '1'; u.classList.add('is-active'); }
       if (d.isFavorite) { const f = overlay.querySelector('[data-kind=fav]'); f.dataset.done = '1'; f.textContent = '★'; f.classList.add('is-active'); }
+      // 翻译标题（开关开启 + URL 已配置）
+      if (cfgTransOn()) {
+        const titleEl = card.querySelector('.movie-title');
+        if (titleEl && !titleEl.dataset.picixTrans) {
+          titleEl.dataset.picixTrans = '1';
+          const trans = await translate(titleEl.textContent.trim());
+          if (trans) {
+            const tr = document.createElement('div');
+            tr.className = `${NS}-trans`;
+            tr.textContent = trans;
+            titleEl.after(tr);
+          }
+        }
+      }
     };
     card.addEventListener('mouseenter', load, { once: true });
     load();
@@ -206,6 +293,16 @@
     .${NS}-tag:nth-child(7n+7) { background:rgba(121,85,72,.78); }
     .${NS}-tag:hover { filter:brightness(1.15); }
     a.movie-card .movie-date { display:none; }
+    .${NS}-trans { font:11px/1.3 Arial,'Microsoft YaHei',sans-serif; color:rgb(229,234,243); margin-top:2px; word-break:break-word; white-space:normal; }
+    .${NS}-modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:99999; display:flex; align-items:center; justify-content:center; }
+    .${NS}-modal { background:#fff; padding:16px 20px; border-radius:8px; width:440px; max-width:90vw; font:13px/1.5 Arial,'Microsoft YaHei',sans-serif; color:#333; }
+    .${NS}-modal h3 { margin:0 0 12px; }
+    .${NS}-modal label { display:block; margin:10px 0; }
+    .${NS}-modal input[type=text] { width:100%; padding:5px; box-sizing:border-box; margin-top:4px; }
+    .${NS}-modal-btns { margin-top:14px; text-align:right; }
+    .${NS}-modal-btns button { padding:5px 14px; margin-left:8px; cursor:pointer; border:0; border-radius:4px; }
+    .${NS}-modal-btns button:first-child { background:#409eff; color:#fff; }
+    .${NS}-modal-btns button:last-child { background:#eee; }
   `);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
