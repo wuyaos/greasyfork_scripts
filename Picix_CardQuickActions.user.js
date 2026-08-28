@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Picix 卡片快捷操作
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.2.0
+// @version      0.3.5
 // @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。
 // @author       wuyaos & AI
 // @match        https://picix.us/*
@@ -41,6 +41,26 @@
     } catch (e) {
       return e?.response?.data || { success: false, msg: e?.message || '请求失败' };
     }
+  }
+
+  const detailCache = new Map();
+  // 懒加载详情：列表 API 只有 {id,title,cover,releaseDate}，标签/解锁/收藏状态需 detail API（hover 时调一次，缓存）
+  async function fetchDetail(movieId) {
+    if (detailCache.has(movieId)) return detailCache.get(movieId);
+    const api = getPageApi();
+    const empty = { tags: [], isUnlock: null, isFavorite: null };
+    if (!api) { detailCache.set(movieId, empty); return empty; }
+    try {
+      const res = await api.get(`Movies/detail?movieId=${movieId}`, { timeout: 30000 });
+      const d = res?.data ?? res; // 兼容 res 为 axios response 或直接为 data
+      const info = {
+        tags: (d?.tags || []).map(t => ({ id: t.id, name: t.zhName || t.jaName })).filter(t => t.name),
+        isUnlock: d?.isUnlock ?? null,
+        isFavorite: d?.isFavorite ?? null
+      };
+      detailCache.set(movieId, info);
+      return info;
+    } catch (_) { detailCache.set(movieId, empty); return empty; }
   }
 
   function toast(msg) {
@@ -95,12 +115,59 @@
     return overlay;
   }
 
+  function buildTop(card) {
+    const title = card.querySelector('.movie-title')?.textContent?.trim() || '';
+    const code = (title.match(/([A-Z]{2,}-\d+)/) || [])[1] || '';
+    const date = card.querySelector('.movie-date')?.textContent?.trim() || '';
+    const top = document.createElement('div');
+    top.className = `${NS}-top`;
+    if (code) {
+      const c = document.createElement('span');
+      c.className = `${NS}-code`;
+      c.textContent = code;
+      top.append(c);
+    }
+    if (date) {
+      const d = document.createElement('span');
+      d.className = `${NS}-date`;
+      d.textContent = date;
+      top.append(d);
+    }
+    const tags = document.createElement('span');
+    tags.className = `${NS}-tags`;
+    return { top, tagsEl: tags };
+  }
+
   function inject(card) {
     if (card.dataset.picixQuick) return;
     const id = (card.getAttribute('href') || '').match(MOVIE_ID_RE)?.[1];
     if (!id) return;
     card.dataset.picixQuick = '1';
-    card.appendChild(buildOverlay(id));
+    const overlay = buildOverlay(id);
+    const { top, tagsEl } = buildTop(card);
+    top.append(overlay);
+    const box = document.createElement('div');
+    box.className = `${NS}-box`;
+    box.append(top, tagsEl);
+    (card.querySelector('.movie-meta') || card).append(box);
+    // 加载详情：填充标签 + 按钮初始状态。注入时后台触发（刷新后自动恢复），hover 兜底
+    const load = async () => {
+      if (card.dataset.picixDetail) return;
+      card.dataset.picixDetail = '1';
+      const d = await fetchDetail(id);
+      tagsEl.replaceChildren(...d.tags.map(t => {
+        const s = document.createElement('span');
+        s.className = `${NS}-tag`;
+        s.textContent = t.name;
+        s.title = `搜索：${t.name}`;
+        s.onclick = e => { e.preventDefault(); e.stopPropagation(); window.open(`/Movies/Search?tagIds=${t.id}`, '_blank'); };
+        return s;
+      }));
+      if (d.isUnlock) { const u = overlay.querySelector('[data-kind=unlock]'); u.dataset.done = '1'; u.classList.add('is-active'); }
+      if (d.isFavorite) { const f = overlay.querySelector('[data-kind=fav]'); f.dataset.done = '1'; f.textContent = '★'; f.classList.add('is-active'); }
+    };
+    card.addEventListener('mouseenter', load, { once: true });
+    load();
   }
 
   const observer = new MutationObserver(muts => {
@@ -117,7 +184,9 @@
   }
 
   GM_addStyle(`
-    .${NS}-overlay { position:absolute; bottom:8px; right:8px; display:flex; gap:8px; z-index:10; opacity:1; pointer-events:auto; }
+    .${NS}-box { display:flex; flex-direction:column; gap:3px; z-index:10; pointer-events:none; padding:2px 4px; }
+    .${NS}-top { display:flex; gap:4px; align-items:center; }
+    .${NS}-overlay { display:flex; gap:8px; margin-left:auto; flex-shrink:0; opacity:1; pointer-events:auto; }
     a.movie-card:hover .${NS}-overlay { filter:brightness(1.15); }
     .${NS}-btn { margin:0; padding:4px 7px; font-size:16px; line-height:1; cursor:pointer; border:0; border-radius:4px; background:rgba(0,0,0,.62); color:#fff; display:flex; align-items:center; }
     .${NS}-btn:hover:not(:disabled) { background:rgba(0,0,0,.85); }
@@ -125,6 +194,18 @@
     .${NS}-btn[data-kind=fav].is-active { background:rgba(255,193,7,.92); color:#3a2a00; }
     .${NS}-btn:disabled { opacity:.6; cursor:default; }
     .${NS}-toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.82); color:#fff; padding:8px 16px; border-radius:4px; z-index:99999; font:13px/1.5 Arial,'Microsoft YaHei',sans-serif; }
+    .${NS}-code, .${NS}-date { font-weight:700; background:rgba(0,0,0,.55); padding:1px 5px; border-radius:3px; color:#fff; }
+    .${NS}-tags { display:flex; flex-wrap:wrap; gap:3px; }
+    .${NS}-tag { padding:0 4px; border-radius:3px; font-size:10px; line-height:1.4; cursor:pointer; pointer-events:auto; white-space:nowrap; color:#fff; }
+    .${NS}-tag:nth-child(7n+1) { background:rgba(244,67,54,.78); }
+    .${NS}-tag:nth-child(7n+2) { background:rgba(33,150,243,.78); }
+    .${NS}-tag:nth-child(7n+3) { background:rgba(76,175,80,.78); }
+    .${NS}-tag:nth-child(7n+4) { background:rgba(255,152,0,.85); color:#3a2a00; }
+    .${NS}-tag:nth-child(7n+5) { background:rgba(156,39,176,.78); }
+    .${NS}-tag:nth-child(7n+6) { background:rgba(0,188,212,.78); }
+    .${NS}-tag:nth-child(7n+7) { background:rgba(121,85,72,.78); }
+    .${NS}-tag:hover { filter:brightness(1.15); }
+    a.movie-card .movie-date { display:none; }
   `);
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
