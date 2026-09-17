@@ -207,3 +207,13 @@ node --check Moviepilot_NameTest.user.js
 
 *   IYUU_Reseed_Checker 下载馒头（M-Team）种子需要在配置页填写 M-Team API Key；未配置时会提示并阻止下载。
 *   AI_WebSummary出现“错误： Failed to fetch”，需要在油猴插件-设置-修改内容安全策略（CSP）头信息 改为“全部移除（可能不安全）”
+
+## Overview
+
+TODO: Add project description.
+
+## Project Structure
+
+```
+greasyfork_scripts/
+```

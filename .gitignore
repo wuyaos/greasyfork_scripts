@@ -14,3 +14,5 @@ memory-bank/
 __pycache__
 
 .pi-loop.json.lock
+
+.pi-subagents/
