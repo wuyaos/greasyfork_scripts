@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Picix 卡片快捷操作
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.4.5
+// @version      0.4.6
 // @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。
 // @author       wuyaos & AI
 // @match        https://picix.us/*
@@ -24,7 +24,7 @@
   'use strict';
 
   // 复用页面 Vue app 的 $api（axios，带 Authorization + X-Picix-Proof 签名拦截器）；GM_xmlhttpRequest 无法生成签名，故必须用页面实例。
-  // API: POST /api/Movies/unlock {movieId,fromMovieList:1} | POST /api/Favorites/add|remove {type:'movies',resourceId}
+  // API: POST /api/Movies/unlock {movieId,movieListLinkId:0}（2026-09 站方更新：fromMovieList 字段已移除，未知字段会被拒绝）| POST /api/Favorites/add|remove {type:'movies',resourceId}
   // 成功响应 res 可能为 null（响应拦截器）；失败(409 CONFLICT)抛 AxiosError，e.response.data 即业务错误体。
   const NS = 'picix-quick';
   const MOVIE_ID_RE = /\/Movies\/Detail\/(\d+)/;
@@ -164,7 +164,7 @@
       makeButton('unlock', LOCK_SVG, async btn => {
         if (btn.dataset.done) return;
         btn.disabled = true; btn.innerHTML = '…';
-        const r = await callApi('Movies/unlock', { movieId: id, fromMovieList: 1 });
+        const r = await callApi('Movies/unlock', { movieId: id, movieListLinkId: 0 });
         btn.disabled = false;
         if (r.success || r.code === 'CONFLICT') { btn.dataset.done = '1'; btn.innerHTML = LOCK_SVG; btn.classList.add('is-active'); }
         else { btn.innerHTML = LOCK_SVG; if (r.msg) toast(r.msg); }
