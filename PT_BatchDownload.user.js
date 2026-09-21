@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.6
+// @version      0.6.7
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -13,7 +13,7 @@
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @connect      *
-// @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
+// @require      https://unpkg.com/jszip@3.10.1/dist/jszip.min.js
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-batch.png
 // @noframes
 // @license      MIT
@@ -827,6 +827,23 @@
   }
 
   async function downloadZip(items, delay) {
+    // JSZip 依赖未加载（CDN 被墙/超时）时降级为逐个浏览器下载，避免静默失败
+    if (typeof JSZip === 'undefined') {
+      let success = 0
+      let failed = 0
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        setStatus(`下载中 ${i + 1}/${items.length}: ${item.title}`)
+        try {
+          await downloadTorrent(item)
+          success++
+        } catch (error) {
+          failed++
+        }
+        if (i < items.length - 1) await sleep(delay)
+      }
+      return { success, failed }
+    }
     const zip = new JSZip()
     let success = 0
     let failed = 0
