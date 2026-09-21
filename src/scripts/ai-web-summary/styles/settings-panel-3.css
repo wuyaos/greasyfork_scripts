@@ -1,0 +1,12 @@
+
+            .ai-settings-overlay { /* 设置面板遮罩层的样式 */
+                display: none; /* 默认隐藏 */
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
+                z-index: 100000; /* 层级确保在设置面板下方，但在页面其他内容之上 */
+            }
+        

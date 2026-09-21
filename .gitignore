@@ -11,7 +11,26 @@ memory-bank/
 .spec-workflow/
 .omc
 .omx
-__pycache__
+__pycache__/
+*.py[cod]
+
+# Dependencies and package-manager diagnostics
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build staging (keep dist/*.user.js and package-lock.json tracked)
+/dist/.build-*/
+/.userscript-build-*/
+
+# Local verification output (keep tests/contracts/ tracked)
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
+/tests/artifacts/
 
 .pi-loop.json.lock
 

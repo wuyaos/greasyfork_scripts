@@ -1,0 +1,19 @@
+
+#pt-claim-plus{font:12px/1.45 Arial,Helvetica,sans-serif;color:#2f3742;background:linear-gradient(180deg,#fbfcfe,#f4f7fb);border:1px solid #d8dee8;border-radius:7px;box-shadow:0 1px 2px rgba(20,35,60,.06);padding:0;margin:6px 0;box-sizing:border-box;overflow:visible}
+#pt-claim-plus .ptc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #e1e7ef;background:rgba(238,243,248,.65)}
+#pt-claim-plus .ptc-title{font-weight:700;color:#253044;white-space:nowrap;display:flex;align-items:center;gap:6px}
+#pt-claim-plus .ptc-title:before{content:'✓';display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#dfeee7;color:#2d7650;font-size:11px}
+#pt-claim-plus .ptc-head-status{color:#5c6878;white-space:nowrap}
+#pt-claim-plus .ptc-body{padding:8px 10px;display:flex;flex-direction:column;gap:7px}
+#pt-claim-plus .ptc-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+#pt-claim-plus .ptc-field{display:inline-flex;align-items:center;gap:5px;color:#536071;white-space:nowrap}
+#pt-claim-plus input{height:26px;border:1px solid #c8d1dd;border-radius:4px;background:#fff;color:#243044;padding:2px 6px;box-sizing:border-box}
+#pt-claim-plus .ptc-keyword{width:clamp(240px,36vw,440px)}#pt-claim-plus .ptc-size{width:58px;text-align:right}
+#pt-claim-plus details{position:relative}#pt-claim-plus summary{list-style:none;cursor:pointer;border:1px solid #c8d1dd;background:#fff;border-radius:4px;padding:4px 8px;color:#344154;min-width:96px}#pt-claim-plus summary::-webkit-details-marker{display:none}#pt-claim-plus details[open] summary{background:#eef5fc;border-color:#aebfd5}
+#pt-claim-plus .ptc-menu{position:absolute;z-index:9999;top:30px;left:0;max-height:180px;overflow:auto;min-width:210px;padding:5px;border:1px solid #ccd6e2;background:#fff;border-radius:6px;box-shadow:0 8px 20px rgba(24,39,64,.15)}
+#pt-claim-plus .ptc-menu label{display:block;padding:3px 5px;border-radius:4px;white-space:nowrap}#pt-claim-plus .ptc-menu label:hover{background:#f2f6fb}
+#pt-claim-plus .ptc-actions{display:flex;gap:6px;align-items:center;white-space:nowrap}
+#pt-claim-plus .ptc-btn{height:28px;border:1px solid #c7d0dc;border-radius:4px;background:#f3f5f8;color:#2f3b4d;padding:0 10px;cursor:pointer}#pt-claim-plus .ptc-btn:hover{filter:brightness(.97)}
+#pt-claim-plus .ptc-btn-check{background:#e8f1fb;border-color:#b9cce3}#pt-claim-plus .ptc-btn-primary{background:#e6f3ed;border-color:#a8d0bc;color:#1f6041;font-weight:700}
+#pt-claim-plus .ptc-status{margin-left:auto;color:#5c6878;background:#eef3f8;border:1px solid #dce5ef;border-radius:5px;padding:4px 7px;min-width:200px;text-align:right}
+@media(max-width:900px){#pt-claim-plus .ptc-head{align-items:flex-start;flex-direction:column}#pt-claim-plus .ptc-status{margin-left:0;text-align:left}#pt-claim-plus .ptc-keyword{width:100%;min-width:210px}}

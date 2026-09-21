@@ -1,0 +1,33 @@
+
+                /* 话数按钮优化 */
+                a.epBtnUnknown, a.epBtnWatched, a.epBtnAir, a.epBtnNA, a.epBtnQueue, a.epBtnToday, a.epBtnDrop {
+                    border: 1px solid #0000;
+                    border-radius: 2px;
+                    font-size: 1.3em !important;
+                }
+                ul.prg_list a, ul.prg_list a:active, ul.prg_list a:visited { /* General styling for episode buttons */
+                    padding: 2px;
+                    margin: 0 4px 6px 0;
+                }
+                /* hover高亮 */
+                a.epBtnUnknown:hover, a.epBtnWatched:hover, a.epBtnAir:hover,
+                a.epBtnNA:hover, a.epBtnQueue:hover, a.epBtnToday:hover, a.epBtnDrop:hover {
+                    background-color: orange;
+                    color: white !important; /* Important to override default link colors */
+                    /* border: 1px solid #0000; */ /* Not strictly needed if bg is solid */
+                }
+                ul.prg_list a:hover { /* General hover for episode list items */
+                    padding: 2px; /* Keep padding consistent */
+                    -webkit-transform: scale(1.1);
+                    transform: scale(1.1);
+                }
+                /* 关灯环境 for hover */
+                html[data-theme='dark'] a.epBtnUnknown:hover, html[data-theme='dark'] a.epBtnWatched:hover,
+                html[data-theme='dark'] a.epBtnAir:hover, html[data-theme='dark'] a.epBtnNA:hover,
+                html[data-theme='dark'] a.epBtnQueue:hover, html[data-theme='dark'] a.epBtnToday:hover,
+                html[data-theme='dark'] a.epBtnDrop:hover {
+                    background-color: orange;
+                    color: white !important; /* Ensure white text on orange */
+                    /* border: 1px solid #0000; */
+                }
+            

@@ -1,5 +1,6 @@
-    // <pt-common:start>
-    const createPTCommon = ({
+import { firstOf } from './first-match.js';
+
+export const createPTCommon = ({
         defaultLabel,
         productId,
         gridLabelClass,
@@ -836,4 +837,3 @@
 
         return { DOM, Mount, SITE_FAMILIES, TORRENT_LINK_SELECTORS, needsDownloadForHash, tableMount, AutoFeedAnchors, AdapterRuntime, GazelleSites, GazellePicker };
     };
-    // <pt-common:end>

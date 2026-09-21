@@ -1,0 +1,35 @@
+
+
+const CONFIG_CALENDAR_ADD_NAV_BUTTON = true;
+
+const CONFIG_CALENDAR_SHOW_SUBTITLE = true;
+
+const CONFIG_HOMEPAGE_TINY_MODE_FONT_SIZE = "1.2em";
+
+const CONFIG_HOMEPAGE_ENABLE_EDIT_BUTTON = false;
+
+const CONFIG_HOMEPAGE_EDIT_BUTTON_TEXT = "❤";
+
+const CALENDAR_LEFT_BTN_SVG = `
+        <svg t="1618724723358" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2015" width="100" height="200">
+            <path d="M704 908.8 307.2 512 704 115.2c25.6-25.6 25.6-70.4 0-96-25.6-25.6-70.4-25.6-96 0L166.4 460.8C147.2 480 140.8 492.8 140.8 512s6.4 32 19.2 51.2l441.6 441.6c25.6 25.6 70.4 25.6 96 0C729.6 979.2 729.6 934.4 704 908.8z" p-id="2016" fill="#BBB"></path>
+        </svg>`;
+
+const CALENDAR_RIGHT_BTN_SVG = `
+        <svg t="1618724984341" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2791" width="100" height="200">
+            <path d="M294.4 908.8 684.8 512 294.4 115.2c-25.6-25.6-25.6-70.4 0-96 25.6-25.6 70.4-25.6 96 0L832 460.8c12.8 12.8 19.2 32 19.2 51.2S844.8 544 832 563.2l-441.6 441.6c-25.6 25.6-70.4 25.6-96 0C262.4 979.2 262.4 934.4 294.4 908.8z" p-id="2792" fill="#BBB"></path>
+        </svg>`;
+
+const CURRENT_PATHNAME = document.location.pathname;
+
+const TODAY_DATE_OBJ = new Date();
+
+const TODAY_DAY_OF_WEEK = TODAY_DATE_OBJ.getDay();
+
+const TODAY_MONTH = TODAY_DATE_OBJ.getMonth() + 1;
+
+const TODAY_DATE_IN_MONTH = TODAY_DATE_OBJ.getDate();
+
+
+
+export { CALENDAR_LEFT_BTN_SVG, CALENDAR_RIGHT_BTN_SVG, CONFIG_CALENDAR_ADD_NAV_BUTTON, CONFIG_CALENDAR_SHOW_SUBTITLE, CONFIG_HOMEPAGE_EDIT_BUTTON_TEXT, CONFIG_HOMEPAGE_ENABLE_EDIT_BUTTON, CONFIG_HOMEPAGE_TINY_MODE_FONT_SIZE, CURRENT_PATHNAME, TODAY_DATE_OBJ, TODAY_DAY_OF_WEEK };

@@ -1,0 +1,22 @@
+{
+  "name": "greasyfork_scripts",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "build": "node script/build-userscripts.mjs",
+    "build:check": "node script/build-userscripts.mjs --check",
+    "build:script": "node script/build-userscripts.mjs --script",
+    "validate": "node script/validate-userscripts.mjs",
+    "test": "node tests/migration-contracts.mjs && node tests/offline-smoke.mjs && node tests/build-cli.mjs",
+    "check": "npm run build:check && npm run validate && npm test"
+  },
+  "devDependencies": {
+    "acorn": "8.15.0",
+    "esbuild": "0.25.12",
+    "eslint-scope": "8.4.0",
+    "jsdom": "26.1.0"
+  }
+}

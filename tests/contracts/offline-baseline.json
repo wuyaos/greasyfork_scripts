@@ -1,0 +1,489 @@
+{
+  "ai-web-summary": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [],
+    "requests": [],
+    "styles": [],
+    "timers": [
+      50,
+      3000,
+      0
+    ],
+    "bodyIds": [
+      "ai-summary-root",
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [
+      "9e4f268a1e1a70ff37e12b1674b4dc80734d5777cdbac76f13930b8f84373602"
+    ],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "bangumi-enhanced": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [],
+    "requests": [],
+    "styles": [
+      "068e8e0c868ece2720aeb3db2a018ae3682c9393c59dc93272ed40c332be64b1"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "github-releases": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "observe"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "iyuu-reseed-checker": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "配置 IYUU"
+      ]
+    ],
+    "requests": [],
+    "styles": [
+      "4449dece01b7a5f7f4855b529b05ee33be68603a487fc9b2f8d62ea83435309f"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input",
+      "iyuuAllSites",
+      "iyuuAutoQuery",
+      "iyuuClearCache",
+      "iyuuClearSites",
+      "iyuuDetectLogin",
+      "iyuuDetectSites",
+      "iyuuGazelleDl",
+      "iyuuMpApiKey",
+      "iyuuMpApiKeyFields",
+      "iyuuMpAuth",
+      "iyuuMpPass",
+      "iyuuMpPasswordFields",
+      "iyuuMpUrl",
+      "iyuuMpUser",
+      "iyuuMteamKey",
+      "iyuuRefreshSites",
+      "iyuuResetConfig",
+      "iyuuSiteGrid",
+      "iyuuSiteSearch",
+      "iyuuToken"
+    ],
+    "text": "查询（未查询）多选 Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send IYUU 配置基础设置IYUU TokenM-Team API Key（可选） 自动查询（默认关闭，命中缓存时不会重复请求） 允许使用 FL（消耗令牌）Gazelle 站点（如 GPW）部分种子只有 FL 下载链接，使用会消耗下载令牌；关闭时这类种子将跳过并提示。DL 链接和 Haidan 不受影响。MoviePilot 联动MoviePilot 地址认证方式用户名密码API Key用户名密码API Key索引站点刷新索引从 MP 选择选择已登录全选清空清缓存重置关闭保存",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "local-debug-loader": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "loader",
+        "http://127.0.0.1:8787/IYUU_Reseed_Checker.user.js"
+      ],
+      [
+        "loader",
+        "http://127.0.0.1:8787/Moviepilot_NameTest.user.js"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 2,
+    "claimMounted": false
+  },
+  "lounge-irc-translator": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "翻译助手设置"
+      ],
+      [
+        "observe"
+      ]
+    ],
+    "requests": [],
+    "styles": [
+      "04f62b88d981407339e78ba637dd3f484abe8e7e9b52b60c667cc94380d62fb6",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input",
+      "lit-overlay",
+      "lit-panel",
+      "lit-style"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send译文预览↻× 翻译助手🌐⚙候选回答↻Ctrl+R 根据上文生成候选常用语反应lollmaolmfaohahaxdnicenice minenice lineswowoh niceoh wowoh yeahhell yeahoh nooofwtfripdamnomgcongratsyay认同回应yesyeahyepnopenahsuresametrueexactlyindeedinterestingidkgotcha问候社交hihelloyoheyo/good morninggood morning everyonegood nighthow are youme toobye点名（{nick}=最近用户）congrats {nick}hi {nick}thanks {nick}gg {nick}o/ {nick}表情<3¯\\_(ツ)_/¯👀添加添加",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "moviepilot-auto-login": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "⚙️ 配置 MoviePilot 登录"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "moviepilot-name-test": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "配置Moviepilot参数"
+      ],
+      [
+        "menu",
+        "清除识别缓存"
+      ],
+      [
+        "menu",
+        "重置所有配置"
+      ]
+    ],
+    "requests": [],
+    "styles": [
+      "c041dd82938b92c2a003810f254b4bd9c9d017f5942edf799a628d33f284c96d"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input",
+      "mp-config-modal-style",
+      "mpApiKey",
+      "mpApiKeyFields",
+      "mpAuthMode",
+      "mpAutoQuery",
+      "mpConfigModal",
+      "mpConfigModalBackdrop",
+      "mpGazelleFlEnabled",
+      "mpMteamApiKey",
+      "mpPass",
+      "mpPasswordFields",
+      "mpTmdbKey",
+      "mpUrl",
+      "mpUser"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send MoviePilot 配置 连接设置 MoviePilot 地址 认证方式 用户名密码 API Key 用户名 密码 API Key 可在 MoviePilot 设置的 API 令牌中获取。 识别设置 TMDB API Key（可选） 自动查询（默认关闭，命中缓存时不会重复请求） 允许使用 FL（消耗令牌）Gazelle 站点（如 GPW）部分种子只有 FL 下载链接，使用会消耗下载令牌；关闭时这类种子将跳过并提示。DL 链接和 Haidan 不受影响。 M-Team 设置 M-Team API Key（可选） 用于 M-Team 详情页推送时调用 genDlToken 获取种子下载链接。 测试连接 取消 保存",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "nicept-replace-icon": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "observe"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 1,
+      "replacement": "display: inline-block; width: 30px; height: 40px; background-image: url(\"https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/class_icon/dm.png\"); background-size: cover; background-repeat: no-repeat; background-position: center;"
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "picix-card-actions": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "Picix 设置"
+      ],
+      [
+        "observe"
+      ]
+    ],
+    "requests": [],
+    "styles": [
+      "a31d092e675633375b1ff2fe2fa442f0e055e21cfec3e622104ad32c8b4458ef"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "pt-audit-assistant": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "开启自动审批（默认关）"
+      ],
+      [
+        "menu",
+        "开启自动关闭页面"
+      ],
+      [
+        "menu",
+        "开启显示调试信息(ctx 快照)"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "pt-batch-download": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "menu",
+        "添加站点"
+      ],
+      [
+        "menu",
+        "页面管理"
+      ],
+      [
+        "menu",
+        "下载器设置"
+      ],
+      [
+        "observe"
+      ]
+    ],
+    "requests": [],
+    "styles": [
+      "e3bd37f5220d5c640c7b6944c7ff9ce2efce864f62ba428e1694c8c207083cf0",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input",
+      "ptbd-panel",
+      "ptbd-status",
+      "ptbd-style",
+      "ptbd-toggle"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send PT 批量下载种子收起 ▲×关键字体积GiBMiBKiBTiB~GiBMiBKiBTiB延迟是否做种全部做种中未做种做种数~优惠全部筛选全选取消全选下载已选下载器: 无无(浏览器下载)已选 1 个 · 2.00 GiB当前页 1 个，筛选 1 个标题体积做种优惠已下载下载Fixture2.00 GiB127普通否下载PT批量",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  },
+  "pt-one-click-claim": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [],
+    "requests": [],
+    "styles": [
+      "166d8378f0efa1d455490801fcdb2619cdae3d949c0bbed217ee3d3260228d26"
+    ],
+    "timers": [],
+    "bodyIds": [
+      "app",
+      "chat",
+      "claim-keyword",
+      "claim-size-max",
+      "claim-size-min",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input",
+      "pt-claim-plus",
+      "pt-claim-plus-style"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send PT一键认领 Plus已启用 PterClub关键词体积-GB客户端: 全部 qBittorrent (1)IP: 全部 127.0.0.2 (1)刷新筛选检测认领确认认领已启用 PterClub，可认领 1 个",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": true
+  },
+  "zhuque-batch-download": {
+    "errors": [],
+    "consoleErrors": [],
+    "events": [
+      [
+        "observe"
+      ],
+      [
+        "menu",
+        "设置下载延迟(ms)"
+      ]
+    ],
+    "requests": [],
+    "styles": [],
+    "timers": [
+      1500
+    ],
+    "bodyIds": [
+      "app",
+      "chat",
+      "columnSubjectBrowser",
+      "content",
+      "form",
+      "input"
+    ],
+    "text": "Calendar 标题体积客户端操作Fixture2 GiBqBittorrent 127.0.0.2ClaimDownload Send",
+    "shadow": [],
+    "nicept": {
+      "remaining": 2
+    },
+    "loaderCount": 0,
+    "claimMounted": false
+  }
+}

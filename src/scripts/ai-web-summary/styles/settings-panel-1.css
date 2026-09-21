@@ -1,0 +1,276 @@
+
+            /* 设置面板主容器样式：定位居中、尺寸、背景、边框、阴影、字体等 */
+            .ai-settings-panel {
+                display: none; /* 默认隐藏 */
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                width: clamp(320px, 85vw, 480px); /* 自适应宽度：最小320px，最大480px */
+                max-height: 80vh; /* 最大高度为视口的80% */
+                min-height: 300px; /* 最小高度 */
+                box-sizing: border-box;
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 13px;
+                z-index: 100001; /* 确保在其他页面元素之上 */
+                flex-direction: column; /* 新增: 使用flex布局，使子元素垂直排列 */
+                overflow: hidden; /* 防止内容溢出圆角 */
+            }
+            .ai-settings-panel h3 { /* 面板标题样式 */
+                margin: 0 0 16px 0;
+                padding-bottom: 8px;
+                color: #495057;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .panel-header { /* 模态框头部样式 */
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #dee2e6;
+                padding: 10px 20px; /* 调整内边距 */
+                margin-bottom: 0; /* 移除外边距 */
+                flex-shrink: 0; /* 防止头部在flex布局中被压缩 */
+            }
+            .panel-header h3 { /* 模态框标题样式 */
+                margin: 0;
+                font-size: 16px;
+                font-weight: 600;
+                color: #495057;
+            }
+
+            .settings-content {
+                overflow-y: auto;
+                flex-grow: 1;
+                padding: 0 20px;
+                min-height: 0;
+            }
+            .form-group { /* 表单组通用样式 */
+                margin-bottom: 15px;
+            }
+            .form-group label { /* 表单标签样式 */
+                display: block;
+                margin-bottom: 5px;
+                color: #495057;
+                font-weight: 600;
+            }
+            /* 表单输入框、文本域、选择器的通用样式 */
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                width: 100%;
+                padding: 6px 10px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 12px;
+                box-sizing: border-box;
+                background: #fff;
+                color: #495057;
+            }
+
+            /* 输入框、文本域、选择器获取焦点时的样式 */
+            .form-group input:focus,
+            .form-group textarea:focus,
+            .form-group select:focus {
+                outline: none;
+                border-color: #3b82f6; /* 统一焦点颜色 */
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); /* 统一焦点光晕 */
+            }
+            .form-group textarea { /* 文本域特定样式 */
+                height: 80px; /* 默认高度 */
+                resize: vertical; /* 允许垂直方向调整大小 */
+                font-family: inherit; /* 继承父容器字体 */
+            }
+            .form-group.config-select-group { /* 提示词选择器所在表单组的特殊布局 */
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .form-group.config-select-group label { /* 提示词选择器标签的样式调整 */
+                flex: 0 0 auto; /* 不伸缩 */
+                margin-bottom: 0;
+            }
+
+            .form-group:not(.config-select-group) { /* 其他非提示词选择器的表单组恢复默认块级布局 */
+                display: block;
+            }
+            .buttons { /* 面板底部按钮容器的样式 */
+                display: flex;
+                justify-content: flex-end; /* 按钮靠右 */
+                gap: 10px;
+                padding: 15px 20px;
+                border-top: 1px solid #dee2e6;
+                flex-shrink: 0;
+            }
+
+            .modal-action-btn { /* 通用模态框操作按钮（如"获取模型"模态框中的按钮）的基本样式 */
+               /* 这个类名在HTML中是加在 .cancel-btn 和 .delete-selected-btn 上的，它们可以继续使用 .ai-btn-* */
+            }
+
+            .ai-config-select { /* 提示词模板下拉选择器样式 */
+                padding: 5px 10px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 12px;
+                background: #fff;
+                color: #495057;
+                flex-grow: 1; /* 占据可用空间 */
+            }
+
+            /* 通用模态框样式 (例如用于"获取模型"、"批量删除模型"等功能) */
+            .ai-modal {
+                display: none; /* 默认隐藏 */
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #fff;
+                padding: 0;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                width: clamp(280px, 80vw, 420px); /* 自适应宽度：最小280px，最大420px */
+                max-height: 80vh; /* 最大高度为视口的80% */
+                min-height: 200px; /* 最小高度 */
+                z-index: 100003; /* 确保在设置面板的遮罩层之上 */
+                flex-direction: column; /* 内部元素垂直排列 */
+                overflow: hidden; /* 确保子元素不会破坏圆角 */
+                font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+                font-size: 13px;
+            }
+            .modal-header { /* 模态框头部样式 */
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #dee2e6;
+                padding: 15px 20px;
+                margin-bottom: 0;
+                border-bottom: 1px solid #dee2e6;
+                flex-shrink: 0; /* 防止头部被压缩 */
+            }
+            .modal-header h3 { /* 模态框标题样式 */
+                margin: 0;
+                font-size: 15px;
+                font-weight: 600;
+                color: #495057;
+            }
+            /* .close-modal (模态框关闭按钮) 现在使用 .ai-btn.ai-btn-icon, 无需额外样式 */
+            .modal-content { /* 模态框内容区域样式 */
+                overflow-y: auto; /* 内容溢出时垂直滚动 */
+                flex-grow: 1; /* 占据可用垂直空间 */
+                padding: 20px;
+                margin-bottom: 0;
+                min-height: 0; /* 修复flexbox在某些浏览器中的溢出问题 */
+            }
+            #model-list-container label { /* 模型选择列表中的标签样式 */
+                font-weight: normal;
+                font-size: 12px;
+                color: #e2e8f0;
+            }
+            .ai-modal .model-item, /* 批量删除 */
+            #model-list-container .model-item { /* 模型选择列表中的每个条目样式 */
+                padding: 8px 12px;
+                border: 1px solid #dee2e6; /* 灰色框线 */
+                margin-bottom: 5px; /* 增加一点间距 */
+                border-radius: 4px; /* 加上一点圆角与整体风格统一 */
+                display: flex;
+                align-items: center;
+                transition: background-color 0.2s, color 0.2s;
+                cursor: pointer;
+            }
+            .ai-modal .model-item label,
+            #model-list-container .model-item label {
+                color: #333333;
+                margin-left: 8px;
+                cursor: pointer;
+                flex-grow: 1; /* 确保标签填满剩余空间 */
+            }
+            .ai-modal .model-item:hover,
+            #model-list-container .model-item:hover {
+                background-color: #eef5ff; /* 统一悬停背景色 (浅蓝) */
+            }
+            .ai-modal .model-item:hover label,
+            #model-list-container .model-item:hover label {
+                color: #2563eb; /* 统一悬停文字颜色 (深蓝) */
+            }
+            .modal-footer { /* 模态框底部样式 */
+                border-top: 1px solid #dee2e6;
+                padding: 15px 20px;
+                text-align: right; /* 按钮靠右对齐 */
+                flex-shrink: 0; /* 防止底部被压缩 */
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                background-color: #f8f9fa;
+                border-top: 1px solid #dee2e6;
+            }
+            #save-selected-models { /* "获取模型"模态框中的"保存"按钮样式，将使用 .ai-btn-success */
+                /* padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: bold;
+                color: #fff;
+                background: #617043cc; */
+            }
+            /* #save-selected-models:hover { background:rgb(47, 86, 56); } */
+            .form-group.config-select-group { /* 再次定义以确保flex布局生效 */
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: nowrap; /* 防止换行 */
+            }
+            .ai-config-select { /* 再次定义以确保flex-grow生效 */
+                flex-grow: 1;
+            }
+            /* 模型标签容器和单个模型标签的样式 */
+            .model-tags-container {
+               display: flex; /* 水平排列标签 */
+               flex-wrap: wrap; /* 允许换行 */
+               gap: 8px; /* 标签之间的间隙 */
+               margin-bottom: 10px;
+               padding: 8px;
+               background-color: #f8f9fa; /* 轻微背景色 */
+               border: 1px solid #dee2e6;
+               border-radius: 4px;
+           }
+           .model-tag { /* 单个模型标签的样式 */
+               display: flex;
+               align-items: center;
+               background-color: #e9ecef;
+               padding: 4px 8px;
+               border-radius: 12px; /* 圆角标签 */
+               font-size: 12px;
+               color: #333;
+               cursor: pointer; /* 可点击选择 */
+               transition: background-color 0.2s;
+           }
+           .model-tag.selected { /* 当前选中的模型标签的特殊样式 */
+               background-color: #3b82f6; /* 统一选中颜色 */
+               color: white;
+               font-weight: bold;
+           }
+           .model-tag .delete-btn { /* 模型标签内部的删除按钮 (×) 样式 */
+               background: none;
+               border: none;
+               color: #888;
+               font-size: 16px;
+               margin-left: 6px;
+               cursor: pointer;
+               padding: 0;
+               line-height: 1;
+           }
+           .model-tag.selected .delete-btn { color: white; } /* 选中标签的删除按钮颜色 */
+           .model-tag .delete-btn:hover { color: #f00; } /* 删除按钮悬停时颜色变为红色 */
+           /* "自定义模型"和"获取模型"按钮的容器样式 */
+           .model-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+                color:#ffffff;
+           }
+       

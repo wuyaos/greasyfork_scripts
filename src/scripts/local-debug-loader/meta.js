@@ -1,0 +1,49 @@
+// ==UserScript==
+// @name         Local Debug Loader
+// @namespace    https://github.com/wuyaos/greasyfork_scripts
+// @version      0.2.4
+// @description  通过本地 HTTP 文件服务器动态加载仓库里的 IYUU 与 MoviePilot 脚本，方便外部编辑器实时调试。
+// @author       wuya
+// @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
+// @match        https://totheglory.im/t/*
+// @match        https://bangumi.moe/torrent/*
+// @match        https://mikanani.me/Home/Episode/*
+// @match        https://*.m-team.cc/detail/*
+// @match        https://*.m-team.io/detail/*
+// @match        https://*.m-team.vip/detail/*
+// @match        https://hdcity.city/t-*
+// @include      /^https:\/\/greatposterwall\.com\/torrents\.php\?(?=[^#]*\bid=)(?=[^#]*\btorrentid=)[^#]*(?:#.*)?$/
+// @match        https://iptorrents.com/torrent.php?id=*
+// @match        https://eiga.moi/torrents/*
+// @include      /^https:\/\/hd-space\.org\/index\.php\?(?=[^#]*\bpage=torrent-details\b)(?=[^#]*\bid=)[^#]*(?:#.*)?$/
+// @match        https://beyond-hd.me/torrents/*
+// @include      /^https:\/\/monikadesign\.uk\/torrents\/[0-9]+\/?$/
+// @match        https://acg.rip/t/*
+// @match        https://nyaa.si/view/*
+// @include      /^https?:\/\/([^/]+\.)?(comicat|kisssub)\.org\/show-[a-f0-9]{40}\.html(?:[?#].*)?$/
+// @grant        GM_log
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
+// @grant        GM_addStyle
+// @grant        GM_registerMenuCommand
+// @grant        GM_openInTab
+// @grant        GM_setClipboard
+// @grant        GM_info
+// @connect      self
+// @connect      127.0.0.1
+// @connect      localhost
+// @connect      2025.iyuu.cn
+// @connect      zmpt.cc
+// @connect      bangumi.moe
+// @connect      api.m-team.cc
+// @connect      api.m-team.io
+// @connect      api.m-team.vip
+// @connect      *.m-team.cc
+// @connect      *.m-team.io
+// @connect      *.m-team.vip
+// @connect      halomt.com
+// @connect      *
+// @run-at       document-idle
+// ==/UserScript==

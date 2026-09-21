@@ -1,31 +1,35 @@
 # Greasy Fork Scripts
 
-本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 12 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。
+本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 14 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。可安装产物统一位于 `dist/`，模块化源码位于 `src/`，构建工具位于 `script/`。
 
 > 说明：本仓库脚本均为自用，部分代码由 AI 辅助生成，可能存在未覆盖的边界情况；安装和使用前请自行评估风险，并优先在熟悉的站点与环境中验证。
 
 ## 目录
 
+安装路径已迁移到 `dist/`。已安装的旧版脚本若仍从根目录检查更新，需要从下列新链接重新安装一次；脚本名称、namespace 和 GM 存储键保持不变。
+
 | 脚本 | 版本 | 简述 | 安装 |
 |---|---|---|---|
-| <img src="icon/moviepilot-autologin.png" width="24" alt=""> [Moviepilot_AutoLogin](#moviepilot_autologin) | 1.3.1 | MoviePilot 自动登录 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_AutoLogin.user.js) |
-| <img src="icon/moviepilot.png" width="24" alt=""> [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.14 | PT 站种子名称识别，推送 MoviePilot | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js) |
-| <img src="icon/iyuu-reseed.png" width="24" alt=""> [IYUU_Reseed_Checker](#iyuu_reseed_checker) | 1.1.16 | IYUU 辅种检测助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js) |
-| <img src="icon/pt-oneclickclaim.png" width="24" alt=""> [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.2 | PT 一键认领增强脚本 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js) |
-| <img src="icon/pt-audit.png" width="24" alt=""> [PT_AuditAssistant](#pt_auditassistant) | 0.1.0 | 聚合 PT 审种助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js) |
-| <img src="icon/zhuque-batch.png" width="24" alt=""> [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.1 | 朱雀搜索页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js) |
-| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.6.1 | 通用 PT 当前页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js) |
-| <img src="icon/bangumi.png" width="24" alt=""> [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.0 | Bangumi 中文标题与放送日历增强 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js) |
-| <img src="icon/ai.png" width="24" alt=""> [AI_WebSummary](#ai_websummary) | 2.0.5 | 使用 AI 总结网页内容 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js) |
-| <img src="icon/nicept.png" width="24" alt=""> [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0 | 替换 NicePT 分类图标 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js) |
-| [Local_Debug_Loader](#local_debug_loader) | 0.2.3 | 本地调试入口 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Local_Debug_Loader.user.js) |
-| <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.2 | GitHub Releases 页面导航增强 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/GitHubReleases_NavigationEnhancer.user.js) |
+| <img src="icon/moviepilot-autologin.png" width="24" alt=""> [Moviepilot_AutoLogin](#moviepilot_autologin) | 1.3.2 | MoviePilot 自动登录 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Moviepilot_AutoLogin.user.js) |
+| <img src="icon/moviepilot.png" width="24" alt=""> [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.16 | PT 站种子名称识别，推送 MoviePilot | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Moviepilot_NameTest.user.js) |
+| <img src="icon/iyuu-reseed.png" width="24" alt=""> [IYUU_Reseed_Checker](#iyuu_reseed_checker) | 1.1.18 | IYUU 辅种检测助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/IYUU_Reseed_Checker.user.js) |
+| <img src="icon/pt-oneclickclaim.png" width="24" alt=""> [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.3 | PT 一键认领增强脚本 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_OneClickClaim.user.js) |
+| <img src="icon/pt-audit.png" width="24" alt=""> [PT_AuditAssistant](#pt_auditassistant) | 0.1.1 | 聚合 PT 审种助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_AuditAssistant.user.js) |
+| <img src="icon/zhuque-batch.png" width="24" alt=""> [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.2 | 朱雀搜索页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Zhuque_BatchDownload.user.js) |
+| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.6.8 | 通用 PT 当前页批量下载 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_BatchDownload.user.js) |
+| <img src="icon/bangumi.png" width="24" alt=""> [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.1 | Bangumi 中文标题与放送日历增强 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Bangumi_Enhanced.user.js) |
+| <img src="icon/ai.png" width="24" alt=""> [AI_WebSummary](#ai_websummary) | 2.0.6 | 使用 AI 总结网页内容 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/AI_WebSummary.user.js) |
+| <img src="icon/nicept.png" width="24" alt=""> [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0.1 | 替换 NicePT 分类图标 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/NicePT_ReplaceIcon.user.js) |
+| [Local_Debug_Loader](#local_debug_loader) | 0.2.4 | 本地调试入口 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Local_Debug_Loader.user.js) |
+| <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.3 | GitHub Releases 页面导航增强 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/GitHubReleases_NavigationEnhancer.user.js) |
+| <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.6 | Lounge IRC 翻译助手 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Lounge_IRC_Translator.user.js) |
+| [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.7 | Picix 卡片快捷操作 | [安装](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Picix_CardQuickActions.user.js) |
 
 ---
 
 <a id="moviepilot_autologin"></a>
-### [Moviepilot_AutoLogin](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_AutoLogin.user.js)
-> 版本 1.3.1 · 作者 wuyaos & AI  
+### [Moviepilot_AutoLogin](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Moviepilot_AutoLogin.user.js)
+> 版本 1.3.2 · 作者 wuyaos & AI<br>
 > @match 站点范围：全站匹配，仅在页面标题为 MoviePilot 的登录页执行  
 > 图标 <img src="icon/moviepilot-autologin.png" width="24" alt="icon">
 
@@ -37,8 +41,8 @@ MoviePilot 自动登录脚本，用于在 MoviePilot 登录页自动填充已配
 - 适合自用环境下减少重复输入账号密码
 
 <a id="moviepilot_nametest"></a>
-### [Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Moviepilot_NameTest.user.js)
-> 版本 3.5.14 · 作者 wuyaos & AI  
+### [Moviepilot_NameTest](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Moviepilot_NameTest.user.js)
+> 版本 3.5.16 · 作者 wuyaos & AI<br>
 > @match 站点范围：PT/BT 种子详情页，含 NexusPHP、TTG、Bangumi/Mikan、M-Team、GPW、IPT、BHD、Nyaa 等  
 > 图标 <img src="icon/moviepilot.png" width="24" alt="icon">
 
@@ -50,8 +54,8 @@ PT 站种子名称识别脚本，可将种子标题推送到 MoviePilot 进行�
 - 复用公共 PT 页面适配逻辑，兼容多站点标题和元数据提取
 
 <a id="iyuu_reseed_checker"></a>
-### [IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/IYUU_Reseed_Checker.user.js)
-> 版本 1.1.16 · 作者 wuyaos & AI  
+### [IYUU_Reseed_Checker](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/IYUU_Reseed_Checker.user.js)
+> 版本 1.1.18 · 作者 wuyaos & AI<br>
 > @match 站点范围：PT/BT 种子详情页，含 NexusPHP、TTG、M-Team、HDCity、GPW、Haidan、IPT、BHD 等  
 > 图标 <img src="icon/iyuu-reseed.png" width="24" alt="icon">
 
@@ -63,8 +67,8 @@ IYUU 辅种检测助手，用于在 PT/BT 种子详情页查询 IYUU 辅种信�
 - 支持 M-Team API Key 配置，用于馒头种子下载场景
 
 <a id="pt_oneclickclaim"></a>
-### [PT_OneClickClaim](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js)
-> 版本 0.2.2 · 作者 wuyaos & AI  
+### [PT_OneClickClaim](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_OneClickClaim.user.js)
+> 版本 0.2.3 · 作者 wuyaos & AI<br>
 > @match 站点范围：PT 站用户详情页、当前做种列表页和 Audiences 做种列表页  
 > 图标 <img src="icon/pt-oneclickclaim.png" width="24" alt="icon">
 
@@ -76,8 +80,8 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 - 只处理显式确认后的批量认领流程
 
 <a id="pt_auditassistant"></a>
-### [PT_AuditAssistant](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js)
-> 版本 0.1.0 · 作者 wuyaos & AI  
+### [PT_AuditAssistant](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_AuditAssistant.user.js)
+> 版本 0.1.1 · 作者 wuyaos & AI<br>
 > @match 站点范围：PandaPT、QingWaPT、HDKylin、CS 财神、LongPT 详情页/审种页  
 > 图标 <img src="icon/pt-audit.png" width="24" alt="icon">
 
@@ -89,8 +93,8 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 - 支持 LongPT 高码、高帧、高分等特定规则提示
 
 <a id="zhuque_batchdownload"></a>
-### [Zhuque_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js)
-> 版本 0.2.1 · 作者 wuyaos & AI  
+### [Zhuque_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Zhuque_BatchDownload.user.js)
+> 版本 0.2.2 · 作者 wuyaos & AI<br>
 > @match 站点范围：朱雀种子搜索页  
 > 图标 <img src="icon/zhuque-batch.png" width="24" alt="icon">
 
@@ -102,8 +106,8 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 - 适配朱雀搜索页的批量下载操作
 
 <a id="pt_batchdownload"></a>
-### [PT_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js)
-> 版本 0.6.1 · 作者 wuyaos & AI  
+### [PT_BatchDownload](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_BatchDownload.user.js)
+> 版本 0.6.8 · 作者 wuyaos & AI<br>
 > @match 站点范围：通用 PT 站 PHP 页面、Unit3D 架构 `/torrents` 列表页（如 darkland.top）、Gazelle 架构（GGn/Anthelion 等）列表页  
 > 图标 <img src="icon/pt-batch.png" width="24" alt="icon">
 
@@ -119,8 +123,8 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 - 优惠筛选选项来自当前页动态扫描的唯一标记，多选 OR 语义命中
 
 <a id="bangumi_enhanced"></a>
-### [Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Bangumi_Enhanced.user.js)
-> 版本 1.0.0 · 作者 wuyaos & AI  
+### [Bangumi_Enhanced](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Bangumi_Enhanced.user.js)
+> 版本 1.0.1 · 作者 wuyaos & AI<br>
 > @match 站点范围：bgm.tv、bangumi.tv、chii.in  
 > 图标 <img src="icon/bangumi.png" width="24" alt="icon">
 
@@ -132,8 +136,8 @@ Bangumi 增强脚本，用于显示中文标题并优化放送日历，提供接
 - 适配 bgm.tv、bangumi.tv、chii.in 三个域名
 
 <a id="ai_websummary"></a>
-### [AI_WebSummary](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/AI_WebSummary.user.js)
-> 版本 2.0.5 · 作者 wuyaos & AI  
+### [AI_WebSummary](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/AI_WebSummary.user.js)
+> 版本 2.0.6 · 作者 wuyaos & AI<br>
 > @match 站点范围：全站网页  
 > 图标 <img src="icon/ai.png" width="24" alt="icon">
 
@@ -145,8 +149,8 @@ AI 网页内容总结脚本，用于在当前网页中提取内容并调用 AI �
 - 提供自用 AI 总结入口，适合快速阅读长页面
 
 <a id="nicept_replaceicon"></a>
-### [NicePT_ReplaceIcon](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/NicePT_ReplaceIcon.user.js)
-> 版本 1.0 · 作者 wuyaos & AI  
+### [NicePT_ReplaceIcon](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/NicePT_ReplaceIcon.user.js)
+> 版本 1.0.1 · 作者 wuyaos & AI<br>
 > @match 站点范围：NicePT 全站  
 > 图标 <img src="icon/nicept.png" width="24" alt="icon">
 
@@ -158,8 +162,8 @@ NicePT 分类图标替换脚本，用于替换 NicePT 分类中的图标资源�
 - 适合按个人偏好统一分类视觉样式
 
 <a id="local_debug_loader"></a>
-### [Local_Debug_Loader](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Local_Debug_Loader.user.js)
-> 版本 0.2.3 · 作者 wuyaos & AI  
+### [Local_Debug_Loader](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Local_Debug_Loader.user.js)
+> 版本 0.2.4 · 作者 wuyaos & AI<br>
 > @match 站点范围：本仓库 PT/BT 详情页调试目标，含 NexusPHP、TTG、Bangumi/Mikan、M-Team、GPW、IPT、BHD、Nyaa 等  
 
 本地调试入口，通过本地 HTTP 文件服务器加载当前仓库脚本，便于使用外部编辑器实时修改和刷新验证。
@@ -170,8 +174,8 @@ NicePT 分类图标替换脚本，用于替换 NicePT 分类中的图标资源�
 - 适合调试 IYUU 与 MoviePilot 名称识别等详情页脚本
 
 <a id="githubreleases_navigationenhancer"></a>
-### [GitHubReleases_NavigationEnhancer](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/GitHubReleases_NavigationEnhancer.user.js)
-> 版本 2.0.2 · 作者 wuyaos & AI  
+### [GitHubReleases_NavigationEnhancer](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/GitHubReleases_NavigationEnhancer.user.js)
+> 版本 2.0.3 · 作者 wuyaos & AI<br>
 > @match 站点范围：GitHub 全站，主要增强 Releases 页面  
 > 图标 <img src="icon/github-releases.png" width="24" alt="icon">
 
@@ -182,39 +186,66 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 - 增加 Release 资产筛选能力，快速定位目标文件
 - 提供平台、架构、语言、分辨率等筛选偏好与设置入口
 
+<a id="lounge_irc_translator"></a>
+### [Lounge_IRC_Translator](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Lounge_IRC_Translator.user.js)
+> 版本 0.8.6 · Lounge IRC 翻译助手
+
+在 Lounge IRC 页面提供翻译、候选回复、短语管理和本地配置。
+
+<a id="picix_cardquickactions"></a>
+### [Picix_CardQuickActions](https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Picix_CardQuickActions.user.js)
+> 版本 0.4.7 · Picix 卡片快捷操作
+
+为 Picix 卡片提供翻译和快捷操作入口。
+
 ## 本地调试
 
-1. 运行 `./serve-debug.sh` 启动 `http://127.0.0.1:8787/` 文件服务器。
-2. 在 Tampermonkey 安装或更新 `Local_Debug_Loader.user.js`。
-3. 保持文件服务器运行，直接用外部编辑器修改 `IYUU_Reseed_Checker.user.js` / `Moviepilot_NameTest.user.js`，刷新目标站页面即可加载最新脚本。
+1. 修改 `src/scripts/` 或 `src/common/`，运行 `npm run build`。
+2. 运行 `./script/serve-debug.sh` 启动 `http://127.0.0.1:8787/` 文件服务器，产物位于 `/dist/`。
+3. 在 Tampermonkey 安装或更新 `dist/Local_Debug_Loader.user.js`，避免同时启用同一脚本的正式版和调试版。
+4. 每次修改源码后重新构建，再由用户刷新目标站页面；Loader 保留原有 no-cache 行为。
 
 ## 开发说明
 
-`IYUU_Reseed_Checker.user.js` 和 `Moviepilot_NameTest.user.js` 是最终可安装脚本。两者共用的页面插入、锚点查找、DOM 安全 wrapper 和 Mount 工具维护在 `src/common/pt-common.js`。
+`dist/*.user.js` 是最终可安装脚本，不能手工编辑。脚本模块位于 `src/scripts/<script-id>/`，共享代码位于 `src/common/`，构建和校验工具位于 `script/`。
 
-修改公共逻辑后运行：
+修改源码后运行:
 
 ```bash
-node build/build-userscripts.mjs
-node build/build-userscripts.mjs --check
-node --check IYUU_Reseed_Checker.user.js
-node --check Moviepilot_NameTest.user.js
+npm ci
+npm run build
+npm run build:script -- iyuu-reseed-checker
+npm run check
 ```
 
-`build/build-userscripts.mjs` 会将公共源码同步到两个脚本的 `// <pt-common:start>` / `// <pt-common:end>` 区块。
+要求 Node.js 20.19+。`npm run check` 包括产物漂移检查、元数据/GM 权限校验、597 个原始语法块契约、14 个离线 DOM 初始化对照及构建失败保护测试。测试不会连接目标站点，也不执行真实认领、下载或审批。
+
+`meta.js` 是元数据唯一来源；原有 `@require` 保留，不改为动态加载。可独立提取的静态 CSS 在各脚本的 `styles/` 中，含运行时插值的样式保留在对应功能模块中，不压缩、不改变 CSS 文本。
+
+迁移只做结构搬运。唯一额外修复是补齐 GitHub Releases 原脚本已使用但漏声明的 `GM_deleteValue` grant。Windows 原生 Node、油猴真实运行环境及全部站点/主题尚未实测（`NOT_VERIFIED`）。
+
+`script/build-userscripts.mjs` 会把模块打包到 `dist/`，构建器的 `--check` 会检查发布产物是否与当前源码一致。
 
 ## 问题
 
 *   IYUU_Reseed_Checker 下载馒头（M-Team）种子需要在配置页填写 M-Team API Key；未配置时会提示并阻止下载。
 *   AI_WebSummary出现“错误： Failed to fetch”，需要在油猴插件-设置-修改内容安全策略（CSP）头信息 改为“全部移除（可能不安全）”
 
-## Overview
+## 文件组织
 
-TODO: Add project description.
-
-## Project Structure
-
-```
-├── icon/lounge-irc-translator.png
+```text
 greasyfork_scripts/
+├── src/
+│   ├── common/                     # IYUU/MP 公共代码
+│   └── scripts/<script-id>/        # meta.js、index.js、功能模块、styles/
+├── script/                        # 构建、注册表、校验、本地调试工具
+├── dist/                          # 14 个可安装 .user.js，提交版本控制
+├── tests/                         # 离线对照与迁移契约，不含真实凭据
+├── icon/                          # 保持已有资源 URL
+├── class_icon/
+├── package.json
+├── package-lock.json
+└── README.md
 ```
+
+模块按原有职责拆分，保留必要的实时绑定和惰性引用，不为消除循环引用而重写业务。迁移基线及验证覆盖说明见 [tests/README.md](tests/README.md)。

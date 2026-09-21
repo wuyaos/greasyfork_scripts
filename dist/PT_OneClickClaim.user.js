@@ -1,0 +1,552 @@
+// ==UserScript==
+// @name         PT一键认领 Plus
+// @namespace    https://github.com/wuyaos/greasyfork_scripts
+// @version      0.2.3
+// @description  根据标题表达式、体积、IP、客户端筛选当前做种列表，预览后批量认领 PT 种子。
+// @author       ngtrio & AI
+// @match        *://*/userdetails.php?id=*
+// @match        *://*/getusertorrentlist.php?userid=*
+// @match        https://audiences.me/usertorrentlist.php?userid=*
+// @run-at       document-idle
+// @grant        none
+// @noframes
+// @license      MIT
+// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-oneclickclaim.png
+// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_OneClickClaim.user.js
+// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_OneClickClaim.user.js
+// ==/UserScript==
+
+// Generated from src/scripts/pt-one-click-claim/index.js; do not edit dist files.
+"use strict";
+(() => {
+  var __defProp = Object.defineProperty;
+  var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+
+  // src/scripts/pt-one-click-claim/config.js
+  var DELAY_MS = 900;
+  var EMPTY_VALUE = "__PT_CLAIM_EMPTY__";
+  var EMPTY_LABEL = "未检测到";
+  var CLIENT_RE = /qBittorrent[^\s\n]*|Transmission[^\s\n]*|Deluge[^\s\n]*|uTorrent[^\s\n]*|µTorrent[^\s\n]*|BitComet[^\s\n]*|libtorrent[^\s\n]*|rTorrent[^\s\n]*|rtorrent[^\s\n]*|ruTorrent[^\s\n]*|BiglyBT[^\s\n]*|Azureus[^\s\n]*|Aria2[^\s\n]*|SeedBox/i;
+  var IPV4_RE = /(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}/g;
+  var IPV6_CANDIDATE_SEP = /[\s,，、;；()<>[\]{}"'|]+/;
+  var state = { adapter: null, block: null, items: [], ui: {} };
+
+  // src/scripts/pt-one-click-claim/elements.js
+  function formRequest(url, data) {
+    return { url, method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString() };
+  }
+  __name(formRequest, "formRequest");
+  function assertOk(resp) {
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  }
+  __name(assertOk, "assertOk");
+  async function safeJson(resp) {
+    try {
+      return await resp.json();
+    } catch (_) {
+      return null;
+    }
+  }
+  __name(safeJson, "safeJson");
+  function closestCell(node) {
+    return node?.closest?.("td,th") || null;
+  }
+  __name(closestCell, "closestCell");
+  function isVisible(node) {
+    return node && getComputedStyle(node).display !== "none" && getComputedStyle(node).visibility !== "hidden";
+  }
+  __name(isVisible, "isVisible");
+  function clean(textValue) {
+    return String(textValue || "").replace(/\s+/g, " ").trim();
+  }
+  __name(clean, "clean");
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  __name(sleep, "sleep");
+  function setStatus(msg) {
+    if (state.ui.status) state.ui.status.textContent = msg;
+  }
+  __name(setStatus, "setStatus");
+  function input(id, placeholder, width) {
+    const n = el("input", { id, placeholder });
+    n.style.width = width;
+    return n;
+  }
+  __name(input, "input");
+  function button(labelText, fn, className = "") {
+    const n = el("button", { class: `ptc-btn ${className}`.trim() });
+    n.textContent = labelText;
+    n.addEventListener("click", fn);
+    return n;
+  }
+  __name(button, "button");
+  function text(value) {
+    return document.createTextNode(value);
+  }
+  __name(text, "text");
+  function append(parent, ...children) {
+    children.forEach((child) => parent.appendChild(child));
+    return parent;
+  }
+  __name(append, "append");
+  function el(tag, attrs = {}) {
+    const n = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+    return n;
+  }
+  __name(el, "el");
+  function escapeRegExp(value) {
+    return String(value).replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  }
+  __name(escapeRegExp, "escapeRegExp");
+
+  // src/scripts/pt-one-click-claim/adapters.js
+  var adapters = [
+    { id: "pter", name: "PterClub", match: /* @__PURE__ */ __name(() => /(^|\.)pterclub\.(com|net)$/i.test(location.hostname), "match"), knownClaim: true, claim(row) {
+      const a = row.querySelector('.claim-confirm[data-url],a[data-url*="add_torrent_id"],a[href*="add_torrent_id"]');
+      const raw = a?.getAttribute("data-url") || a?.getAttribute("href") || "";
+      const id = raw.match(/add_torrent_id=(\d+)/)?.[1];
+      return id ? { id, cell: closestCell(a) } : null;
+    }, request(item) {
+      return { url: `/viewclaims.php?in_modal=yes&do_ajax=1&add_torrent_id=${encodeURIComponent(item.id)}`, method: "GET" };
+    }, async validate(resp) {
+      assertOk(resp);
+      try {
+        await resp.json();
+      } catch (_) {
+        throw new Error("认领失败，可能认领人数已满");
+      }
+    } },
+    { id: "spring", name: "SpringSunday", match: /* @__PURE__ */ __name(() => /(^|\.)springsunday\.net$/i.test(location.hostname), "match"), knownClaim: true, claim(row) {
+      const btn = [...row.querySelectorAll('button[id^="btn"],.btn[id^="btn"]')].find(isVisible);
+      const id = btn?.id?.replace(/^btn/, "");
+      return id ? { id, cell: closestCell(btn) } : null;
+    }, request(item) {
+      return formRequest("/adopt.php", { action: "add", id: item.id });
+    }, async validate(resp) {
+      assertOk(resp);
+    } },
+    { id: "audiences", name: "Audiences", match: /* @__PURE__ */ __name(() => /(^|\.)audiences\.me$/i.test(location.hostname), "match"), knownClaim: true, claim(row) {
+      const a = [...row.querySelectorAll("a[href]")].find((el2) => /认领种子|領種|claim/i.test(el2.textContent));
+      const href = a?.getAttribute("href") || "";
+      const id = href.match(/claim\('add','(\d+)'/)?.[1] || href.match(/claim_block(\d+)/)?.[1] || a?.closest('[id^="claim_block"]')?.id?.match(/claim_block(\d+)/)?.[1] || href.match(/[?&]tid=(\d+)/)?.[1];
+      return id ? { id, cell: closestCell(a) } : null;
+    }, request(item) {
+      return { url: `/claim.php?act=add&tid=${encodeURIComponent(item.id)}`, method: "GET" };
+    }, async validate(resp) {
+      assertOk(resp);
+      const data = await safeJson(resp);
+      if (data && data.res === false) throw new Error(data.message || "认领失败");
+    } },
+    { id: "generic", name: "通用 NPHP", match: /* @__PURE__ */ __name(() => true, "match"), probePath: "/claim.php", pageHit: /* @__PURE__ */ __name((html) => /用戶認領種子詳情|用户认领种子详情|認領種子詳情|认领种子详情/i.test(html), "pageHit"), claim(row) {
+      const btn = [...row.querySelectorAll("button[data-torrent_id]")].find((el2) => isVisible(el2) && /领|領|認領|认领|claim/i.test(el2.textContent));
+      const id = btn?.getAttribute("data-torrent_id");
+      return id ? { id, cell: closestCell(btn) } : null;
+    }, request(item) {
+      return formRequest("/ajax.php", { action: "addClaim", "params[torrent_id]": item.id });
+    }, async validate(resp) {
+      assertOk(resp);
+      const data = await safeJson(resp);
+      if (data && data.ret !== void 0 && Number(data.ret) !== 0) throw new Error(data.msg || "认领失败");
+    } }
+  ];
+
+  // src/scripts/pt-one-click-claim/page.js
+  function insertPanel(panel) {
+    if (state.block?.tagName === "TBODY") {
+      const row = el("tr");
+      const cell = el("td", { colspan: String(maxColumnCount(state.block)) });
+      cell.append(panel);
+      row.append(cell);
+      state.block.prepend(row);
+      return;
+    }
+    state.block.prepend(panel);
+  }
+  __name(insertPanel, "insertPanel");
+  function maxColumnCount(tbody) {
+    return Math.max(1, ...[...tbody.rows].map((row) => row.cells?.length || 0));
+  }
+  __name(maxColumnCount, "maxColumnCount");
+  async function siteHasClaim(adapter) {
+    if (adapter.knownClaim) return true;
+    if (!hasClaimEntryLink()) return false;
+    const cacheKey = `ptc:${location.hostname}`;
+    const cached = cacheGet(cacheKey);
+    if (cached !== null) return cached === "1";
+    const uid = currentUid();
+    const path = adapter.probePath + (uid ? `?uid=${uid}` : "");
+    try {
+      const resp = await fetch(path, { credentials: "same-origin" });
+      if (!resp.ok) return false;
+      const ok = adapter.pageHit(await resp.text());
+      cacheSet(cacheKey, ok ? "1" : "0");
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+  __name(siteHasClaim, "siteHasClaim");
+  function hasClaimEntryLink() {
+    const areas = [...document.querySelectorAll("td.bottom, #info_block, #userinfo, .medium, .user-info, .fix-menu, .top-account-entry, .top-account-dropdown, .top-stats-bar")];
+    const links = areas.flatMap((area) => [...area.querySelectorAll('a[href*="claim.php"]')]);
+    return links.some((a) => /认领|認領|claim|\d+\s*\/\s*\d+/i.test(a.textContent || a.href));
+  }
+  __name(hasClaimEntryLink, "hasClaimEntryLink");
+  function currentUid() {
+    const m = location.search.match(/[?&](?:id|userid|uid)=(\d+)/i);
+    return m?.[1] || "";
+  }
+  __name(currentUid, "currentUid");
+  function cacheGet(key) {
+    try {
+      return sessionStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+  __name(cacheGet, "cacheGet");
+  function cacheSet(key, value) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch (_) {
+    }
+  }
+  __name(cacheSet, "cacheSet");
+  var SEEDING_LABEL_RE = /^(当前做种|目前做種|目前做种|当前做種|做種中|做种中)$/;
+  function getSeedingBlock() {
+    if (/\/(?:getusertorrentlist|usertorrentlist)\.php/i.test(location.pathname)) {
+      const bodies = document.querySelectorAll("tbody");
+      return bodies[bodies.length - 1];
+    }
+    const rowBlock = [...document.querySelectorAll("tr")].find((row) => row.childElementCount === 2 && SEEDING_LABEL_RE.test(clean(row.cells[0]?.textContent)))?.cells[1];
+    if (rowBlock) return rowBlock;
+    const link = [...document.querySelectorAll('a[onclick*="getusertorrentlistajax"]')].find((a) => /seeding/.test(a.getAttribute("onclick") || "") && SEEDING_LABEL_RE.test(clean(a.textContent)));
+    const targetId = link?.getAttribute("onclick")?.match(/['"](ka\d*)['"]\)/)?.[1];
+    const target = targetId ? document.getElementById(targetId) : null;
+    return target?.parentElement || target;
+  }
+  __name(getSeedingBlock, "getSeedingBlock");
+  function readableText(node) {
+    if (!node) return "";
+    const clone = node.cloneNode(true);
+    clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
+    clone.querySelectorAll("img[title]").forEach((img) => img.replaceWith(` ${img.title} `));
+    return clone.textContent || "";
+  }
+  __name(readableText, "readableText");
+
+  // src/scripts/pt-one-click-claim/styles/styles.css
+  var styles_default = "\n#pt-claim-plus{font:12px/1.45 Arial,Helvetica,sans-serif;color:#2f3742;background:linear-gradient(180deg,#fbfcfe,#f4f7fb);border:1px solid #d8dee8;border-radius:7px;box-shadow:0 1px 2px rgba(20,35,60,.06);padding:0;margin:6px 0;box-sizing:border-box;overflow:visible}\n#pt-claim-plus .ptc-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #e1e7ef;background:rgba(238,243,248,.65)}\n#pt-claim-plus .ptc-title{font-weight:700;color:#253044;white-space:nowrap;display:flex;align-items:center;gap:6px}\n#pt-claim-plus .ptc-title:before{content:'✓';display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#dfeee7;color:#2d7650;font-size:11px}\n#pt-claim-plus .ptc-head-status{color:#5c6878;white-space:nowrap}\n#pt-claim-plus .ptc-body{padding:8px 10px;display:flex;flex-direction:column;gap:7px}\n#pt-claim-plus .ptc-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}\n#pt-claim-plus .ptc-field{display:inline-flex;align-items:center;gap:5px;color:#536071;white-space:nowrap}\n#pt-claim-plus input{height:26px;border:1px solid #c8d1dd;border-radius:4px;background:#fff;color:#243044;padding:2px 6px;box-sizing:border-box}\n#pt-claim-plus .ptc-keyword{width:clamp(240px,36vw,440px)}#pt-claim-plus .ptc-size{width:58px;text-align:right}\n#pt-claim-plus details{position:relative}#pt-claim-plus summary{list-style:none;cursor:pointer;border:1px solid #c8d1dd;background:#fff;border-radius:4px;padding:4px 8px;color:#344154;min-width:96px}#pt-claim-plus summary::-webkit-details-marker{display:none}#pt-claim-plus details[open] summary{background:#eef5fc;border-color:#aebfd5}\n#pt-claim-plus .ptc-menu{position:absolute;z-index:9999;top:30px;left:0;max-height:180px;overflow:auto;min-width:210px;padding:5px;border:1px solid #ccd6e2;background:#fff;border-radius:6px;box-shadow:0 8px 20px rgba(24,39,64,.15)}\n#pt-claim-plus .ptc-menu label{display:block;padding:3px 5px;border-radius:4px;white-space:nowrap}#pt-claim-plus .ptc-menu label:hover{background:#f2f6fb}\n#pt-claim-plus .ptc-actions{display:flex;gap:6px;align-items:center;white-space:nowrap}\n#pt-claim-plus .ptc-btn{height:28px;border:1px solid #c7d0dc;border-radius:4px;background:#f3f5f8;color:#2f3b4d;padding:0 10px;cursor:pointer}#pt-claim-plus .ptc-btn:hover{filter:brightness(.97)}\n#pt-claim-plus .ptc-btn-check{background:#e8f1fb;border-color:#b9cce3}#pt-claim-plus .ptc-btn-primary{background:#e6f3ed;border-color:#a8d0bc;color:#1f6041;font-weight:700}\n#pt-claim-plus .ptc-status{margin-left:auto;color:#5c6878;background:#eef3f8;border:1px solid #dce5ef;border-radius:5px;padding:4px 7px;min-width:200px;text-align:right}\n@media(max-width:900px){#pt-claim-plus .ptc-head{align-items:flex-start;flex-direction:column}#pt-claim-plus .ptc-status{margin-left:0;text-align:left}#pt-claim-plus .ptc-keyword{width:100%;min-width:210px}}\n";
+
+  // src/scripts/pt-one-click-claim/styles.js
+  function ensureStyle() {
+    if (document.querySelector("#pt-claim-plus-style")) return;
+    const style = el("style", { id: "pt-claim-plus-style" });
+    style.textContent = styles_default;
+    document.head.append(style);
+  }
+  __name(ensureStyle, "ensureStyle");
+
+  // src/scripts/pt-one-click-claim/parsing.js
+  function extractNetworkInfo(row) {
+    const ips = /* @__PURE__ */ new Set(), clients = /* @__PURE__ */ new Set();
+    const cellTexts = [...row.cells].map(readableText);
+    cellTexts.forEach((t) => extractIps(t).forEach((ip) => ips.add(ip)));
+    row.querySelectorAll("img[title]").forEach((img) => {
+      if (CLIENT_RE.test(img.title)) clients.add(clean(img.title));
+    });
+    cellTexts.forEach((t) => t.split(/[\n\r]+/).map(clean).filter(Boolean).forEach((line) => {
+      const match = line.match(CLIENT_RE);
+      if (match) clients.add(match[0]);
+      const withoutIps = stripIps(line).replace(/\b\d{2,5}\b/g, " ").trim();
+      if (CLIENT_RE.test(withoutIps)) clients.add(withoutIps.match(CLIENT_RE)[0]);
+    }));
+    return { ips: [...ips], clients: [...clients] };
+  }
+  __name(extractNetworkInfo, "extractNetworkInfo");
+  function extractIps(textValue) {
+    const text2 = String(textValue || "");
+    const ips = text2.match(IPV4_RE) || [];
+    text2.split(IPV6_CANDIDATE_SEP).forEach((part) => {
+      const token = part.trim();
+      if (token.includes(":") && isIPv6(token)) ips.push(token);
+    });
+    return [...new Set(ips)];
+  }
+  __name(extractIps, "extractIps");
+  function isIPv6(value) {
+    try {
+      return new URL(`http://[${value}]/`).hostname.toLowerCase() === `[${value.toLowerCase()}]`;
+    } catch (_) {
+      return false;
+    }
+  }
+  __name(isIPv6, "isIPv6");
+  function stripIps(textValue) {
+    return String(textValue || "").replace(IPV4_RE, " ").split(IPV6_CANDIDATE_SEP).map((part) => isIPv6(part) ? " " : part).join(" ");
+  }
+  __name(stripIps, "stripIps");
+  function parseKeywordQuery(raw) {
+    const query = String(raw || "").trim();
+    const parsed = { all: [], any: [], not: [] };
+    if (!query) return parsed;
+    for (const token of tokens(query)) {
+      const neg = token.startsWith("-");
+      const body = (neg ? token.slice(1) : token).trim();
+      if (!body) continue;
+      const parts = body.split("|").map((x) => x.trim()).filter(Boolean);
+      if (neg) parsed.not.push(...parts);
+      else if (parts.length > 1) parsed.any.push(...parts);
+      else parsed.all.push(body);
+    }
+    return parsed;
+  }
+  __name(parseKeywordQuery, "parseKeywordQuery");
+  function matchKeyword(title, query) {
+    const parsed = typeof query === "string" ? parseKeywordQuery(query) : query;
+    const textValue = String(title || "").toLowerCase();
+    return parsed.all.every((t) => termMatch(textValue, t)) && (!parsed.any.length || parsed.any.some((t) => termMatch(textValue, t))) && !parsed.not.some((t) => termMatch(textValue, t));
+  }
+  __name(matchKeyword, "matchKeyword");
+  function termMatch(textValue, term) {
+    const raw = String(term || "").toLowerCase();
+    return raw.includes("*") ? wildcard(raw).test(textValue) : textValue.includes(raw);
+  }
+  __name(termMatch, "termMatch");
+  function wildcard(term) {
+    return new RegExp(escapeRegExp(term).replace(/\\\*/g, ".*"), "i");
+  }
+  __name(wildcard, "wildcard");
+  function tokens(query) {
+    const out = [];
+    query.replace(/"([^"]+)"|'([^']+)'|(\S+)/g, (_, a, b, c) => out.push(a || b || c));
+    return out;
+  }
+  __name(tokens, "tokens");
+
+  // src/scripts/pt-one-click-claim/multiselect.js
+  function multiFilter(titleText) {
+    const root = el("details");
+    const summary = el("summary");
+    const box = el("div", { class: "ptc-menu" });
+    root.append(summary, box);
+    const control = { root, summary, box, title: titleText };
+    root.addEventListener("change", () => updateMultiSummary(control));
+    updateMultiSummary(control);
+    return control;
+  }
+  __name(multiFilter, "multiFilter");
+  function fillMulti(control, values, emptyCount = 0) {
+    const old = selectedMulti(control);
+    const counts = /* @__PURE__ */ new Map();
+    values.filter(Boolean).forEach((v) => counts.set(v, (counts.get(v) || 0) + 1));
+    if (emptyCount) counts.set(EMPTY_VALUE, emptyCount);
+    control.box.textContent = "";
+    [...counts.keys()].sort((a, b) => labelValue(a).localeCompare(labelValue(b))).forEach((value) => {
+      const cb = el("input", { type: "checkbox" });
+      cb.value = value;
+      cb.checked = old.has(value);
+      const line = el("label");
+      line.style.display = "block";
+      line.append(cb, text(` ${labelValue(value)} (${counts.get(value)})`));
+      control.box.append(line);
+    });
+    updateMultiSummary(control);
+  }
+  __name(fillMulti, "fillMulti");
+  function labelValue(value) {
+    return value === EMPTY_VALUE ? EMPTY_LABEL : value;
+  }
+  __name(labelValue, "labelValue");
+  function selectedMulti(control) {
+    return new Set([...control.box.querySelectorAll("input:checked")].map((x) => x.value));
+  }
+  __name(selectedMulti, "selectedMulti");
+  function updateMultiSummary(control) {
+    const count = selectedMulti(control).size;
+    control.summary.textContent = `${control.title}: ${count ? `已选 ${count}` : "全部"}`;
+  }
+  __name(updateMultiSummary, "updateMultiSummary");
+
+  // src/scripts/pt-one-click-claim/filters.js
+  function filters() {
+    return { keyword: parseKeywordQuery(state.ui.keyword.value), minBytes: Number(state.ui.sizeMin.value || 0) * 1024 ** 3, maxBytes: Number(state.ui.sizeMax.value || 0) * 1024 ** 3, ips: selectedMulti(state.ui.ip), clients: selectedMulti(state.ui.client) };
+  }
+  __name(filters, "filters");
+  function filterSummary(sep) {
+    const f = filters();
+    return [`关键词: ${state.ui.keyword.value || "全部"}`, `体积: ${sizeSummary()}`, `客户端: ${summarySet(f.clients)}`, `IP: ${summarySet(f.ips)}`].join(sep);
+  }
+  __name(filterSummary, "filterSummary");
+  function sizeSummary() {
+    const min = clean(state.ui.sizeMin.value), max = clean(state.ui.sizeMax.value);
+    if (min && max) return `${min}-${max} GB`;
+    if (min) return `≥${min} GB`;
+    if (max) return `≤${max} GB`;
+    return "不限";
+  }
+  __name(sizeSummary, "sizeSummary");
+  function summarySet(set) {
+    return set.size ? [...set].map((v) => v === EMPTY_VALUE ? EMPTY_LABEL : v).join(", ") : "全部";
+  }
+  __name(summarySet, "summarySet");
+  function findTitleCell(cells) {
+    return cells.find((c) => c.querySelector("a[title]")) || cells.find((c) => c.querySelector('a[href*="details"],a[href*="torrent"],a[href*="/t/"]')) || cells[1] || cells[0];
+  }
+  __name(findTitleCell, "findTitleCell");
+  function findSizeText(cells) {
+    return readableText(cells.find((c) => /\d+(?:\.\d+)?\s*(?:TiB|GiB|MiB|KiB|TB|GB|MB|KB)/i.test(readableText(c))) || null);
+  }
+  __name(findSizeText, "findSizeText");
+  function parseSize(text2) {
+    const m = String(text2).replace(/iB/gi, "B").match(/(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|B)/i);
+    return m ? Number(m[1]) * ({ TB: 1024 ** 4, GB: 1024 ** 3, MB: 1024 ** 2, KB: 1024, B: 1 }[m[2].toUpperCase()] || 1) : 0;
+  }
+  __name(parseSize, "parseSize");
+
+  // src/scripts/pt-one-click-claim/torrents.js
+  function parseItems() {
+    return candidateRows().map(parseRow).filter(Boolean);
+  }
+  __name(parseItems, "parseItems");
+  function candidateRows() {
+    const ownRows = [...state.block?.querySelectorAll("tr") || []].filter((r) => !r.querySelector("#pt-claim-plus"));
+    if (ownRows.length > 1) return ownRows;
+    return [...document.querySelectorAll("table")].filter((t) => /标题/.test(t.innerText) && /客户端|IP|操作/.test(t.innerText)).flatMap((t) => [...t.rows]);
+  }
+  __name(candidateRows, "candidateRows");
+  function parseRow(row) {
+    if (!row.cells?.length) return null;
+    const claim = state.adapter.claim(row);
+    if (!claim) return null;
+    const cells = [...row.cells];
+    const titleCell = findTitleCell(cells);
+    const title = clean(titleCell?.querySelector("a[title]")?.getAttribute("title") || titleCell?.querySelector("a")?.textContent || titleCell?.textContent);
+    if (!title) return null;
+    const network = extractNetworkInfo(row);
+    const sizeText = findSizeText(cells);
+    return { row, cell: claim.cell || row.lastElementChild, id: claim.id, title, sizeText, sizeBytes: parseSize(sizeText), ips: network.ips, clients: network.clients };
+  }
+  __name(parseRow, "parseRow");
+
+  // src/scripts/pt-one-click-claim/claim.js
+  function preview() {
+    const targets = getTargets(true);
+    targets.forEach((t) => t.cell.style.backgroundColor = "orange");
+    setStatus(targets.length ? `检测到 ${targets.length} 个可认领种子；${filterSummary("；")}` : "没有符合筛选条件的可认领种子");
+  }
+  __name(preview, "preview");
+  async function doClaim() {
+    const targets = getTargets(true);
+    if (!targets.length) return setStatus("没有符合筛选条件的可认领种子");
+    if (!confirm(`确定要认领筛选出的 ${targets.length} 个种子吗？
+${filterSummary("\n")}`)) return;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const item = targets[i];
+      setStatus(`认领中 ${i + 1}/${targets.length}: ${item.title}`);
+      try {
+        await claimOne(item);
+        item.cell.style.backgroundColor = "lightgreen";
+        ok++;
+      } catch (e) {
+        console.log(`认领失败: ${item.title}`, e);
+        item.cell.style.backgroundColor = "pink";
+        fail++;
+      }
+      await sleep(DELAY_MS);
+    }
+    setStatus(`认领完成：成功 ${ok}，失败 ${fail}`);
+  }
+  __name(doClaim, "doClaim");
+  function getTargets(clearColor) {
+    state.items = parseItems();
+    if (clearColor) state.items.forEach((t) => t.cell.style.backgroundColor = "");
+    const f = filters();
+    return state.items.filter((item) => matchFilter(item, f));
+  }
+  __name(getTargets, "getTargets");
+  function matchFilter(item, f) {
+    if (!matchKeyword(item.title, f.keyword)) return false;
+    if (f.minBytes && (!item.sizeBytes || item.sizeBytes < f.minBytes)) return false;
+    if (f.maxBytes && (!item.sizeBytes || item.sizeBytes > f.maxBytes)) return false;
+    if (f.clients.size && !matchesSelected(item.clients, f.clients)) return false;
+    if (f.ips.size && !matchesSelected(item.ips, f.ips)) return false;
+    return true;
+  }
+  __name(matchFilter, "matchFilter");
+  function matchesSelected(values, selected) {
+    return values.length ? values.some((v) => selected.has(v)) : selected.has(EMPTY_VALUE);
+  }
+  __name(matchesSelected, "matchesSelected");
+  async function claimOne(item) {
+    const req = state.adapter.request(item);
+    const resp = await fetch(req.url, { method: req.method, headers: req.headers || {}, body: req.body || null, credentials: "same-origin" });
+    await state.adapter.validate(resp);
+  }
+  __name(claimOne, "claimOne");
+
+  // src/scripts/pt-one-click-claim/panel.js
+  function buildPanel() {
+    ensureStyle();
+    const box = el("div", { id: "pt-claim-plus" });
+    const head = el("div", { class: "ptc-head" });
+    const body = el("div", { class: "ptc-body" });
+    const filterRow = el("div", { class: "ptc-row ptc-filter-row" });
+    const actionRow = el("div", { class: "ptc-row" });
+    state.ui.keyword = input("claim-keyword", "2160p H265|HEVC -REMUX S01E*", "");
+    state.ui.keyword.className = "ptc-keyword";
+    state.ui.sizeMin = input("claim-size-min", "最小", "");
+    state.ui.sizeMin.className = "ptc-size";
+    state.ui.sizeMax = input("claim-size-max", "最大", "");
+    state.ui.sizeMax.className = "ptc-size";
+    state.ui.client = multiFilter("客户端");
+    state.ui.ip = multiFilter("IP");
+    state.ui.status = el("span", { class: "ptc-status" });
+    append(head, el("div", { class: "ptc-title" }), el("div", { class: "ptc-head-status" }));
+    head.firstChild.textContent = "PT一键认领 Plus";
+    head.lastChild.textContent = `已启用 ${state.adapter.name}`;
+    append(filterRow, field("关键词", state.ui.keyword), field("体积", state.ui.sizeMin), text("-"), field("", state.ui.sizeMax), text("GB"), state.ui.client.root, state.ui.ip.root);
+    append(actionRow, el("div", { class: "ptc-actions" }), state.ui.status);
+    append(actionRow.firstChild, button("刷新筛选", refreshItemsAndOptions), button("检测认领", preview, "ptc-btn-check"), button("确认认领", doClaim, "ptc-btn-primary"));
+    append(body, filterRow, actionRow);
+    append(box, head, body);
+    return box;
+  }
+  __name(buildPanel, "buildPanel");
+  function field(labelText, control) {
+    const wrap = el("label", { class: "ptc-field" });
+    if (labelText) wrap.append(text(labelText));
+    wrap.append(control);
+    return wrap;
+  }
+  __name(field, "field");
+  function refreshItemsAndOptions() {
+    state.items = parseItems();
+    fillMulti(state.ui.ip, state.items.flatMap((x) => x.ips), state.items.filter((x) => !x.ips.length).length);
+    fillMulti(state.ui.client, state.items.flatMap((x) => x.clients), state.items.filter((x) => !x.clients.length).length);
+    setStatus(`已启用 ${state.adapter.name}，可认领 ${state.items.length} 个`);
+  }
+  __name(refreshItemsAndOptions, "refreshItemsAndOptions");
+
+  // src/scripts/pt-one-click-claim/startup.js
+  async function init() {
+    state.adapter = adapters.find((a) => a.match());
+    state.block = getSeedingBlock();
+    if (!state.block || document.querySelector("#pt-claim-plus")) return console.log("当前做种未找到");
+    const hasFeature = await siteHasClaim(state.adapter);
+    if (!hasFeature) return console.log("当前站点无认领功能，隐藏操作栏");
+    insertPanel(buildPanel());
+    refreshItemsAndOptions();
+  }
+  __name(init, "init");
+  function bootstrap() {
+    window.addEventListener("load", init);
+  }
+  __name(bootstrap, "bootstrap");
+
+  // src/scripts/pt-one-click-claim/index.js
+  bootstrap();
+})();

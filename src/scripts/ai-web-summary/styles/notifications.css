@@ -1,0 +1,18 @@
+
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75); /* 稍微加深背景以便更清晰 */
+            color: white;
+            padding: 12px 22px; /* 稍微增大内边距 */
+            border-radius: 6px; /* 稍微增大圆角 */
+            z-index: 100005; /* 比其他模态框更高 */
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out, bottom 0.4s ease-in-out; /* 动画更平滑 */
+            font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+            font-size: 13px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25); /* 增加阴影效果 */
+            text-align: center;
+            max-width: 80%; /* 防止提示过宽 */
+        

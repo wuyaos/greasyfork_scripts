@@ -1,0 +1,3470 @@
+{
+  "schema": 1,
+  "baseline": "278cecfe6ad007f6e7b8707370bad85c31c1c9f6",
+  "scripts": {
+    "ai-web-summary": {
+      "file": "AI_WebSummary.user.js",
+      "sha256": "0691939313074b579ff66b6c9545aeae9524e089c2d412afbedc70e29fea56b0",
+      "metadata": "// ==UserScript==\n// @name         AI网页内容总结(自用)\n// @namespace    http://tampermonkey.net/\n// @version      2.0.5\n// @description  使用AI总结网页内容\n// @author       Jinfeng (modifed by ffwu)\n// @match        *://*/*\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_addStyle\n// @grant        GM.xmlHttpRequest\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/ai.png\n// @require      https://cdn.jsdelivr.net/npm/marked/marked.min.js\n// @require      https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js\n// @license      Apache-2.0\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/AI_WebSummary.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/AI_WebSummary.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 49,
+          "type": "VariableDeclaration",
+          "hash": "2928250b70f9ee915e5802b66ce483ec938acb858d4e8e15ca5092fcb9e09148"
+        },
+        {
+          "line": 52,
+          "type": "VariableDeclaration",
+          "hash": "138fb5d51d3fd77c4b51d7720f070f852efe4267e4e0727a431211cc76201d69"
+        },
+        {
+          "line": 160,
+          "type": "VariableDeclaration",
+          "hash": "e584fee2fb3d39f09de87bdda0b05cb6be6239251eb4701e49b8d7f600cf3c1c"
+        },
+        {
+          "line": 171,
+          "type": "VariableDeclaration",
+          "hash": "5c3f1b6e3b491e026fe44d2dbb16fc284019b7820f2f3206369b887e8a7180d8"
+        },
+        {
+          "line": 172,
+          "type": "FunctionDeclaration",
+          "hash": "d6ad2ee3a42692dca7351864d6b366d8776d586bbafa5e9ad3d788e3e49bff7a"
+        },
+        {
+          "line": 191,
+          "type": "FunctionDeclaration",
+          "hash": "cf2fcaf761be4caaa7e300b37c810d9a7f14a14f4b2913b9c928c498df8f19ef"
+        },
+        {
+          "line": 202,
+          "type": "FunctionDeclaration",
+          "hash": "71cb886a018b2e02198c5f1c80a8055b12d65cd540f73cdff9845f0125a1fa76"
+        },
+        {
+          "line": 215,
+          "type": "FunctionDeclaration",
+          "hash": "2b3ecbe77bbb77b35d1c1b25420dba1e50bf774389cbf1cf5d28ddc00fac48b7"
+        },
+        {
+          "line": 242,
+          "type": "FunctionDeclaration",
+          "hash": "2fe970e7ef53199a5fe7ac61488de886c3358b3b68f50d45225992694f4a89dd"
+        },
+        {
+          "line": 633,
+          "type": "FunctionDeclaration",
+          "hash": "f586287db9f0cf184ae1b87d459ac85e7577a8bee138c10e97ca81baaa88bbbe"
+        },
+        {
+          "line": 1012,
+          "type": "FunctionDeclaration",
+          "hash": "c7e48706c6225fe1a23a6b2b23f38b93902a26266d36eb46382d009dec88ade4"
+        },
+        {
+          "line": 1017,
+          "type": "FunctionDeclaration",
+          "hash": "f595ba2bf59320db4f0286ec4d9e8c4a513601bba25c5167ee51456c6d8e99be"
+        },
+        {
+          "line": 1644,
+          "type": "FunctionDeclaration",
+          "hash": "f9351253c50ae4b0f73639575a0664ac4722c9ed6c602b6df2be7ecd0bf0bfe8"
+        },
+        {
+          "line": 1681,
+          "type": "FunctionDeclaration",
+          "hash": "cd1a66d408274598710ad281df900806d14e0d15b3e77dd9e428d268ece3aee6"
+        },
+        {
+          "line": 1696,
+          "type": "FunctionDeclaration",
+          "hash": "e1b995de7c8c7e824ee074389b5be0e25f2bf9f2b1d0e85999057a6afe669e14"
+        },
+        {
+          "line": 1702,
+          "type": "FunctionDeclaration",
+          "hash": "d475e7ab69d78d844bea3fa383f62693a004f1a592ca6428028761a44bc9427f"
+        },
+        {
+          "line": 1769,
+          "type": "FunctionDeclaration",
+          "hash": "2eb6b451d052c753d30e2406eb7dbe14a0fece514b6cba453a90cb0045801eb8"
+        },
+        {
+          "line": 1773,
+          "type": "FunctionDeclaration",
+          "hash": "84104ad0d7e9637240c1a11f3c544850b746a892e4df942e89a42fdfdc5571e8"
+        },
+        {
+          "line": 1829,
+          "type": "VariableDeclaration",
+          "hash": "9d6d1f9def1a457edab6b85e02ba31f2667118797815601d3307d4b72376cd26"
+        },
+        {
+          "line": 1832,
+          "type": "FunctionDeclaration",
+          "hash": "bee929575da65a825160ae42df0662dc31f5f9d5bc9e668fa64b14ffed000288"
+        },
+        {
+          "line": 1955,
+          "type": "FunctionDeclaration",
+          "hash": "b186360e6403304e49d1cc25ec384c7dddb1132bf9b36ecad690ec9ace22c79e"
+        },
+        {
+          "line": 2401,
+          "type": "FunctionDeclaration",
+          "hash": "526a8cd15244da5109b9595a2ba29493b83d9ff5e046736625d078a5eafdde51"
+        },
+        {
+          "line": 2425,
+          "type": "FunctionDeclaration",
+          "hash": "55a15502516c5f4b13c9a1ea77b13b0c62c2dd143813c560506dc66c6abbd39d"
+        },
+        {
+          "line": 2430,
+          "type": "FunctionDeclaration",
+          "hash": "f977b8cf9dc7850e251d3f1ca3ede525080668e34ba18ee99725bcb349894617"
+        },
+        {
+          "line": 2435,
+          "type": "FunctionDeclaration",
+          "hash": "548487c12fcfb536fbfbcb370f8c493a1113d471ef002650acad923298ea66cd"
+        },
+        {
+          "line": 2443,
+          "type": "FunctionDeclaration",
+          "hash": "1d48a2d85ca1f0626b126dbff74a438f3456518ac362c602d1e9934a9c345023"
+        },
+        {
+          "line": 2486,
+          "type": "FunctionDeclaration",
+          "hash": "d40dc98677e3d010ee7999c33c014ba725f5595f0975541e7d69f64a22735de9"
+        },
+        {
+          "line": 2607,
+          "type": "VariableDeclaration",
+          "hash": "501bb8bf4916b446b12b7af18c33e5b9b96bd9669bd9065066e1fb727e855784"
+        },
+        {
+          "line": 2609,
+          "type": "FunctionDeclaration",
+          "hash": "88b3c03bbba277f9faa64550cc8c59239313c578371bc43a5f2405161eec519d"
+        },
+        {
+          "line": 2643,
+          "type": "IfStatement",
+          "hash": "ff47ddd551cfb261f18ed762d227c3fce7061280dc03c7d2d38a49f869284b74"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Blob",
+        "DOMPurify",
+        "Date",
+        "Error",
+        "Event",
+        "GM",
+        "GM_getValue",
+        "GM_setValue",
+        "JSON",
+        "Math",
+        "Promise",
+        "TextDecoder",
+        "URL",
+        "alert",
+        "cancelAnimationFrame",
+        "clearTimeout",
+        "confirm",
+        "console",
+        "decodeURIComponent",
+        "document",
+        "isNaN",
+        "marked",
+        "navigator",
+        "panel",
+        "parseInt",
+        "requestAnimationFrame",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "2.0.6"
+    },
+    "bangumi-enhanced": {
+      "file": "Bangumi_Enhanced.user.js",
+      "sha256": "e9980f001fb1d6c42212cd7d3a9c6e54af4b3725672e20b9dfa51f4a386d7cf8",
+      "metadata": "// ==UserScript==\n// @name         Bangumi Enhanced (中文标题与放送优化)\n// @namespace    https://greasyfork.org/zh-CN/users/756550\n// @version      1.0.0\n// @description  Bangumi增强脚本：显示中文标题，优化放送日历(仿B站番剧时间表)。\n// @author       ffwu\n// @match        http*://bgm.tv/*\n// @match        http*://bangumi.tv/*\n// @match        http*://chii.in/*\n// @icon         https://bgm.tv/img/favicon.ico\n// @grant        GM_addStyle\n// @run-at       document-start\n// @icon         https://bgm.tv/img/favicon.ico\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Bangumi_Enhanced.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Bangumi_Enhanced.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 23,
+          "type": "VariableDeclaration",
+          "hash": "e8a23d6e70ffb822a9732fe57af00405e86698f380a9348c0120c5f4c87bd51e"
+        },
+        {
+          "line": 24,
+          "type": "VariableDeclaration",
+          "hash": "8c8aace51d3d40b4b93d790a1ac70c39ca623ac1a9fe9ab567e3e991574b3073"
+        },
+        {
+          "line": 27,
+          "type": "VariableDeclaration",
+          "hash": "7b0eba779fa11ac758915f141a6540d4f7f79fb356f483288aaa1dd613e96fea"
+        },
+        {
+          "line": 28,
+          "type": "VariableDeclaration",
+          "hash": "a1840b12a594df6184e2564d639e6fda766105f5fc47053f74095bda21e88cfd"
+        },
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "bf31e41570bf38601e71c00f00487a89a08e96c8fbd8859c4dda348b2e7bb538"
+        },
+        {
+          "line": 33,
+          "type": "VariableDeclaration",
+          "hash": "58a935182c2f32abaae7edda5c257760e34ac4607c94c38edee601850f248f83"
+        },
+        {
+          "line": 37,
+          "type": "VariableDeclaration",
+          "hash": "849ae7bd1c046e94eab45a13229da07712591a7be0b1dbfc08f66ad2bc9ff08d"
+        },
+        {
+          "line": 42,
+          "type": "VariableDeclaration",
+          "hash": "381701e48a5e940e2b3f0db878358e63ec113421dcf684d63e49c8a3df8f423c"
+        },
+        {
+          "line": 43,
+          "type": "VariableDeclaration",
+          "hash": "a87497aaa9e25c8e3c798ae35c7fac6bc1032e11edd3ee2d6f58f57682209599"
+        },
+        {
+          "line": 44,
+          "type": "VariableDeclaration",
+          "hash": "21693860f1b9229094a16da8b80d30c9068225c8b017ba81834610701622af06"
+        },
+        {
+          "line": 45,
+          "type": "VariableDeclaration",
+          "hash": "098ed1d5f04eb45c7a32c38759e63bd8df88c825a5eb6153374fae4ad551ae9f"
+        },
+        {
+          "line": 46,
+          "type": "VariableDeclaration",
+          "hash": "48d46dcf56bf56520683959760031eaabc8e41391c64e8cff16d1a164cd61862"
+        },
+        {
+          "line": 50,
+          "type": "FunctionDeclaration",
+          "hash": "dd9be7436bb2ecc3b892160cdce12695933f4ad1ee5dc12026d8e2ef570fdbba"
+        },
+        {
+          "line": 301,
+          "type": "ExpressionStatement",
+          "hash": "73fcaf87d2527938ebd2731bd42b3d11afaabb9f212d22d255ae822d1f9388f1"
+        },
+        {
+          "line": 306,
+          "type": "FunctionDeclaration",
+          "hash": "8237cba940f55feede16329c4a2aa1fc8a5db0608fd377b3a85c434dce948143"
+        },
+        {
+          "line": 326,
+          "type": "FunctionDeclaration",
+          "hash": "c73c6cddad93b6ac4490a02a920fe3a9586c061904348b95c3cc84a13907f990"
+        },
+        {
+          "line": 346,
+          "type": "FunctionDeclaration",
+          "hash": "d6ae90a4730c0ce9a345c1c9eb838542cb6d7e343f876546bd5e911653033747"
+        },
+        {
+          "line": 352,
+          "type": "FunctionDeclaration",
+          "hash": "498399faf6cb5f9ca4b7b8e3d3cf7591d3dd4ba45ca9e7763ab0ed117ebb981d"
+        },
+        {
+          "line": 392,
+          "type": "FunctionDeclaration",
+          "hash": "4468591ae5282737f0e35599744db236c92a40fb332f07c5c51e0788637d372d"
+        },
+        {
+          "line": 418,
+          "type": "FunctionDeclaration",
+          "hash": "2dbcb0aaa6702f2eaaa58561ad2397c6178e3baadaff2fb3bf58c30f6dbc14a1"
+        },
+        {
+          "line": 466,
+          "type": "FunctionDeclaration",
+          "hash": "96977fd5c22d71d75cb15857baca38bb449024c603ee61c869f982ca0f7d820e"
+        },
+        {
+          "line": 480,
+          "type": "ExpressionStatement",
+          "hash": "1c4e128504037a941b6391fbd8a0f2f88613322c0477f7a303ba2339a16ba1a1"
+        }
+      ],
+      "globals": [
+        "Date",
+        "GM_addStyle",
+        "clearInterval",
+        "console",
+        "document",
+        "parseInt",
+        "setInterval",
+        "window"
+      ],
+      "version": "1.0.1"
+    },
+    "github-releases": {
+      "file": "GitHubReleases_NavigationEnhancer.user.js",
+      "sha256": "ca09f25d85c4c095583dff376b321ef8a7cb237a2fccc41bf721389687c8535f",
+      "metadata": "// ==UserScript==\n// @name          GitHub Releases 浏览优化(自用)\n// @namespace     https://github.com/wuyaos\n// @icon          https://github.githubassets.com/pinned-octocat.svg\n// @version       2.0.2\n// @description   解决发布说明过长挤占发布列表空间、发布文件过多难定位目标文件的问题，通过优化说明界面和增加筛选功能，实现需求文件的快速定位，提升浏览体验。\n// @author        eecopilot, wha4up (modified by ffwu)\n// @match         https://github.com/*\n// @grant         GM_setValue\n// @grant         GM_getValue\n// @grant         GM_registerMenuCommand\n// @license       MIT\n// @downloadURL   https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/GitHubReleases_NavigationEnhancer.user.js\n// @updateURL     https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/GitHubReleases_NavigationEnhancer.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 20,
+          "type": "VariableDeclaration",
+          "hash": "f243997e8e67758de06cdf23d57ac0e7efb5b68922fbedfe29e7e71b11b0333c"
+        },
+        {
+          "line": 25,
+          "type": "VariableDeclaration",
+          "hash": "806ad4881a5da1a1ac7c1dbfc7663d1835652ea148e5df38f094aa19ee414166"
+        },
+        {
+          "line": 100,
+          "type": "VariableDeclaration",
+          "hash": "f9ad3b88ff1024b91541f7977ec012e98fcf47c68afe66e25f45870d6f10f34c"
+        },
+        {
+          "line": 127,
+          "type": "VariableDeclaration",
+          "hash": "605a3d8d56e2bc602721515c6ea158497d2415930b58610ff98213d87e0f2e65"
+        },
+        {
+          "line": 169,
+          "type": "VariableDeclaration",
+          "hash": "82c6cfbc9e3f684242d4deef9cf4a1685646c6918842d4a9a3570ba7a44aa525"
+        },
+        {
+          "line": 1786,
+          "type": "FunctionDeclaration",
+          "hash": "bba421ca16bcf38caaa32f6a582c7a258a3c608ed23abcf22ddc7560f06cf015"
+        },
+        {
+          "line": 1801,
+          "type": "FunctionDeclaration",
+          "hash": "2fec8fe49167f12ed46a9fd942a197d70cb5caed3ff970d771ef413b1bca9c2b"
+        },
+        {
+          "line": 1807,
+          "type": "IfStatement",
+          "hash": "b3746354db21d15f10720045fd1f6df970a4b74450ffbad6206f381391386008"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Date",
+        "GM_deleteValue",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "Map",
+        "MutationObserver",
+        "Node",
+        "Object",
+        "RegExp",
+        "Set",
+        "clearTimeout",
+        "console",
+        "document",
+        "isNaN",
+        "location",
+        "navigator",
+        "parseInt",
+        "queueMicrotask",
+        "requestAnimationFrame",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "2.0.3"
+    },
+    "iyuu-reseed-checker": {
+      "file": "IYUU_Reseed_Checker.user.js",
+      "sha256": "9a95d0ff389db97d392278ec504827bb217120b41784210af72fff98ac4cf87d",
+      "metadata": "// ==UserScript==\n// @name         IYUU 辅种检测助手(自用)\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      1.1.17\n// @description  在PT/BT种子页面手动查询 IYUU 辅种信息，并用小图标展示可辅种站点。\n// @author       ffwu & AI\n// @include      /^https?:\\/\\/[^/]+\\/details\\.php\\?[^#]*\\bid=/\n// @match        https://totheglory.im/t/*\n// @match        https://*.m-team.cc/detail/*\n// @match        https://*.m-team.io/detail/*\n// @match        https://*.m-team.vip/detail/*\n// @match        https://hdcity.city/t-*\n// @include      /^https:\\/\\/greatposterwall\\.com\\/torrents\\.php\\?(?=[^#]*\\bid=)[^#]*(?:#.*)?$/\n// @exclude      /^https?:\\/\\/([^/]+\\.)?orpheus\\.network\\//\n// @include      /^https?:\\/\\/([^/]+\\.)?haidan\\.(cc|video)\\/details\\.php\\?(?=[^#]*\\bgroup_id=)[^#]*(?:#.*)?$/\n// @match        https://iptorrents.com/torrent.php?id=*\n// @match        https://eiga.moi/torrents/*\n// @include      /^https:\\/\\/hd-space\\.org\\/index\\.php\\?(?=[^#]*\\bpage=torrent-details\\b)(?=[^#]*\\bid=)[^#]*(?:#.*)?$/\n// @match        https://beyond-hd.me/torrents/*\n// @include      /^https:\\/\\/monikadesign\\.uk\\/torrents\\/[0-9]+\\/?$/\n// @grant        GM_xmlhttpRequest\n// @grant        GM_setValue\n// @grant        GM_getValue\n// @grant        GM_deleteValue\n// @grant        GM_addStyle\n// @grant        GM_registerMenuCommand\n// @grant        GM_openInTab\n// @grant        GM_log\n// @connect      self\n// @connect      2025.iyuu.cn\n// @connect      zmpt.cc\n// @connect      bangumi.moe\n// @connect      api.m-team.cc\n// @connect      *.m-team.cc\n// @connect      *\n// @license      MIT\n// @icon         https://doc.iyuu.cn/logo_28.png\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/IYUU_Reseed_Checker.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/IYUU_Reseed_Checker.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 61,
+          "type": "VariableDeclaration",
+          "hash": "b33ee1408f53982ea75612dafd595bcecde162218cb63838a583db13756778b0"
+        },
+        {
+          "line": 62,
+          "type": "VariableDeclaration",
+          "hash": "eeac19e6e0e13f62be6ecfb176035a766db095eaa89fbb522b1c5d351f6c262d"
+        },
+        {
+          "line": 63,
+          "type": "VariableDeclaration",
+          "hash": "9f50c212feeeba968aaca4e5d264a0b12677f9d0c6de56052793a79b23f12914"
+        },
+        {
+          "line": 64,
+          "type": "VariableDeclaration",
+          "hash": "21afde1f8316991d7857b932e35b2bdb315f7dd0921fea45b5adc2d1a2d0904c"
+        },
+        {
+          "line": 65,
+          "type": "VariableDeclaration",
+          "hash": "c18c65fde224e9227a9b0ae9872a374b09845af00a2189f898f4c0f46dc13eda"
+        },
+        {
+          "line": 73,
+          "type": "VariableDeclaration",
+          "hash": "aad7aa0a41698eaab1f06fcffae1273bbcf854662e62bf9283c2d0b0b8ef9912"
+        },
+        {
+          "line": 74,
+          "type": "VariableDeclaration",
+          "hash": "18d15bdb34f37c5b73c7de822d7727fc8eddad1dd734d200d1b36debb41cc914"
+        },
+        {
+          "line": 75,
+          "type": "VariableDeclaration",
+          "hash": "606c537a2070e3331fcd056a6507306fa87219547876e83e26dbafdc68a0cf4a"
+        },
+        {
+          "line": 76,
+          "type": "VariableDeclaration",
+          "hash": "bfa5b4dad44dcc141fa5d0d31c8dd2baa1013ac72dc09b6310eff919709ee01c"
+        },
+        {
+          "line": 77,
+          "type": "VariableDeclaration",
+          "hash": "b092e335e823e818447142a73848116c8242acd1043ba525fff52894ad1eadde"
+        },
+        {
+          "line": 78,
+          "type": "VariableDeclaration",
+          "hash": "1fe733aed13c8330049f4c523f2fcda408b75f32e99937ed1eec3feec1e388fb"
+        },
+        {
+          "line": 79,
+          "type": "VariableDeclaration",
+          "hash": "fbc7ce9e53d6b4e36f1f314718175c5b9a45e9c26470e5a55bcda2c0c51ab882"
+        },
+        {
+          "line": 128,
+          "type": "VariableDeclaration",
+          "hash": "c4d4ea40ec335379c5eec47905113b327f7cc0890081fce8b89dc78864ea9314"
+        },
+        {
+          "line": 137,
+          "type": "VariableDeclaration",
+          "hash": "f45effc51d010fac8f810fb51b11b198368138e72f21753f33b45d81d4fc6066"
+        },
+        {
+          "line": 141,
+          "type": "VariableDeclaration",
+          "hash": "b39d08e2252715cd672633eb878db5d2ee083d022530596f691d6c784c445120"
+        },
+        {
+          "line": 142,
+          "type": "VariableDeclaration",
+          "hash": "3e9ae2261ca823d85841160e76400863675eae433fc2f36d79713030362fa980"
+        },
+        {
+          "line": 146,
+          "type": "VariableDeclaration",
+          "hash": "2d99e806f78d637daff9fb5265a0f7d5e17f42824e0fa1e92ae82cdad822ea9b"
+        },
+        {
+          "line": 153,
+          "type": "VariableDeclaration",
+          "hash": "bca1dcda8da5d4a26c8a1dcd809920279b1ca257c5a469b498559c66edf2295f"
+        },
+        {
+          "line": 160,
+          "type": "VariableDeclaration",
+          "hash": "3ee381db92a486856f557277ef86103ca0cb02db882f01a024792d0afeedf109"
+        },
+        {
+          "line": 170,
+          "type": "VariableDeclaration",
+          "hash": "c5321e7de80e95036b90abee9a3beba29b04cf1583c4d13d5e20b2d2e83c2a44"
+        },
+        {
+          "line": 199,
+          "type": "VariableDeclaration",
+          "hash": "bf428e6bd58928f453bafa48ccf98f42b4205f00fc9a27bfee504144239be6db"
+        },
+        {
+          "line": 365,
+          "type": "VariableDeclaration",
+          "hash": "61163faaa3f3b8e4a5f09c8f580f4f0746a123899560d1864275c523c6885702"
+        },
+        {
+          "line": 1204,
+          "type": "VariableDeclaration",
+          "hash": "d3e20181ab4c9fd1f96b28abc2347f27491b3135347ef4fed6b1b382660cf0df"
+        },
+        {
+          "line": 1211,
+          "type": "VariableDeclaration",
+          "hash": "a78fc7b1e6f4c08b1ddf64fcf0f7532da4e92c3081e40b8a1a643fd9bbd2cdbd"
+        },
+        {
+          "line": 1235,
+          "type": "VariableDeclaration",
+          "hash": "cc2aa3eb661d15fd75d7e1dcfa424d2eea193f5e3c290d63563b3c39c2423349"
+        },
+        {
+          "line": 1242,
+          "type": "VariableDeclaration",
+          "hash": "aa9fe6a1f576ad6310925a723faeb231759175bc7b77115f02fc08728a98ac98"
+        },
+        {
+          "line": 1432,
+          "type": "VariableDeclaration",
+          "hash": "f3bfb811cbefae9584aa2dd3bc843d7bd693bc120b3310d8b7200b6c20be776e"
+        },
+        {
+          "line": 1459,
+          "type": "VariableDeclaration",
+          "hash": "07c0f1992d74e3579dceb45f5ecc12a079002feea211002796e614c8bae2ba8c"
+        },
+        {
+          "line": 1502,
+          "type": "VariableDeclaration",
+          "hash": "2ce56eb555625e3d2e700027e02b82efce50a921dabdb1ccab76a50f0b48b317"
+        },
+        {
+          "line": 1561,
+          "type": "VariableDeclaration",
+          "hash": "97fbacc097a0317a46009a2599c314557e94f06de44af32f799d374170f17788"
+        },
+        {
+          "line": 1682,
+          "type": "VariableDeclaration",
+          "hash": "b4064971d9fc91ae7d12016fa54a66b7cf4b4d4ab8fef713035bdf02c00050dc"
+        },
+        {
+          "line": 1735,
+          "type": "VariableDeclaration",
+          "hash": "28bcdc71bac2f424b081f38d32b24fc4510bcc93a442e3c1c79334b99c605c23"
+        },
+        {
+          "line": 1784,
+          "type": "VariableDeclaration",
+          "hash": "37712b90d30105d3122f4096e12d97a35aa902d4e1ebdd8289c2c6e0c25fa749"
+        },
+        {
+          "line": 1794,
+          "type": "VariableDeclaration",
+          "hash": "2ff2936879f4d18053553d60c4621afde197f80f20c64cb873b0cf109099533c"
+        },
+        {
+          "line": 1801,
+          "type": "VariableDeclaration",
+          "hash": "088ac364866cfeb2c351ae4179c2b7d4d8f90023b83a7e8271681f0184dd701c"
+        },
+        {
+          "line": 1802,
+          "type": "VariableDeclaration",
+          "hash": "eb0ed4eff19aafaf18a9c0242aaf46a92e2d4f8575b7c9f8c341e7f06f617b39"
+        },
+        {
+          "line": 1804,
+          "type": "VariableDeclaration",
+          "hash": "e4022a32961c50dfbfc3342795cf0131b2e15050692d5a500539f7a24c2f2d2c"
+        },
+        {
+          "line": 2152,
+          "type": "VariableDeclaration",
+          "hash": "1f6f673ed401f4f12febcf14bab718fb74fa3652ca6204f60664025590a4fbe4"
+        },
+        {
+          "line": 2587,
+          "type": "FunctionDeclaration",
+          "hash": "b2232f23eba4618a5058a17caa0ceea414a5a734dae823307d1efef7f77e09f3"
+        },
+        {
+          "line": 2631,
+          "type": "ExpressionStatement",
+          "hash": "5e96bc4dbea4960e1da87f41dcf2dc4d8f90afcd907830536889e1c708696c2e"
+        }
+      ],
+      "globals": [
+        "Array",
+        "ArrayBuffer",
+        "Boolean",
+        "Date",
+        "Element",
+        "Error",
+        "GM_addStyle",
+        "GM_deleteValue",
+        "GM_getValue",
+        "GM_log",
+        "GM_openInTab",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "Map",
+        "Math",
+        "MutationObserver",
+        "Number",
+        "Object",
+        "Promise",
+        "Set",
+        "String",
+        "TextDecoder",
+        "TextEncoder",
+        "URL",
+        "URLSearchParams",
+        "Uint32Array",
+        "Uint8Array",
+        "confirm",
+        "console",
+        "document",
+        "encodeURIComponent",
+        "fetch",
+        "globalThis",
+        "location",
+        "parseInt",
+        "setInterval",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "1.1.18"
+    },
+    "local-debug-loader": {
+      "file": "Local_Debug_Loader.user.js",
+      "sha256": "4477bf3fc60b15688937386bb2502dedcc891c35cc5355e2f3f60439baefba82",
+      "metadata": "// ==UserScript==\n// @name         Local Debug Loader\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.2.3\n// @description  通过本地 HTTP 文件服务器动态加载仓库里的 IYUU 与 MoviePilot 脚本，方便外部编辑器实时调试。\n// @author       wuya\n// @include      /^https?:\\/\\/[^/]+\\/details\\.php\\?[^#]*\\bid=/\n// @match        https://totheglory.im/t/*\n// @match        https://bangumi.moe/torrent/*\n// @match        https://mikanani.me/Home/Episode/*\n// @match        https://*.m-team.cc/detail/*\n// @match        https://*.m-team.io/detail/*\n// @match        https://*.m-team.vip/detail/*\n// @match        https://hdcity.city/t-*\n// @include      /^https:\\/\\/greatposterwall\\.com\\/torrents\\.php\\?(?=[^#]*\\bid=)(?=[^#]*\\btorrentid=)[^#]*(?:#.*)?$/\n// @match        https://iptorrents.com/torrent.php?id=*\n// @match        https://eiga.moi/torrents/*\n// @include      /^https:\\/\\/hd-space\\.org\\/index\\.php\\?(?=[^#]*\\bpage=torrent-details\\b)(?=[^#]*\\bid=)[^#]*(?:#.*)?$/\n// @match        https://beyond-hd.me/torrents/*\n// @include      /^https:\\/\\/monikadesign\\.uk\\/torrents\\/[0-9]+\\/?$/\n// @match        https://acg.rip/t/*\n// @match        https://nyaa.si/view/*\n// @include      /^https?:\\/\\/([^/]+\\.)?(comicat|kisssub)\\.org\\/show-[a-f0-9]{40}\\.html(?:[?#].*)?$/\n// @grant        GM_log\n// @grant        GM_xmlhttpRequest\n// @grant        GM_setValue\n// @grant        GM_getValue\n// @grant        GM_deleteValue\n// @grant        GM_addStyle\n// @grant        GM_registerMenuCommand\n// @grant        GM_openInTab\n// @grant        GM_setClipboard\n// @grant        GM_info\n// @connect      self\n// @connect      127.0.0.1\n// @connect      localhost\n// @connect      2025.iyuu.cn\n// @connect      zmpt.cc\n// @connect      bangumi.moe\n// @connect      api.m-team.cc\n// @connect      api.m-team.io\n// @connect      api.m-team.vip\n// @connect      *.m-team.cc\n// @connect      *.m-team.io\n// @connect      *.m-team.vip\n// @connect      halomt.com\n// @connect      *\n// @run-at       document-idle\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 60,
+          "type": "VariableDeclaration",
+          "hash": "5a464501bfc89619ca88c7ab40cf63fe3659c39fa516f468c6311f6778247592"
+        },
+        {
+          "line": 61,
+          "type": "VariableDeclaration",
+          "hash": "056ccb68db6ff7e253c842b537f1cdbec6d3280759c6d1e0a193036e71048e74"
+        },
+        {
+          "line": 63,
+          "type": "VariableDeclaration",
+          "hash": "12ea6d6c1c709f7cb4ef18424616959e3270f1ba59225577ca0f1c6f89bec2e5"
+        },
+        {
+          "line": 69,
+          "type": "FunctionDeclaration",
+          "hash": "585346ec7a00abb6cefcfe5764c5c09f5063c511bc47fafad5f97ed9c193cba2"
+        },
+        {
+          "line": 87,
+          "type": "FunctionDeclaration",
+          "hash": "c0df47df9d7fe1db018826fd4cefc0832bcd42e2023745307414a615819541e5"
+        },
+        {
+          "line": 92,
+          "type": "FunctionDeclaration",
+          "hash": "3cffed774eeb48c50c0651a7081d485d03d029a573cbae6c962d80f6fb0519ed"
+        },
+        {
+          "line": 106,
+          "type": "VariableDeclaration",
+          "hash": "bdf00cdb81bcbe575d0130032132439efac343d86f7a5840abe6eec96e0df0c6"
+        },
+        {
+          "line": 107,
+          "type": "IfStatement",
+          "hash": "12798a09d5b3be6c3c7a875597ca302e3461bc41caae5ce9907dc304bf2a4e9c"
+        }
+      ],
+      "globals": [
+        "Date",
+        "Error",
+        "GM_log",
+        "GM_xmlhttpRequest",
+        "Promise",
+        "String",
+        "console",
+        "document",
+        "eval",
+        "location"
+      ],
+      "version": "0.2.4"
+    },
+    "lounge-irc-translator": {
+      "file": "Lounge_IRC_Translator.user.js",
+      "sha256": "ee40ed4b1f9590aedd523d0cd7211fd98c2304a17247bf50b40f8ead82b6d26d",
+      "metadata": "// ==UserScript==\n// @name         Lounge IRC 翻译助手\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.8.5\n// @description  The Lounge IRC 翻译助手：频道外文消息自动翻译为中文（引擎可选谷歌/LLM），译文内联下划虚线跟随原文；常驻侧边面板提供候选回答与常用语（{nick} 点名、自定义增删），免展开；中文输入 Enter 预览确认（预览与频道消息同列）或快捷键就地翻译（三连空格/Tab/Ctrl+Enter 可选），风格提示词可自定义；LLM 思考模式可配置。/命令、#频道、昵称原样保留。\n// @author       wuyaos & AI\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/lounge-irc-translator.png\n// @match        http://192.168.123.115:9033/*\n// @run-at       document-idle\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        GM_xmlhttpRequest\n// @grant        GM_addStyle\n// @connect      *\n// @noframes\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Lounge_IRC_Translator.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Lounge_IRC_Translator.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 25,
+          "type": "VariableDeclaration",
+          "hash": "9ed4fa7d6cd5dbf58d72bf5ff72bf906916f020ead6b6acd7d7554a9c21d3080"
+        },
+        {
+          "line": 26,
+          "type": "VariableDeclaration",
+          "hash": "a6f5d5b9b2578616f5b65dc6e4780272ad7c980a654718b94f8c48b79344fda4"
+        },
+        {
+          "line": 27,
+          "type": "VariableDeclaration",
+          "hash": "7a03e59676f4fa92bd3087e6e580fc3be59b91a26fc0d0e8ce563667db194086"
+        },
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "d1f5b01fc1e8172399b10c7aa4df0ce8ed418ded75f69c02b1a6dfee046bb03c"
+        },
+        {
+          "line": 44,
+          "type": "VariableDeclaration",
+          "hash": "597153d5ca59e66f38fa220bdcfe20850cb85842b41666e7a30f4f52269f290d"
+        },
+        {
+          "line": 46,
+          "type": "VariableDeclaration",
+          "hash": "a3a5e2dd0070cc7c633c1630e8e82926d6c6d77a4fdb01d981ab55227155572b"
+        },
+        {
+          "line": 47,
+          "type": "VariableDeclaration",
+          "hash": "fba33eae4df86e857e4dc7e7ec0354c112bfdd409b612e56612b8e8bda9a3f15"
+        },
+        {
+          "line": 49,
+          "type": "VariableDeclaration",
+          "hash": "884324454f3d67dc254f1b4a0a4b9cd455da83302dd1981ffc47fc15465113cf"
+        },
+        {
+          "line": 55,
+          "type": "VariableDeclaration",
+          "hash": "1b30caa03f4f25229373ecf1a50c09873cdaa2fd6aa8aee23fdf1bb2dd16c9af"
+        },
+        {
+          "line": 73,
+          "type": "FunctionDeclaration",
+          "hash": "abed98634c13256cd9eb6573c3256b2ac3253086c0d6dafbc710bc89f545218f"
+        },
+        {
+          "line": 77,
+          "type": "FunctionDeclaration",
+          "hash": "064e25bdcd5a337fb0a529c62161f820e2e88d8c39c7b61e099092e92a7fe020"
+        },
+        {
+          "line": 86,
+          "type": "FunctionDeclaration",
+          "hash": "7a854b96c29b0764fe4b18ce790d22959aa3f2edfe1a448dbecd4405a52597c5"
+        },
+        {
+          "line": 111,
+          "type": "FunctionDeclaration",
+          "hash": "86139bebba92006a277dcc0a86d3e16510eda0a47325595d7f1159ae4c75a069"
+        },
+        {
+          "line": 129,
+          "type": "FunctionDeclaration",
+          "hash": "52b09af00cc94642e3a8a5833542e68aa6693a07208b8a96ba3d2e9fb914b438"
+        },
+        {
+          "line": 135,
+          "type": "FunctionDeclaration",
+          "hash": "afffd91eec1839db4f017686e4625aa3e31bffab201bc42a1140df6a6ec43b1c"
+        },
+        {
+          "line": 145,
+          "type": "FunctionDeclaration",
+          "hash": "d93801a9f763bee20834d66d709aa88e424b2339fc4d7942385076d8303f5e24"
+        },
+        {
+          "line": 151,
+          "type": "FunctionDeclaration",
+          "hash": "e38e06624db333cca5dd9dc052a3cc7e837033d289436ed51e798403934f9284"
+        },
+        {
+          "line": 168,
+          "type": "FunctionDeclaration",
+          "hash": "bd854f068d143cca3ae450b249e5db1b95a6c426fd1de0c22f7c73bc4c71b281"
+        },
+        {
+          "line": 180,
+          "type": "FunctionDeclaration",
+          "hash": "70afc721e1bd3de697526a66ddcd196d7d40ed019d6c61bd20841522431fb04f"
+        },
+        {
+          "line": 193,
+          "type": "FunctionDeclaration",
+          "hash": "a95638b343448499c6fb7816110b8385bc0f7ac92a769bdd8d93cb311d617719"
+        },
+        {
+          "line": 207,
+          "type": "FunctionDeclaration",
+          "hash": "d54ca40ab6fc7394179c0cb9b018c115baa0405b7622ea65afff454f0ba6ed6c"
+        },
+        {
+          "line": 228,
+          "type": "FunctionDeclaration",
+          "hash": "b341bc04f158efe0289fbe1892da62ab907dac898c09533a36e5339bcc5d4067"
+        },
+        {
+          "line": 261,
+          "type": "VariableDeclaration",
+          "hash": "35cb26fb9cd0a04dee8412eabcd2c3e4d6f1d58126622b3c20b5f3658ee405a0"
+        },
+        {
+          "line": 262,
+          "type": "FunctionDeclaration",
+          "hash": "740b65daf61ab041a06665ad56fc5247a3b56dc89ed1c6dfc47d3bc5b4ac70ab"
+        },
+        {
+          "line": 279,
+          "type": "FunctionDeclaration",
+          "hash": "fa4e363014c9c214068c372d75af94d9e539c88a68c327258333e7d19ab9d241"
+        },
+        {
+          "line": 292,
+          "type": "FunctionDeclaration",
+          "hash": "03c7011faae6ccc11cfbf09b11218aca22a98daca1cac25f043576e007489dc2"
+        },
+        {
+          "line": 365,
+          "type": "FunctionDeclaration",
+          "hash": "ec099bde80b3f7e0205960d1208895f100edc44a3d9ddc3a55c2d50e29383391"
+        },
+        {
+          "line": 393,
+          "type": "FunctionDeclaration",
+          "hash": "4cccebf86f7d743764aa3ca51424e8eaa65f825dc485176e3d87ad25c91dd216"
+        },
+        {
+          "line": 402,
+          "type": "VariableDeclaration",
+          "hash": "a9b89e16c6120f0d3ed1aa9889c731de8ba5b7e8873b0b6cc3c9ca5e48c5f849"
+        },
+        {
+          "line": 479,
+          "type": "FunctionDeclaration",
+          "hash": "3b9b6e5e4fa2d31647120f87621c4f2f89b9ff52d94e0cb61f830a691dea8756"
+        },
+        {
+          "line": 486,
+          "type": "FunctionDeclaration",
+          "hash": "10f2b734140417cf1b9f5f119d4c7925f86793a37995e30b0979bc562767140b"
+        },
+        {
+          "line": 491,
+          "type": "FunctionDeclaration",
+          "hash": "e23da9ab5ca46b0ebd488862c734bf581c14707ff6cc146ee9324f1d11569d93"
+        },
+        {
+          "line": 564,
+          "type": "FunctionDeclaration",
+          "hash": "c058413c19ad11eafe38cb27a1f4a149f2485a5d8c88ec436d3b43b7631fe138"
+        },
+        {
+          "line": 568,
+          "type": "VariableDeclaration",
+          "hash": "8f952c5e8728e8abdfb9e0e9398fa51ff346893e6195a5ffdba76338c18f62d1"
+        },
+        {
+          "line": 569,
+          "type": "VariableDeclaration",
+          "hash": "95fa19bdb9c826326bd84a5df22a4a04d1b37f932b11d5a641fb0399d3981f82"
+        },
+        {
+          "line": 570,
+          "type": "FunctionDeclaration",
+          "hash": "781b3780de577ab00f98ce8f6c47e2f45361ef3603fdfe11a446467d7633683a"
+        },
+        {
+          "line": 578,
+          "type": "FunctionDeclaration",
+          "hash": "7556582aea882305330cc5b6405e089fcec99acac74d21bf3095dd8dc386c643"
+        },
+        {
+          "line": 588,
+          "type": "VariableDeclaration",
+          "hash": "23466cbd867824bc670c217043242889df1f3d8a6f9c4e2dd820a35ff1a716be"
+        },
+        {
+          "line": 589,
+          "type": "VariableDeclaration",
+          "hash": "7111afcc9d1278abf526fa731eeae411686fcce871232cd1f105a6a52ed2dc89"
+        },
+        {
+          "line": 591,
+          "type": "VariableDeclaration",
+          "hash": "fffbe5bd044cc42a60161aeb1168f1dd420784a7b5c92eb9c2bb3ca75bed2ada"
+        },
+        {
+          "line": 592,
+          "type": "VariableDeclaration",
+          "hash": "decc45ad514e456978f2f6ad1ee122ab47b43db80709a7b9386bbe967cf14f24"
+        },
+        {
+          "line": 593,
+          "type": "VariableDeclaration",
+          "hash": "debe59d23d445a1857c124f52c9bbc3ef34504cbdb6c7b94fc90a10b67256b74"
+        },
+        {
+          "line": 594,
+          "type": "VariableDeclaration",
+          "hash": "0ef109059eeac911b6b94335cf1cf4df9a2cd904e89660ac7ac34ae3e51b9832"
+        },
+        {
+          "line": 596,
+          "type": "FunctionDeclaration",
+          "hash": "c7d0a8f1b8b1a418cc4c5d893605a5419004e13e6f26e66cad6e81bf10eefb6c"
+        },
+        {
+          "line": 606,
+          "type": "FunctionDeclaration",
+          "hash": "3e86b4d91da7f09725a1308b511b6b606bb6f24115ab57fa863aca96e764d63e"
+        },
+        {
+          "line": 618,
+          "type": "FunctionDeclaration",
+          "hash": "047a9aa1dbcc98613bf5ad2e633cd57aad00c0dd6296567ec289356ed9f5cb32"
+        },
+        {
+          "line": 623,
+          "type": "FunctionDeclaration",
+          "hash": "7f102a2e8786be46cb1e6a48c2cceb2548e0f0eda24997d011df99d257ca8eb5"
+        },
+        {
+          "line": 648,
+          "type": "FunctionDeclaration",
+          "hash": "eab5c0cfe1438be2f67af2fc06a003628716e325837f9f789d2f016ab4fef221"
+        },
+        {
+          "line": 671,
+          "type": "FunctionDeclaration",
+          "hash": "7ad2d6d3c6bf2f5b45302e7fb424f873de3828ba3d095f3fb976ed050127b8e4"
+        },
+        {
+          "line": 692,
+          "type": "FunctionDeclaration",
+          "hash": "177592678b944e9a9924bdf2c4e79a74f4944550910b38f2104a7f7fce61c6a5"
+        },
+        {
+          "line": 705,
+          "type": "FunctionDeclaration",
+          "hash": "57f2c864255303a5fad98bc6b089774e38fdcd4fdf35b92824f425ad6ab01bb2"
+        },
+        {
+          "line": 733,
+          "type": "FunctionDeclaration",
+          "hash": "aed7c3a958ba2174f18418f0bdffe2da6615682fadbde2a678dda596faeba62e"
+        },
+        {
+          "line": 741,
+          "type": "FunctionDeclaration",
+          "hash": "40f2056e5d7604e2828071777271fa45397d8eddff625448acc5008ee34f84da"
+        },
+        {
+          "line": 761,
+          "type": "FunctionDeclaration",
+          "hash": "609c2165beed5aeed7305a2355c261d4bf8e2fb11ced39dea3cb46055983feae"
+        },
+        {
+          "line": 922,
+          "type": "FunctionDeclaration",
+          "hash": "fac28670803a26561456b6043791a689fa724b2fa4b8c530a8c04e15c6301ae9"
+        },
+        {
+          "line": 934,
+          "type": "FunctionDeclaration",
+          "hash": "cba877f4a3ca2a775c398fcae906480feba681d9f99e5a4ab7db6541d844741e"
+        },
+        {
+          "line": 952,
+          "type": "FunctionDeclaration",
+          "hash": "8d2ed33ad8cb030e18c98ad4ca1fdea45570416fd1d9c4cfeff5f5f6a162db42"
+        },
+        {
+          "line": 965,
+          "type": "FunctionDeclaration",
+          "hash": "3420b3a923a8f6623a3c34de678a200d1dd860806a8b4fbb475e7b0468bf7edb"
+        },
+        {
+          "line": 971,
+          "type": "FunctionDeclaration",
+          "hash": "83c4a080369e191f4195c0689a0526f2dd90461c22dd2b2d395942bcda30e4ad"
+        },
+        {
+          "line": 980,
+          "type": "FunctionDeclaration",
+          "hash": "1a414f5f30beeb30fe459bfbe9e5c397de7e8cd33a5ba9f27b9940ccab5ea673"
+        },
+        {
+          "line": 988,
+          "type": "FunctionDeclaration",
+          "hash": "273e684a157c0bda23628e5f320a7e42a607f8f5dbc78af4c31a1c1b64a80040"
+        },
+        {
+          "line": 1009,
+          "type": "FunctionDeclaration",
+          "hash": "4196664070c618c54504c9dcd7a6145fe28838aa051d5c0a0b22583e637be5d7"
+        },
+        {
+          "line": 1032,
+          "type": "FunctionDeclaration",
+          "hash": "0aa8f14d0966852623ae5caeee53683a390357a2c5b467b8ccbfabc175a89e68"
+        },
+        {
+          "line": 1038,
+          "type": "FunctionDeclaration",
+          "hash": "b9dd49199f496677ff7ac4a043aa72097d9d5b1d3540f689a2b6b365dd4ae554"
+        },
+        {
+          "line": 1049,
+          "type": "FunctionDeclaration",
+          "hash": "47afbe03d34f4000549ee0c4e42349318e1ba7a9d7813479740bd435ab29b223"
+        },
+        {
+          "line": 1055,
+          "type": "FunctionDeclaration",
+          "hash": "138c275991205f4097e1324453d2aa1c8a859ce0bc33fc2471c63866fc7d8fe4"
+        },
+        {
+          "line": 1235,
+          "type": "FunctionDeclaration",
+          "hash": "72e2f4f7b3dc6ef40120537ae360e68d8fec17f5cee14ede64af0975533ae49f"
+        },
+        {
+          "line": 1253,
+          "type": "FunctionDeclaration",
+          "hash": "64fabbcb98ea0f4773f4c223fbd1b3c1f875f61c68ecbf8e96c10793317beec5"
+        },
+        {
+          "line": 1343,
+          "type": "FunctionDeclaration",
+          "hash": "1af53e7fbde2d3e29638e18838b6f35eeed0f00c2f96a7603f1b3245061a0ea0"
+        },
+        {
+          "line": 1366,
+          "type": "FunctionDeclaration",
+          "hash": "cef794eb6068f15d7cec404834a0e2df65ea4823171a621622d89e6a82184dd8"
+        },
+        {
+          "line": 1372,
+          "type": "FunctionDeclaration",
+          "hash": "c2c364c059f5f284b46b90789af416140854f80a8abd4c95e26fa6a3f1b9fedf"
+        },
+        {
+          "line": 1376,
+          "type": "FunctionDeclaration",
+          "hash": "f710cf2b9508abe493fbc2f344a6ed34359c1e0a9348a26d0f669a8e0a709ddb"
+        },
+        {
+          "line": 1380,
+          "type": "FunctionDeclaration",
+          "hash": "d3597b8d7d9860d4eddecafe7de3395a49ffa2614a61499fd677dc6c33fa84fa"
+        },
+        {
+          "line": 1397,
+          "type": "FunctionDeclaration",
+          "hash": "99282bfed8268c4a79a126dee620d317c7a77300f44c008c0e4d7345ac9b9d49"
+        },
+        {
+          "line": 1462,
+          "type": "ExpressionStatement",
+          "hash": "e49ee7ad3c6a47b02e635c59a821475e63219abd6058acf0b3054db382b756ab"
+        },
+        {
+          "line": 1463,
+          "type": "VariableDeclaration",
+          "hash": "6035569381d3ad519643f5ec6d8a20d29b09f856d949c2373f338d3532b901d5"
+        },
+        {
+          "line": 1476,
+          "type": "IfStatement",
+          "hash": "052f03e524bbc86800610a7d2d1f61fa38e6f37c4bab1a6b17a23a89d61978d1"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Boolean",
+        "Date",
+        "Error",
+        "Event",
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "KeyboardEvent",
+        "Math",
+        "MutationObserver",
+        "Node",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "clearTimeout",
+        "document",
+        "encodeURIComponent",
+        "parseInt",
+        "setTimeout"
+      ],
+      "version": "0.8.6"
+    },
+    "moviepilot-auto-login": {
+      "file": "Moviepilot_AutoLogin.user.js",
+      "sha256": "c499ed991fe4d6df7fce4d9c59e10f7ef57ffd6e05f3cd6bf85bdf665c80942a",
+      "metadata": "// ==UserScript==\n// @name         MoviePilot自动登录(自用)\n// @namespace    http://tampermonkey.net/\n// @version      1.3.1\n// @description  MoviePilot自动填充账号密码。\n// @author       ffwu\n// @match        *://*/*\n// @grant        GM_setValue\n// @grant        GM_getValue\n// @grant        GM_registerMenuCommand\n// @grant        GM_addStyle\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_AutoLogin.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 21,
+          "type": "VariableDeclaration",
+          "hash": "9dff4ac5c939942dc0692d0f40b62785287c653887c82cb40a1d565e64c36c18"
+        },
+        {
+          "line": 22,
+          "type": "VariableDeclaration",
+          "hash": "661cd6b093b27a7bd192c6d33a2c8676d8c0f60ea93428bf85b6b3db6c9870ac"
+        },
+        {
+          "line": 23,
+          "type": "VariableDeclaration",
+          "hash": "29cfbf48ed46262786309ec96eeb3820b4ba3e0e74822c1b189c37eff287d5e1"
+        },
+        {
+          "line": 25,
+          "type": "VariableDeclaration",
+          "hash": "7125e29df2f6b54acfa2176cd8f9f67344c8719dec06f7090a39ceff537b4aa5"
+        },
+        {
+          "line": 73,
+          "type": "VariableDeclaration",
+          "hash": "e17cc863d8ee0b7f5ae3175296bc5130943825b7250c289c568b7392c880bb60"
+        },
+        {
+          "line": 111,
+          "type": "FunctionDeclaration",
+          "hash": "bea94b9f848a6fb5a65c0000e5dd63a3d1ade5b20c94767a144583a5a9bbb6ac"
+        },
+        {
+          "line": 140,
+          "type": "FunctionDeclaration",
+          "hash": "6423191caca2260c0467a5bd406439ac9a59c3f7f6f6b3967b60c458ba5c5d3b"
+        },
+        {
+          "line": 158,
+          "type": "FunctionDeclaration",
+          "hash": "79b3194de0f44dc9898056d745c2cb30c69b488bae94f8a31f1d3a35a3c7ff7f"
+        },
+        {
+          "line": 182,
+          "type": "FunctionDeclaration",
+          "hash": "50feab13dfce122b7720e7300976c29adfd9a2e64a183f015d59c81193e92fb4"
+        },
+        {
+          "line": 191,
+          "type": "FunctionDeclaration",
+          "hash": "4bc92ddd53108bb342533c9e982217caf24f94c729e82187ca6caf40f6d741f3"
+        },
+        {
+          "line": 195,
+          "type": "FunctionDeclaration",
+          "hash": "3eb6fbc96e8e9969fdb995039b1404bd0326c81925aeec20ab395f65418d1a13"
+        },
+        {
+          "line": 201,
+          "type": "FunctionDeclaration",
+          "hash": "7f5a8b3e7db88c0967f005819c1be4ebe283196180e7b0a9fec3d238a388291a"
+        },
+        {
+          "line": 227,
+          "type": "FunctionDeclaration",
+          "hash": "5be0a480c1c945c9cace360d9f748ad0b9e3e562db82046aa5b07e90d0754591"
+        },
+        {
+          "line": 365,
+          "type": "ExpressionStatement",
+          "hash": "e02f3f8bdbda6b21606921c58dfa43e9c7c71381b94a2046bb02f2ce5634ea45"
+        },
+        {
+          "line": 368,
+          "type": "ExpressionStatement",
+          "hash": "8241fc06605b98fd5434638d5de25c0465c3108ae51c974a958f23cc7fff96db"
+        }
+      ],
+      "globals": [
+        "Date",
+        "Event",
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "JSON",
+        "MutationObserver",
+        "Object",
+        "URL",
+        "alert",
+        "clearInterval",
+        "clearTimeout",
+        "confirm",
+        "console",
+        "document",
+        "setInterval",
+        "setTimeout",
+        "window"
+      ],
+      "version": "1.3.2"
+    },
+    "moviepilot-name-test": {
+      "file": "Moviepilot_NameTest.user.js",
+      "sha256": "11f49d930b8faa97b43ddd2b9f2fbd1bab0cf59936a5ac013149821743e8ae84",
+      "metadata": "// ==UserScript==\n// @name         moviepilotNameTest(自用)\n// @namespace    http://tampermonkey.net/\n// @version      3.5.15\n// @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配\n// @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)\n// @include      /^https?:\\/\\/[^/]+\\/details\\.php\\?[^#]*\\bid=/\n// @match        https://totheglory.im/t/*\n// @match        https://bangumi.moe/torrent/*\n// @match        https://mikanani.me/Home/Episode/*\n// @match        https://*.m-team.cc/detail/*\n// @match        https://*.m-team.io/detail/*\n// @match        https://*.m-team.vip/detail/*\n// @match        https://hdcity.city/t-*\n// @include      /^https:\\/\\/greatposterwall\\.com\\/torrents\\.php\\?(?=[^#]*\\bid=)[^#]*(?:#.*)?$/\n// @exclude      /^https?:\\/\\/([^/]+\\.)?orpheus\\.network\\//\n// @include      /^https?:\\/\\/([^/]+\\.)?haidan\\.(cc|video)\\/details\\.php\\?(?=[^#]*\\bgroup_id=)[^#]*(?:#.*)?$/\n// @match        https://iptorrents.com/torrent.php?id=*\n// @match        https://eiga.moi/torrents/*\n// @include      /^https:\\/\\/hd-space\\.org\\/index\\.php\\?(?=[^#]*\\bpage=torrent-details\\b)(?=[^#]*\\bid=)[^#]*(?:#.*)?$/\n// @match        https://beyond-hd.me/torrents/*\n// @include      /^https:\\/\\/monikadesign\\.uk\\/torrents\\/[0-9]+\\/?$/\n// @match        https://acg.rip/t/*\n// @match        https://nyaa.si/view/*\n// @include      /^https?:\\/\\/([^/]+\\.)?(comicat|kisssub)\\.org\\/show-[a-f0-9]{40}\\.html(?:[?#].*)?$/\n// @grant        GM_log\n// @grant        GM_xmlhttpRequest\n// @grant        GM_setValue\n// @grant        GM_getValue\n// @grant        GM_deleteValue\n// @grant        GM_setClipboard\n// @grant        GM_info\n// @grant        GM_registerMenuCommand\n// @connect      *\n// @license      MIT\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/moviepilot.png\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_NameTest.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/Moviepilot_NameTest.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 55,
+          "type": "VariableDeclaration",
+          "hash": "95a40532ca1b60bce46b6c3f87b5672aacf6d975890f95fd97bb34ead0e7ef11"
+        },
+        {
+          "line": 56,
+          "type": "VariableDeclaration",
+          "hash": "21afde1f8316991d7857b932e35b2bdb315f7dd0921fea45b5adc2d1a2d0904c"
+        },
+        {
+          "line": 57,
+          "type": "VariableDeclaration",
+          "hash": "59261a5adb5e82d42600ffb6b1f133fb0daa1442b2778d40df747d383aa6ee21"
+        },
+        {
+          "line": 58,
+          "type": "VariableDeclaration",
+          "hash": "5b24c7da12d21b7d07085d6a64946141b5e75b807c28da56a90367369f1f755d"
+        },
+        {
+          "line": 59,
+          "type": "VariableDeclaration",
+          "hash": "0ea5693a9a706b310060661f3c8582aebe2eef9bbb0e223cb4a9e21ca2627ee0"
+        },
+        {
+          "line": 61,
+          "type": "VariableDeclaration",
+          "hash": "61d7e547fab608f3964d8c9c8e21a3c6863a7aee8e7c6b170c3ec0a7fda58d7f"
+        },
+        {
+          "line": 102,
+          "type": "VariableDeclaration",
+          "hash": "813acdd82fa4b7730a99d818b0fa441e37ab450dc98b0e0e171f52320af77be8"
+        },
+        {
+          "line": 176,
+          "type": "VariableDeclaration",
+          "hash": "2d99e806f78d637daff9fb5265a0f7d5e17f42824e0fa1e92ae82cdad822ea9b"
+        },
+        {
+          "line": 188,
+          "type": "VariableDeclaration",
+          "hash": "6502efa27190f90dce624f43a19ffd25f11a5e22ba76e875be1d4584830dcfbb"
+        },
+        {
+          "line": 513,
+          "type": "VariableDeclaration",
+          "hash": "61163faaa3f3b8e4a5f09c8f580f4f0746a123899560d1864275c523c6885702"
+        },
+        {
+          "line": 1352,
+          "type": "VariableDeclaration",
+          "hash": "da4a7aa33c6cf5c6b3846565d7070786c1bd24e6e29ad65ef2bf2c4c6c94d4e8"
+        },
+        {
+          "line": 1364,
+          "type": "VariableDeclaration",
+          "hash": "6be107c560dc6772f864870a25deb4212cc23ce363ccf1ce128e1e96c4319bb5"
+        },
+        {
+          "line": 1643,
+          "type": "VariableDeclaration",
+          "hash": "4242fbe1ddfe29d8fd16769e3408c2117506c6965366e27d0a0866155b7ea225"
+        },
+        {
+          "line": 1688,
+          "type": "VariableDeclaration",
+          "hash": "4566199470fbbbe11c1ac8477b26b08874fe2ec04bea5ab6221f669aba6f9b4f"
+        },
+        {
+          "line": 2271,
+          "type": "VariableDeclaration",
+          "hash": "5a1bfd099b8ab36f946971315f28182bb2701a8beecc1c605e89b5edf653880e"
+        },
+        {
+          "line": 2316,
+          "type": "VariableDeclaration",
+          "hash": "66bb1725fb64fcaf3c3a610071a0021bca809bff67635484a9458d34c890e641"
+        },
+        {
+          "line": 2862,
+          "type": "VariableDeclaration",
+          "hash": "bc6ce34d8ea5b927c9b9d163fdb3c4f3efe71d9c022fcae7decf21416cccca42"
+        },
+        {
+          "line": 3050,
+          "type": "FunctionDeclaration",
+          "hash": "e91162ce1d1d1fcc5b4c16d437a6bb95d9a82895f2a6d46db616f0b2a88333e0"
+        },
+        {
+          "line": 3068,
+          "type": "VariableDeclaration",
+          "hash": "b1d0561e05482bf88af9438231a7de90d1703fb4420fac9e0b73d4031ac01731"
+        },
+        {
+          "line": 3155,
+          "type": "VariableDeclaration",
+          "hash": "4e476b525a88e0736d6bd51151fbc4641b4a5aacae24a5187a1d521de0dd155e"
+        },
+        {
+          "line": 3156,
+          "type": "VariableDeclaration",
+          "hash": "58e0e69eba04c8a055c8fac4e810766084d31b62d8031877613ceadc4d2f59bd"
+        },
+        {
+          "line": 3158,
+          "type": "FunctionDeclaration",
+          "hash": "6cdb61478a320060ed888f2e344a2326469a9c1bc77594a7c7fcb643df50de46"
+        },
+        {
+          "line": 3300,
+          "type": "ExpressionStatement",
+          "hash": "5e96bc4dbea4960e1da87f41dcf2dc4d8f90afcd907830536889e1c708696c2e"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Boolean",
+        "Date",
+        "Element",
+        "Error",
+        "GM_deleteValue",
+        "GM_getValue",
+        "GM_info",
+        "GM_log",
+        "GM_registerMenuCommand",
+        "GM_setClipboard",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "Map",
+        "Math",
+        "MutationObserver",
+        "Number",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "URL",
+        "URLSearchParams",
+        "alert",
+        "clearTimeout",
+        "confirm",
+        "decodeURIComponent",
+        "document",
+        "encodeURIComponent",
+        "fetch",
+        "history",
+        "location",
+        "navigator",
+        "parseFloat",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "3.5.16"
+    },
+    "nicept-replace-icon": {
+      "file": "NicePT_ReplaceIcon.user.js",
+      "sha256": "2da73b6e8d4e2d4aa268bf7bba85578455253ab87b445e0119a91c2fc40685e0",
+      "metadata": "// ==UserScript==\n// @name         nicePT分类图标替换（自用）\n// @namespace    http://tampermonkey.net/\n// @version      1.0\n// @description  替换分类中的图标，一目了然\n// @match        https://www.nicept.net/*\n// @grant        none\n// @icon         https://www.nicept.net/favicon.ico\n// @license      MIT\n// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/NicePT_ReplaceIcon.user.js\n// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/NicePT_ReplaceIcon.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 18,
+          "type": "VariableDeclaration",
+          "hash": "1c5f4a43d7b693e9fed01408b32bde0f29c6b80cb224097ebb8ee6b5250a3282"
+        },
+        {
+          "line": 53,
+          "type": "FunctionDeclaration",
+          "hash": "24b3f0972ded11511bef3308257eb5b33f3738cc6912f3c20a65688c8baa9b56"
+        },
+        {
+          "line": 82,
+          "type": "ExpressionStatement",
+          "hash": "8ce3a73bdef6a5b87c118e52b667afaeace042d04a645ff464f15d4113a365b2"
+        },
+        {
+          "line": 85,
+          "type": "VariableDeclaration",
+          "hash": "f504dc451dc1c70c4cf253a5a6500571a411e956aaa3b36842fd83b2173b0c68"
+        },
+        {
+          "line": 86,
+          "type": "ExpressionStatement",
+          "hash": "6635274645b58e12d24214a1796b80f563b47cc92e5dde7c2330a2891ee4f854"
+        }
+      ],
+      "globals": [
+        "MutationObserver",
+        "document"
+      ],
+      "version": "1.0.1"
+    },
+    "picix-card-actions": {
+      "file": "Picix_CardQuickActions.user.js",
+      "sha256": "5fb5421798c4d8f36c9f6f9aba0d895276edb8573ad95c336098a417a0f516bb",
+      "metadata": "// ==UserScript==\n// @name         Picix 卡片快捷操作\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.4.6\n// @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。\n// @author       wuyaos & AI\n// @match        https://picix.us/*\n// @icon         https://picix.us/favicon.ico\n// @run-at       document-idle\n// @grant        GM_addStyle\n// @grant        GM_xmlhttpRequest\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        unsafeWindow\n// @connect      *\n// @noframes\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "2e0417e0a625fb82b10f6ec0830dbe9d0899d1c456ed13939bc186c54870fc3c"
+        },
+        {
+          "line": 30,
+          "type": "VariableDeclaration",
+          "hash": "c9871b7ba0e779ca8822b1ad4876a642817ea942e06cea1ce06cb32e1f243fd5"
+        },
+        {
+          "line": 31,
+          "type": "VariableDeclaration",
+          "hash": "58533da0017deb770d91fd7502730a790a5c352102dc374c47952b62bcb3c6b9"
+        },
+        {
+          "line": 34,
+          "type": "VariableDeclaration",
+          "hash": "cc696aacfa7ea0796f5bbe93d8855162b7c9aca754651d6e8a070ec649edaf52"
+        },
+        {
+          "line": 35,
+          "type": "VariableDeclaration",
+          "hash": "d8e873ed6e040aca33aeffe64a813a8e97ac9de7bdf66270b026fcae8c40847d"
+        },
+        {
+          "line": 36,
+          "type": "VariableDeclaration",
+          "hash": "b33f918aec139d8a625d3ef335d774ba5d4426bc483813e3a236b069846d52bd"
+        },
+        {
+          "line": 37,
+          "type": "VariableDeclaration",
+          "hash": "f755d69c07f43266666fd37da6cd74668b05514c1f804425d074ed941fabe869"
+        },
+        {
+          "line": 38,
+          "type": "VariableDeclaration",
+          "hash": "2573c2d17ec5fb19350ac81df71e1e9f667b9f15e1be530d477e6433024c3151"
+        },
+        {
+          "line": 39,
+          "type": "FunctionDeclaration",
+          "hash": "ea2377fde94dda5f3f062017071310b1ce439f7cbede731d21971a5eb9c44318"
+        },
+        {
+          "line": 40,
+          "type": "FunctionDeclaration",
+          "hash": "c853662efef23af5c5e9521845147c775ab237241cb13e04e6868b56b59d2ef3"
+        },
+        {
+          "line": 41,
+          "type": "FunctionDeclaration",
+          "hash": "0a9896e9517ed4b34291f5fa2e808fce169f15e23c61d18523700edd8aa6b0a5"
+        },
+        {
+          "line": 42,
+          "type": "FunctionDeclaration",
+          "hash": "90c88624263ce73141d71c801ecd5eede7a0fab76ccb8f999940bfbabacc5e32"
+        },
+        {
+          "line": 43,
+          "type": "FunctionDeclaration",
+          "hash": "12f0db5baf2d5d7f0b2cf4f6d53b38ef20935b22370568a990d8a76b0975b3b1"
+        },
+        {
+          "line": 66,
+          "type": "ExpressionStatement",
+          "hash": "d61e9bb56f5832f2755c3a0f186a62f742e373618220c08be1c5630974a005f1"
+        },
+        {
+          "line": 67,
+          "type": "FunctionDeclaration",
+          "hash": "0de104dfb0b2008ebc9ce788a0b46c9e4e79eecb3469a2d5c52d6a491ca42478"
+        },
+        {
+          "line": 75,
+          "type": "FunctionDeclaration",
+          "hash": "f2d362227af9e85b698518c698091a1dd6e20d04aa1ee8301849a15641fb7ba0"
+        },
+        {
+          "line": 101,
+          "type": "FunctionDeclaration",
+          "hash": "e0b3e3620b50a219545a6d7548339c4576e25426b90c65dca10877f75232ef0e"
+        },
+        {
+          "line": 108,
+          "type": "FunctionDeclaration",
+          "hash": "f93bfff29b225021610ac6e0b7da74ccfc22430dfce3af6cc320b4a6c71a45cf"
+        },
+        {
+          "line": 119,
+          "type": "VariableDeclaration",
+          "hash": "a70ff933eb9deb67a22599e2656da0b8d2589407935fbc87205ff6a3a4057259"
+        },
+        {
+          "line": 121,
+          "type": "FunctionDeclaration",
+          "hash": "baf9050b5149f5774176a4f4faf4d2701f8341eda84ef4a16eaedcca77691b13"
+        },
+        {
+          "line": 139,
+          "type": "FunctionDeclaration",
+          "hash": "7fdd032372d6d657050799c7b1db3774736c4f41cc0fa808aeace0c7355d503c"
+        },
+        {
+          "line": 147,
+          "type": "FunctionDeclaration",
+          "hash": "3909c55dcdc3146df82b0847f7d9895388a832094bbb7527b74e31f751bd1525"
+        },
+        {
+          "line": 157,
+          "type": "FunctionDeclaration",
+          "hash": "6ffea38f667a7c1eb0949a4593c9ad1d387208ab76f96b1a6dea7412ae087a03"
+        },
+        {
+          "line": 191,
+          "type": "FunctionDeclaration",
+          "hash": "8f3ef2da753e69fc964f5234a1aced6f5119d766d4bd21f18890090e6803694f"
+        },
+        {
+          "line": 214,
+          "type": "FunctionDeclaration",
+          "hash": "f713976ce5b4a5d45f4060381df5e362361fe95db7eee0aa3ee78ab9ed795df7"
+        },
+        {
+          "line": 260,
+          "type": "VariableDeclaration",
+          "hash": "9e2ee902519b20b42cbdfbd27d7b70e69cc8e0b24067cc7ca1ac8046314dd552"
+        },
+        {
+          "line": 268,
+          "type": "FunctionDeclaration",
+          "hash": "86a6be4e2546639a24d52ad8844618ce4dab23d370107f599454b790ef91d419"
+        },
+        {
+          "line": 273,
+          "type": "ExpressionStatement",
+          "hash": "03d7c592ed32863fe8f50035e6bc0731c8301b3e5e7ab57161fe6117964d2ec5"
+        },
+        {
+          "line": 308,
+          "type": "IfStatement",
+          "hash": "db0baa7d157f828887306481ef78df0a6c6ada4c77eda85238a2dd4930a2dbf0"
+        }
+      ],
+      "globals": [
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "Map",
+        "MutationObserver",
+        "Number",
+        "Promise",
+        "String",
+        "document",
+        "encodeURIComponent",
+        "location",
+        "setTimeout",
+        "unsafeWindow",
+        "window"
+      ],
+      "version": "0.4.7"
+    },
+    "pt-audit-assistant": {
+      "file": "PT_AuditAssistant.user.js",
+      "sha256": "6599269b4ce6d97c08d366c238e4f5330591da2da4abe132f924222a48d19998",
+      "metadata": "// ==UserScript==\n// @name         PT_AuditAssistant\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.1.0\n// @description  聚合 PT 审种助手，基于注册表驱动的站点采集、解析、规则检查与审批拦截。\n// @author       wuyaos & AI\n// @match        *://*.pandapt.net/details.php*\n// @match        *://pandapt.net/details.php*\n// @match        *://*.qingwapt.com/details.php*\n// @match        *://qingwapt.com/details.php*\n// @match        *://*.new.qingwa.pro/details.php*\n// @match        *://new.qingwa.pro/details.php*\n// @match        *://*.qingwapt.org/details.php*\n// @match        *://qingwapt.org/details.php*\n// @match        *://*.hdkyl.in/details.php*\n// @match        *://hdkyl.in/details.php*\n// @match        *://*.hdkyl.in/web/torrent-approval-page*\n// @match        *://hdkyl.in/web/torrent-approval-page*\n// @match        *://*.cspt.top/details.php*\n// @match        *://cspt.top/details.php*\n// @match        *://*.cspt.cc/details.php*\n// @match        *://cspt.cc/details.php*\n// @match        *://*.cspt.date/details.php*\n// @match        *://cspt.date/details.php*\n// @match        *://*.longpt.org/details.php*\n// @match        *://longpt.org/details.php*\n// @run-at       document-end\n// @grant        GM_addStyle\n// @grant        GM_registerMenuCommand\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_xmlhttpRequest\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_AuditAssistant.user.js\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-audit.png\n// @noframes\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 47,
+          "type": "VariableDeclaration",
+          "hash": "0ccb0ce1677a459f8dfa7b2597c7ac34ac17b5987fbc045dd64ab447598f6aad"
+        },
+        {
+          "line": 48,
+          "type": "VariableDeclaration",
+          "hash": "8d6098e057ccedc02a43bc7912778c60d639924bdde15b8d3fd06f69c43a95ee"
+        },
+        {
+          "line": 49,
+          "type": "VariableDeclaration",
+          "hash": "e8777fae2c56b4fdffeb8120dfb9b3da69f371b9d469d012be7826d810a9746e"
+        },
+        {
+          "line": 50,
+          "type": "VariableDeclaration",
+          "hash": "0aa416c27afdd91bbc677ad8a2e367f6ed0d26b2f9359d48085ac152d3eaa944"
+        },
+        {
+          "line": 51,
+          "type": "VariableDeclaration",
+          "hash": "d28c486f7cb9f6b514c663e6bcd89381f4612d298c890941f6374fcfd866d6c9"
+        },
+        {
+          "line": 52,
+          "type": "VariableDeclaration",
+          "hash": "86df50da14322bf8e49a94febd87259ccf1ef01c3d047c5893ad3f1b7eaa6536"
+        },
+        {
+          "line": 53,
+          "type": "VariableDeclaration",
+          "hash": "552363e7c5e8c16bd1f1a24aa5aaac2d87142f56217e0c3da9f78d99e6347a80"
+        },
+        {
+          "line": 55,
+          "type": "FunctionDeclaration",
+          "hash": "be3297475d27a7450716aa118a97fc60bd40d95906f55d84b91ed5a2391c9226"
+        },
+        {
+          "line": 56,
+          "type": "FunctionDeclaration",
+          "hash": "368d66ab536de65e83c7873927db105611db8141c9d18c6619ec4e8c0962a6b6"
+        },
+        {
+          "line": 57,
+          "type": "FunctionDeclaration",
+          "hash": "b1261ffef7cc40017e65a2f0e0f040142c08cc2c7d20171882d9b8fec1a2807a"
+        },
+        {
+          "line": 58,
+          "type": "FunctionDeclaration",
+          "hash": "461e9cfb2427f234ae5d081b26d1ac8bcd75ecf162ca5929617fee1509f7e0b2"
+        },
+        {
+          "line": 59,
+          "type": "FunctionDeclaration",
+          "hash": "348b8b687432d0f3a0981561b2cd246986576a0819e8e2e13c168dfb206a64a2"
+        },
+        {
+          "line": 60,
+          "type": "FunctionDeclaration",
+          "hash": "88543e53d133714e1080aea0a5b2af1b2431cde0502b412bfd6e6640d4bbcadc"
+        },
+        {
+          "line": 76,
+          "type": "FunctionDeclaration",
+          "hash": "1d6ea2212d97b97e106eb583d050212681ea6f0d127facb17233da6d00ffad24"
+        },
+        {
+          "line": 80,
+          "type": "FunctionDeclaration",
+          "hash": "06281ef848ad17dc9c804fbb88acc972dadfbd2dd384be25e2049b9f4609f28e"
+        },
+        {
+          "line": 84,
+          "type": "FunctionDeclaration",
+          "hash": "e1fb13a16cdab4d29ac144212f44bf5c2e6ebe04c1aef78e29dc8885c3ac1ea7"
+        },
+        {
+          "line": 88,
+          "type": "FunctionDeclaration",
+          "hash": "3f9694257e03ab779cb0e73cd1844baedac0ecd9d5809e15db12306ff9745451"
+        },
+        {
+          "line": 96,
+          "type": "FunctionDeclaration",
+          "hash": "63b3982b84d201e8c1d597307c6a9e1fd250b09faeff95550363e26ffd665ef0"
+        },
+        {
+          "line": 102,
+          "type": "FunctionDeclaration",
+          "hash": "556c45b2a9e57d3db92dc6fbef7b9d037fbc4f441652c12adb819a21211d19f0"
+        },
+        {
+          "line": 107,
+          "type": "FunctionDeclaration",
+          "hash": "140367d4416c87d469ed1626dd4a4a268c838aa689343f4d8a6c6bac192b3c1e"
+        },
+        {
+          "line": 115,
+          "type": "FunctionDeclaration",
+          "hash": "ec4de1b124a310a743e0658922584af9319bda14c5fd9060e84c868acd67ea6c"
+        },
+        {
+          "line": 121,
+          "type": "FunctionDeclaration",
+          "hash": "702f5ad1f19a53c22962277352fd0b1009fbccc2100213e4f45b0e9ff566eac0"
+        },
+        {
+          "line": 122,
+          "type": "FunctionDeclaration",
+          "hash": "6ab867197a73d9b1050e5cce7e5eaaed6a61c2d0f26bb23f621ecda36e4319ce"
+        },
+        {
+          "line": 126,
+          "type": "FunctionDeclaration",
+          "hash": "19d62ea881e6a5c3042d4b7260f30c39f1d00cf38c37f4dde67ded14da8ab06a"
+        },
+        {
+          "line": 137,
+          "type": "FunctionDeclaration",
+          "hash": "aedfa34a3630fa88f5a688fe03a161be13f321bd43af8505899b6b5eb2b88f42"
+        },
+        {
+          "line": 159,
+          "type": "VariableDeclaration",
+          "hash": "bbdbcbe7a2fd43c7e2325f0c81468ef75c2bed18f3d451fdf0c4d46a8f6f0cfd"
+        },
+        {
+          "line": 160,
+          "type": "ExpressionStatement",
+          "hash": "d75bf5cad14500194f42c27ea8e469704d6a45d1edabd753814b259e240d4368"
+        },
+        {
+          "line": 165,
+          "type": "VariableDeclaration",
+          "hash": "3460383b204559a801d2ab34b6d8786f429708999c06d79aa734740c24e49a03"
+        },
+        {
+          "line": 166,
+          "type": "ExpressionStatement",
+          "hash": "b00a9d4d5e69ed04f322042a5a87b4ec894461dfa37a94efa6b044f8ef4b07c2"
+        },
+        {
+          "line": 176,
+          "type": "VariableDeclaration",
+          "hash": "145c1f925d8637ed5ce7b52a38d35f171ec2904ced2e0a10b0b523af506c0d2b"
+        },
+        {
+          "line": 177,
+          "type": "VariableDeclaration",
+          "hash": "1b30f4db3ce2031df5c3b9dfe3f9957caacbe8c7f9fa8d4e333859c51c6b96ac"
+        },
+        {
+          "line": 178,
+          "type": "VariableDeclaration",
+          "hash": "41896850aa6705a7b9180e91a7ea72d7dd4c3f8b62ae73347e97dde662ad2322"
+        },
+        {
+          "line": 179,
+          "type": "ExpressionStatement",
+          "hash": "0a317d91155c6eac0270a50b4cbf273bd6e1778b6681bc054f9b88f3eecce8df"
+        },
+        {
+          "line": 204,
+          "type": "FunctionDeclaration",
+          "hash": "90d96dc29b66c59d752c9120d27dd0f6e2b4756d93ae7021d1572871572bec57"
+        },
+        {
+          "line": 224,
+          "type": "ExpressionStatement",
+          "hash": "b65cc0055a37e8c5f8ea7f8c88f46a437a68c07e0b5ceb2ff8c856dd7fba6ee8"
+        },
+        {
+          "line": 237,
+          "type": "ExpressionStatement",
+          "hash": "dc0ccc70c92b32c7786c56a4e62d1aed60c9fa403af9152eb0474137a6c048d8"
+        },
+        {
+          "line": 247,
+          "type": "ExpressionStatement",
+          "hash": "99e3651deb32240eee0dcb279634c43416238b89cc5d8bfc7f59077522671550"
+        },
+        {
+          "line": 288,
+          "type": "ExpressionStatement",
+          "hash": "93d1ff9485a1691355de9c8e65aaba30fc0bce41aedc6172afc223b7c22910b8"
+        },
+        {
+          "line": 325,
+          "type": "ExpressionStatement",
+          "hash": "74c963de16aa98f5a09a0a35b422602f088614404887c520f1903540c8d3bdf2"
+        },
+        {
+          "line": 347,
+          "type": "ExpressionStatement",
+          "hash": "c0ee1a67fb338f0803427c519b799d2b1b4716047c6afacf67b90c41d08aa255"
+        },
+        {
+          "line": 375,
+          "type": "ExpressionStatement",
+          "hash": "2e05abd02771b172df4934504c6e6b1ed5c96dd266a3612646b1e26d0b543bf3"
+        },
+        {
+          "line": 395,
+          "type": "ExpressionStatement",
+          "hash": "ca0a8aed2b7f1fffba733b2d9b7d5cb900a60bb074fdf3e766cdb8b7219f3991"
+        },
+        {
+          "line": 403,
+          "type": "ExpressionStatement",
+          "hash": "bbc43ef887989e9dcd10d8ff99ac297f1e1cb3c813d9ae8d97a3b65fcb24f126"
+        },
+        {
+          "line": 433,
+          "type": "ExpressionStatement",
+          "hash": "9bd126e4ef4df763651bb2f15f25a355261f2603b42f748ecb5df11ee029e30d"
+        },
+        {
+          "line": 456,
+          "type": "ExpressionStatement",
+          "hash": "0d0c1cd480cfb01d1eec71f104a08fa1f3ef21a1eca1946f67b96c788283c5e8"
+        },
+        {
+          "line": 468,
+          "type": "ExpressionStatement",
+          "hash": "9c75c28dffea3d1ee83cfbcfc7d5d20f98529bcaa2e13f74d968562984d69cc3"
+        },
+        {
+          "line": 477,
+          "type": "ExpressionStatement",
+          "hash": "a6f3e750d200aea84bb7258c5898d834bb192d9a41a9ec2b898da0b33d9d5852"
+        },
+        {
+          "line": 490,
+          "type": "FunctionDeclaration",
+          "hash": "f5c385aa1d8ac1f7f73a836d8e543b5bcc311ae05166481b4ccf1ebc137f4981"
+        },
+        {
+          "line": 504,
+          "type": "FunctionDeclaration",
+          "hash": "d542360c17a0f8c9bb378138451d0dcd5f665959a36245ee8319bd53d2ccdf67"
+        },
+        {
+          "line": 518,
+          "type": "FunctionDeclaration",
+          "hash": "9930ae55202c9075c03ef6578572abe653752421b15235d48a606174ea393cdb"
+        },
+        {
+          "line": 522,
+          "type": "FunctionDeclaration",
+          "hash": "1659244cfa547a8024435449e264ead5a3b472ce4463f97d5495a87686c245f9"
+        },
+        {
+          "line": 529,
+          "type": "FunctionDeclaration",
+          "hash": "64452a364646c9d4e3ae89d5f9aa19105d0a206214d603ed5b24b5251e631727"
+        },
+        {
+          "line": 532,
+          "type": "FunctionDeclaration",
+          "hash": "6e6ce82ee03ed1085eb71cc4a0d23320bdbe11615c58c74c96dc87118e26892a"
+        },
+        {
+          "line": 533,
+          "type": "ExpressionStatement",
+          "hash": "1030cfa82485fcb6f5eeb34be8ecde646af0196393e52645555bf3cff7228018"
+        },
+        {
+          "line": 534,
+          "type": "ExpressionStatement",
+          "hash": "7447d3b5e4d4be4cebebc4734e7e0a5ef459bf370635cf4cf198ef43d85fb088"
+        },
+        {
+          "line": 535,
+          "type": "ExpressionStatement",
+          "hash": "e35dcd7027197c05b7335d2cab1ee010d636be31512bb143c60ab1520ab4d63f"
+        },
+        {
+          "line": 536,
+          "type": "ExpressionStatement",
+          "hash": "6e87050a79c6568a8bf25c10daf96a2b34a5cc1c042288cebc54a7a3f6c31701"
+        },
+        {
+          "line": 537,
+          "type": "ExpressionStatement",
+          "hash": "452d235cf3c391403df1f148e6311d9081220e799cd238e0ab6b7c42cd5a2862"
+        },
+        {
+          "line": 547,
+          "type": "ExpressionStatement",
+          "hash": "becc47ecfa114a1db94a43b720dfca6d86fe132d836d92899f10ac5b351177d7"
+        },
+        {
+          "line": 549,
+          "type": "ExpressionStatement",
+          "hash": "36bf51c8664629feafec5cc0d346784a37bb8e788e33d8d0e216dce885d06039"
+        },
+        {
+          "line": 566,
+          "type": "ExpressionStatement",
+          "hash": "b05201e446b2ff5184ea12945ba457d8b1872283ce679b377f2c7c906bb5ffa1"
+        },
+        {
+          "line": 567,
+          "type": "ExpressionStatement",
+          "hash": "7f9b85d46386fbb42f98bb40523b449b33583bfe877f683742f56bcb2d578659"
+        },
+        {
+          "line": 568,
+          "type": "ExpressionStatement",
+          "hash": "5f0794890a00119051dea2f142dcc142e793ce1526e407847201057f10f071c4"
+        },
+        {
+          "line": 577,
+          "type": "ExpressionStatement",
+          "hash": "88598b4905d1cbe0a5165459bd1c1a2c22218c4fb9ac80709769855b84b78efe"
+        },
+        {
+          "line": 594,
+          "type": "ExpressionStatement",
+          "hash": "ffd6c44967273e268843dc31ebadbd1664cc00e6f0d77db52ed2a348c0133486"
+        },
+        {
+          "line": 605,
+          "type": "ExpressionStatement",
+          "hash": "2a3d211200a511ba2e95df05d451b5a4a5221ce2d2840dac443f2902600b7754"
+        },
+        {
+          "line": 606,
+          "type": "ExpressionStatement",
+          "hash": "0144a722086c382b3d53cb3d0c856676673590b98170f7cd360fd108714c2b81"
+        },
+        {
+          "line": 607,
+          "type": "ExpressionStatement",
+          "hash": "b6902f1637167946aafc029794c9beb35729e49f0d94bcf23feb8770c51344f1"
+        },
+        {
+          "line": 608,
+          "type": "ExpressionStatement",
+          "hash": "c42221a3eb9c1bee9fc04309ef57945ee7d6bfe507a7eaca9b29ead7a8beb807"
+        },
+        {
+          "line": 609,
+          "type": "ExpressionStatement",
+          "hash": "4aa1ff4067153e72d467bae44ce9d29c950108822f70bfae1cfc717d404fc5f5"
+        },
+        {
+          "line": 610,
+          "type": "ExpressionStatement",
+          "hash": "61b55acd75e72cbe972ddea00572c3c0bc3b4ecfbfc3cb04cd287b12bfe15104"
+        },
+        {
+          "line": 611,
+          "type": "ExpressionStatement",
+          "hash": "97827f164032cd47076f1aaee0f7330084f1edd238a76fe79c121ee146d47eeb"
+        },
+        {
+          "line": 612,
+          "type": "ExpressionStatement",
+          "hash": "9dee7c8aebe9fe19e960410b3c88016410e835da4f93cbe01d6671a2e31f3398"
+        },
+        {
+          "line": 613,
+          "type": "ExpressionStatement",
+          "hash": "b5ad8de7a923782e8a155ebc19131638d0c63903d6d9f338ca4172bad0cd2bfd"
+        },
+        {
+          "line": 621,
+          "type": "ExpressionStatement",
+          "hash": "e7df017be1f0f2ab3d508e24d2e6a9a186c6454c2b03dfba2d59561f859afc90"
+        },
+        {
+          "line": 630,
+          "type": "ExpressionStatement",
+          "hash": "a0e6460bc8e9592e49b20ff5c75a8489332f9ff0f9cccecbc428632f1fe61fac"
+        },
+        {
+          "line": 631,
+          "type": "ExpressionStatement",
+          "hash": "cc6c4d741f08c8e4fc1e4af9f610093c73e88ad687568347acc5f82153b28096"
+        },
+        {
+          "line": 632,
+          "type": "ExpressionStatement",
+          "hash": "12fb2594f340b560d662060297994ae4d86586a27c15670b6460d89753b259f8"
+        },
+        {
+          "line": 634,
+          "type": "ExpressionStatement",
+          "hash": "26654314c49512eb209e21a9a294047dcf19fb4a1514b79af800b030267c8333"
+        },
+        {
+          "line": 644,
+          "type": "ExpressionStatement",
+          "hash": "24985d4c2fd6155de87a75919715309aa22b88f015c65069ea9b8f8b6bb51ad3"
+        },
+        {
+          "line": 645,
+          "type": "ExpressionStatement",
+          "hash": "041746cd494f0e5a0431cb9f034647f052d964f6181ab341d5447fd400c91173"
+        },
+        {
+          "line": 647,
+          "type": "ExpressionStatement",
+          "hash": "5bc5f259cb7d47cd55cc4b753b732a04c5c154093c07513e49be2e224a727fb5"
+        },
+        {
+          "line": 673,
+          "type": "ExpressionStatement",
+          "hash": "46269028c6472adfb8bbf6e80216564dd53b07b34c9855b64bcce51443d2c9f2"
+        },
+        {
+          "line": 685,
+          "type": "ExpressionStatement",
+          "hash": "80c3c5153e3f1d095eef09acedcbdecfdda4f8e7b28f40134ac4c9421424d804"
+        },
+        {
+          "line": 697,
+          "type": "ExpressionStatement",
+          "hash": "5ab20d1bfd6983fcd450c6466342ca91ab864c926aaf1c7a34a0783d80633a84"
+        },
+        {
+          "line": 699,
+          "type": "ExpressionStatement",
+          "hash": "33bb0a68fca90bc5e9a0810245a6404873bf3a043401754804b7e29bbbbadbfb"
+        },
+        {
+          "line": 701,
+          "type": "ExpressionStatement",
+          "hash": "a91f61d22588941612d156a0b2a12c73aa5f8fe4ae983964cf0871f23f5cad6f"
+        },
+        {
+          "line": 711,
+          "type": "ExpressionStatement",
+          "hash": "9580f7e5b1c4ec57bcd10d7cba14ec074704f43203a486cd8912c6d03a27f79a"
+        },
+        {
+          "line": 724,
+          "type": "ExpressionStatement",
+          "hash": "643b946cc6174d77c6e85a5246842dd9a40451bedca6c7cd9ff7043f54249253"
+        },
+        {
+          "line": 726,
+          "type": "ExpressionStatement",
+          "hash": "45914575a02710b28fbfc7cebaf46a0baf6ab8229fa44bd95f2298cc41da13e5"
+        },
+        {
+          "line": 728,
+          "type": "ExpressionStatement",
+          "hash": "2c3a03e65c2bfb52bac5922d1b36394fcdc2b5a7269e640bb8d523b19f382f50"
+        },
+        {
+          "line": 739,
+          "type": "ExpressionStatement",
+          "hash": "b4c7a4da7e8460eabcfa231bbd12f375346697d3cc72e443439d876e75dbf387"
+        },
+        {
+          "line": 740,
+          "type": "ExpressionStatement",
+          "hash": "194ef6bd8f5b086558546e4931758274795a1caf7590ef08dc2b4eb6ae606fcb"
+        },
+        {
+          "line": 742,
+          "type": "FunctionDeclaration",
+          "hash": "50bc3c2f85ac15b529cb63a6aee10a4c58cd35d9edaf0dc2fc91e73f1bc7237c"
+        },
+        {
+          "line": 752,
+          "type": "VariableDeclaration",
+          "hash": "fe4021f8cbe908588d006bc2c20a9a1fe747ed0f0fb4ed934d0c63b96e359f15"
+        },
+        {
+          "line": 792,
+          "type": "FunctionDeclaration",
+          "hash": "0692c757ac583e3ca432861ff022801464aa93a38b31c2a9766127c2c69db2b8"
+        },
+        {
+          "line": 799,
+          "type": "VariableDeclaration",
+          "hash": "7cb17146624416a478e1b49bfbff057262df0b22116f335c317ec9582848904e"
+        },
+        {
+          "line": 831,
+          "type": "ExpressionStatement",
+          "hash": "04d2dae551521e6b5bb7d85ad157d653e45044f33231c5426b300f908b1a354b"
+        },
+        {
+          "line": 857,
+          "type": "FunctionDeclaration",
+          "hash": "6483ee9fa1663c341f91a1e5994c6e35d2ff1070296605815ae5aab292161b54"
+        },
+        {
+          "line": 858,
+          "type": "FunctionDeclaration",
+          "hash": "92d99773dcbf4efa9f66552ab30fa4302e2e14958edf95e371bb3393537d5072"
+        },
+        {
+          "line": 863,
+          "type": "FunctionDeclaration",
+          "hash": "6bcd07a09fddae7e565a3a9d5749e438045d0813a792a5ffe7078e3689bdfe1a"
+        },
+        {
+          "line": 873,
+          "type": "FunctionDeclaration",
+          "hash": "fca5a96b00f002910ed8035f02ed708ef970a89da070a4d11b460c5a2148b56b"
+        },
+        {
+          "line": 879,
+          "type": "FunctionDeclaration",
+          "hash": "483e603ebd1c209e0fb0f4d03942c4bfb7ec8039bcbd8593a9d82fe1badccb03"
+        },
+        {
+          "line": 898,
+          "type": "IfStatement",
+          "hash": "12798a09d5b3be6c3c7a875597ca302e3461bc41caae5ce9907dc304bf2a4e9c"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Boolean",
+        "DOMParser",
+        "Error",
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "Map",
+        "Node",
+        "Number",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "URLSearchParams",
+        "alert",
+        "clearTimeout",
+        "confirm",
+        "console",
+        "document",
+        "encodeURIComponent",
+        "isFinite",
+        "location",
+        "parseFloat",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "0.1.1"
+    },
+    "pt-batch-download": {
+      "file": "PT_BatchDownload.user.js",
+      "sha256": "95dc2b3bd01a8fffc551b2a4d2e5ee6a3d45008514059bd0ecc348060e2649fb",
+      "metadata": "// ==UserScript==\n// @name         PT 批量下载种子\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.6.7\n// @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。\n// @author       wuyaos & AI\n// @match        https://*/*.php*\n// @match        *://*/torrents*\n// @run-at       document-idle\n// @grant        GM_addStyle\n// @grant        GM_registerMenuCommand\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_xmlhttpRequest\n// @connect      *\n// @require      https://unpkg.com/jszip@3.10.1/dist/jszip.min.js\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-batch.png\n// @noframes\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_BatchDownload.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 27,
+          "type": "VariableDeclaration",
+          "hash": "b92d241eb0edf4cf4c1c62ce436d59822e70505dc0a0b8ccedd5f0e95d2a9e68"
+        },
+        {
+          "line": 28,
+          "type": "VariableDeclaration",
+          "hash": "5d666c0b047ba6631088060d11824f2548bb9bc96b222de89952f215596bbe5a"
+        },
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "2eba6d5931a1a00d7962cf9a53d5ae5cb16b2872124e436d0bc2f61e34edba26"
+        },
+        {
+          "line": 30,
+          "type": "VariableDeclaration",
+          "hash": "7e9f550371e6da219090eee0ba862aac8aeb06b9f5bd83ac4f22c8150befa4fb"
+        },
+        {
+          "line": 31,
+          "type": "VariableDeclaration",
+          "hash": "d6e5234bdcb7350c306c301de741f059b5aeb25ef194cb2173f10e8a2d3855e6"
+        },
+        {
+          "line": 33,
+          "type": "VariableDeclaration",
+          "hash": "da2d7cc97aaf4cc601047302bbb90b49c72d10cab1e7997f4d3f1905adaec53c"
+        },
+        {
+          "line": 34,
+          "type": "VariableDeclaration",
+          "hash": "9ee49da382d6a4593dad6aa61892b39f492d513d0649113517321faabc913451"
+        },
+        {
+          "line": 35,
+          "type": "VariableDeclaration",
+          "hash": "98cff7fa0e4024fb25c56572874089cab181641d15f4caf371b60b9c3a64c958"
+        },
+        {
+          "line": 36,
+          "type": "VariableDeclaration",
+          "hash": "727c8085871fc2ddb9d554523209cfce9fc8f6efb6a0eaae499e6dc3020b88fb"
+        },
+        {
+          "line": 37,
+          "type": "VariableDeclaration",
+          "hash": "e682601e114f21df26f2432a9c6f6c12c6413558280306ee43e52fd8e78cc5e0"
+        },
+        {
+          "line": 38,
+          "type": "VariableDeclaration",
+          "hash": "be27a087899de80cf4ff35d1c8da51b66617ff393cfd04fa48980017e1cf03fb"
+        },
+        {
+          "line": 41,
+          "type": "ClassDeclaration",
+          "hash": "b28faf191e24a6c94921b091f0aa7fbc9102326e17aab183e7d11cdb082a54d1"
+        },
+        {
+          "line": 53,
+          "type": "ClassDeclaration",
+          "hash": "6fe9abdf2bab67eba6a6b0e8f8461b7d2117942d59755711a83a8b200a4cd020"
+        },
+        {
+          "line": 110,
+          "type": "ClassDeclaration",
+          "hash": "30153bec2e821df95954459a15eaf5cd11bd1ec63cafb1f0b5557822cfb6b215"
+        },
+        {
+          "line": 157,
+          "type": "VariableDeclaration",
+          "hash": "7291dcb27d515a7d7a15a2d24fa585e3c891e350a6223cc010fe52f508ff31fc"
+        },
+        {
+          "line": 158,
+          "type": "VariableDeclaration",
+          "hash": "55d81a6d398e2cc6f4bbe49966bf9d7ef7b27c12604e1d25a022cf8429ef2e58"
+        },
+        {
+          "line": 159,
+          "type": "ClassDeclaration",
+          "hash": "9f87e18be4d4a55aadeca17e91c37c67247623f017ce7b5f881bece2c8fc16b8"
+        },
+        {
+          "line": 228,
+          "type": "ClassDeclaration",
+          "hash": "67966acb7111b0ac854f0d5a08c06609b12ae7dd4619026fd0a3ab14d329d772"
+        },
+        {
+          "line": 284,
+          "type": "VariableDeclaration",
+          "hash": "8ea44942fd817fc123b88bb5b5d70fad2980b4bb5817d2544344b1d0adb4780e"
+        },
+        {
+          "line": 285,
+          "type": "VariableDeclaration",
+          "hash": "df939b93989e35c7a6780a953de7271371962644ce32481c359e4f1bdfbef90c"
+        },
+        {
+          "line": 286,
+          "type": "VariableDeclaration",
+          "hash": "d1cb4cb400bd97d40c55ef5246246ac300022e732d40fabc78451d9e402e1831"
+        },
+        {
+          "line": 287,
+          "type": "VariableDeclaration",
+          "hash": "f5c52f24ef7d29c4bad2e017722e06d3b835972d63e2814a438e29baecc672c8"
+        },
+        {
+          "line": 288,
+          "type": "VariableDeclaration",
+          "hash": "3e49e8a668e644970f511cb2f2a9dc6742f59f2e14f6080b17264ec1e1bb948c"
+        },
+        {
+          "line": 290,
+          "type": "VariableDeclaration",
+          "hash": "988b4595e2e0628e98253c3e3d5161ee5bf10d1c362e7205935371ead1f734ca"
+        },
+        {
+          "line": 295,
+          "type": "FunctionDeclaration",
+          "hash": "4ab75450666047d047d195f3a2d602f580b1c72011401dc95efa9aa4d9a292d5"
+        },
+        {
+          "line": 301,
+          "type": "ExpressionStatement",
+          "hash": "0843f15a114514cd0df2872ea1c65ab8ba9da8c112a0c49f2c3dbe5a117bd8dd"
+        },
+        {
+          "line": 302,
+          "type": "IfStatement",
+          "hash": "7707e6ec229330a77969347332a7da12cb174aa4666881f4c3dd37dc48aa487b"
+        },
+        {
+          "line": 309,
+          "type": "ExpressionStatement",
+          "hash": "ba0777146da224b9bf3d8c2520cf3fc627151afe6614c4a6ad467681c215b763"
+        },
+        {
+          "line": 311,
+          "type": "FunctionDeclaration",
+          "hash": "2e90181ea9c1b3c0f81dce0c89d9851dc0467fc59e49f579de8f26823410485a"
+        },
+        {
+          "line": 317,
+          "type": "FunctionDeclaration",
+          "hash": "5416a242805d5dc5e9140b9572544eb7e233dd3d79f72d147e0535667c7e3e0f"
+        },
+        {
+          "line": 321,
+          "type": "FunctionDeclaration",
+          "hash": "fcbd2f347e3a30b03262d03b3413fe82c429b90c61569c2cc86b0dab8e4aad6a"
+        },
+        {
+          "line": 325,
+          "type": "FunctionDeclaration",
+          "hash": "fe647d69740a3915698f5a8fe8e18632138194affa65fd2abf6743c8958ee996"
+        },
+        {
+          "line": 334,
+          "type": "FunctionDeclaration",
+          "hash": "a7c7a678e8861d79df3c3cb49689d41da37262ef8413fc8e49c049747c803a54"
+        },
+        {
+          "line": 349,
+          "type": "FunctionDeclaration",
+          "hash": "975fb877a463d1e398ba7261e658e16e3d61340452c43de769a34c4cce0bea3e"
+        },
+        {
+          "line": 358,
+          "type": "FunctionDeclaration",
+          "hash": "6d83229c286eb83aa562a13020f02c9aecb2ddad9dbc40b1750b32d038590c52"
+        },
+        {
+          "line": 374,
+          "type": "FunctionDeclaration",
+          "hash": "52866bcbfe9a5d08aa01e8152ad3e7d2951e9da231f0530b822f82414e4c6d5f"
+        },
+        {
+          "line": 390,
+          "type": "FunctionDeclaration",
+          "hash": "93bfab7a7b6b5a8fe00d6741d284ae015c0ac3f71b3b74bfb3229b8c9dce943d"
+        },
+        {
+          "line": 395,
+          "type": "FunctionDeclaration",
+          "hash": "0c3d56e87cff6df99ba66fef2d953ed87b794549fe0ecd6ba2d7f0dc213b29f7"
+        },
+        {
+          "line": 399,
+          "type": "FunctionDeclaration",
+          "hash": "e6c840faea76f879dfd144b1ffa872b9c05d441d1edf61269422b231043f610c"
+        },
+        {
+          "line": 411,
+          "type": "FunctionDeclaration",
+          "hash": "d18173f2c24850792a90efaeb914553a8450173ed93f56915e8bc520ca82a9e6"
+        },
+        {
+          "line": 422,
+          "type": "FunctionDeclaration",
+          "hash": "4c8ff210f050a949357cfd3cc9a52b136bf9fda1d36ce4c07373e96e9c9d11c9"
+        },
+        {
+          "line": 478,
+          "type": "FunctionDeclaration",
+          "hash": "c53aaf73ed11e206f5bcdeaf27fbdec6b8746d8f2387a83edf0d0bee50847405"
+        },
+        {
+          "line": 609,
+          "type": "FunctionDeclaration",
+          "hash": "daf4863a679321c625362a6eb2af67aa5f5e08f9a7d78ce7aed9cb4341dcf145"
+        },
+        {
+          "line": 623,
+          "type": "FunctionDeclaration",
+          "hash": "97d03deec5500043342eec0d41bd93a9e21af0dfbfd33a5b6165e7b56ae5f34c"
+        },
+        {
+          "line": 640,
+          "type": "FunctionDeclaration",
+          "hash": "810358b38044b22d99dd92a47c787fcc0d2e1eb0a8845d143d579722056afed8"
+        },
+        {
+          "line": 645,
+          "type": "FunctionDeclaration",
+          "hash": "298b9fcb541aa064e1acd67f24ba4d5b3d54a313dfaf0f6fcffac8f3804caa84"
+        },
+        {
+          "line": 650,
+          "type": "FunctionDeclaration",
+          "hash": "6e952db2380230b22083ad5c45273998f8c546861ce7f6d584bba8ec8b1e91a0"
+        },
+        {
+          "line": 658,
+          "type": "FunctionDeclaration",
+          "hash": "6fadb0728a293b12277ce5614d5ac69650263aada781df63994c8800241892cb"
+        },
+        {
+          "line": 662,
+          "type": "FunctionDeclaration",
+          "hash": "0f12b23c896cfe42a82897d5ac0430d46ceb7d2d230b7800d5618101aac549c2"
+        },
+        {
+          "line": 670,
+          "type": "FunctionDeclaration",
+          "hash": "c7fa637105ac92b4c847663377eaebc6819b228b9db0283f1d7bf7229085f664"
+        },
+        {
+          "line": 680,
+          "type": "FunctionDeclaration",
+          "hash": "bb3d3faa90ab33829a402fa63ed1ddc52de5e00622b9e7020c791c800cf2d7e8"
+        },
+        {
+          "line": 692,
+          "type": "FunctionDeclaration",
+          "hash": "c02b3add34e6db6eda6e981e585fe06933c4d31887b76f7fff27ea5937848a13"
+        },
+        {
+          "line": 707,
+          "type": "FunctionDeclaration",
+          "hash": "fb7942da50e7fcc05593b7fe955be206545f1ba799db7e13dfbae612129b689b"
+        },
+        {
+          "line": 720,
+          "type": "FunctionDeclaration",
+          "hash": "ab39372e6bfcabc4b1b04f709c416aa1a0b0945e47265494536977699d2a8963"
+        },
+        {
+          "line": 732,
+          "type": "FunctionDeclaration",
+          "hash": "17fa6aed5839c320e0d9b33a9477f939c4e52859b450227783ead11da5b8e535"
+        },
+        {
+          "line": 760,
+          "type": "FunctionDeclaration",
+          "hash": "4baf427ba9149a1a30111741e6757089d6a82e674982339bb14405e0097049ec"
+        },
+        {
+          "line": 767,
+          "type": "FunctionDeclaration",
+          "hash": "a941f7465ab6e2e7c4f0eea01360e6c7cc204cb765e878ea5cb4d6d70e7d1b00"
+        },
+        {
+          "line": 776,
+          "type": "FunctionDeclaration",
+          "hash": "3bf9fcac9f6b71bf3987a82f3aff7bae9ae3c2473b946dcc11154eef3c07a004"
+        },
+        {
+          "line": 812,
+          "type": "FunctionDeclaration",
+          "hash": "0be59738fe01cc9bab918434afc81a13abdc89a0df4f50f88786382d7bb32400"
+        },
+        {
+          "line": 819,
+          "type": "FunctionDeclaration",
+          "hash": "607b415149f31144a783dd3251ce298190c7ae161984dd292ce8af4d6b705f0d"
+        },
+        {
+          "line": 829,
+          "type": "FunctionDeclaration",
+          "hash": "4471b744d79e7ed21fdecb48f2b4972a833389693360af3576921b74d7fc6c78"
+        },
+        {
+          "line": 870,
+          "type": "FunctionDeclaration",
+          "hash": "6a72ba590f22db7fff18dd451501173302b4820c489bba2e5428ff38cdd782e4"
+        },
+        {
+          "line": 879,
+          "type": "FunctionDeclaration",
+          "hash": "bc43a37a1e07908648eb80cf76974eafe655208f070a60e1d685799fdeec0419"
+        },
+        {
+          "line": 888,
+          "type": "FunctionDeclaration",
+          "hash": "6c54c211af055342872c8d6736266ad491d81cd4a0ae9f2b19640430dc12af0a"
+        },
+        {
+          "line": 895,
+          "type": "FunctionDeclaration",
+          "hash": "c0d5fb22ef8e870259ce228a89bfa948f31b8e034a1c44eaf449216df8f29223"
+        },
+        {
+          "line": 911,
+          "type": "FunctionDeclaration",
+          "hash": "9ef125fe0a883fba1a6507e4d8d6418447fe4c7d71b67a8af25315071e789013"
+        },
+        {
+          "line": 946,
+          "type": "FunctionDeclaration",
+          "hash": "404dcf04362ab95cb75b56cec06aceaae70b3060f9f41c03c30b6bf78b3cfbec"
+        },
+        {
+          "line": 980,
+          "type": "FunctionDeclaration",
+          "hash": "d43d005a529956d200b0715e42c541a740ec6c49a3552373886268c8e5e2d1d3"
+        },
+        {
+          "line": 1008,
+          "type": "FunctionDeclaration",
+          "hash": "eb37cccb0d2779e1a1895ac60eb29226bfa371af94cb5610d00549e0f05746ed"
+        },
+        {
+          "line": 1039,
+          "type": "FunctionDeclaration",
+          "hash": "b62ffa1d913c059c356f6a89f50ca8b2223a1d83c5ace025034c6d93b47d7068"
+        },
+        {
+          "line": 1056,
+          "type": "FunctionDeclaration",
+          "hash": "8ebe8100e262c0163bcd7dfadb2f2670eb2aa9c4c6523ec0416563006dc192e2"
+        },
+        {
+          "line": 1060,
+          "type": "FunctionDeclaration",
+          "hash": "9cb8dd52d14c1b2453525ffcf020a3c66121de69a03a58f9f4e31cbc096333b5"
+        },
+        {
+          "line": 1065,
+          "type": "FunctionDeclaration",
+          "hash": "fba5db68797dde703bace893fe9c1668d3fed2587550f10fc20069066ddb102b"
+        },
+        {
+          "line": 1069,
+          "type": "FunctionDeclaration",
+          "hash": "e1162a64f6ef9aff5a3eea8acbb362b50e886b7321f1f08b1379f9c699317de3"
+        },
+        {
+          "line": 1079,
+          "type": "FunctionDeclaration",
+          "hash": "62beff9b187bb23c48aebbf6a7e3e274a168dd414276a68c9a3ac6c56b7f3e86"
+        },
+        {
+          "line": 1093,
+          "type": "FunctionDeclaration",
+          "hash": "10bce26f85af1ee298257fafcce27c5204c9d2a305af6461108b5ab515fa15d8"
+        },
+        {
+          "line": 1104,
+          "type": "FunctionDeclaration",
+          "hash": "518f929197fb47c2de5874bbd91e523dbe5f08bc73a0a1c9d939ff5f1745a1f2"
+        },
+        {
+          "line": 1116,
+          "type": "FunctionDeclaration",
+          "hash": "aa6a9006d14de5ed5c3b2552c503b0b271d501503eb36921af4abdb861fc89af"
+        },
+        {
+          "line": 1121,
+          "type": "FunctionDeclaration",
+          "hash": "4615be9eced2428cb9121ac5875d38efb365341af93fbb251f8d774c8a75e0d8"
+        },
+        {
+          "line": 1130,
+          "type": "FunctionDeclaration",
+          "hash": "80d287f3cbd388d1a202bf4ca728b20f510182d1200695b2b0c14e85c9a203c9"
+        },
+        {
+          "line": 1134,
+          "type": "FunctionDeclaration",
+          "hash": "f48f1b7d000fac9d02ff0cc90d74a29711ccc580969abdce9fd51bbb10a0cc0f"
+        },
+        {
+          "line": 1140,
+          "type": "FunctionDeclaration",
+          "hash": "598cdb352a921829ab28ccddff85ab7e0d8d957f6065830b20321ab05e4ef06e"
+        },
+        {
+          "line": 1150,
+          "type": "FunctionDeclaration",
+          "hash": "899a819ee51dd1363956f8ee798d4298854a4b09741421305d17d9f4322670a8"
+        },
+        {
+          "line": 1154,
+          "type": "FunctionDeclaration",
+          "hash": "6d23c73f729fafd519d3f181ec11d67aee80b0560b0dbe5a49860ec33b85f06a"
+        },
+        {
+          "line": 1161,
+          "type": "FunctionDeclaration",
+          "hash": "5a5bad1b84c80d6e44a349d6a5a88a795a5924d7bb83e805dc8d997bb290cddb"
+        },
+        {
+          "line": 1168,
+          "type": "FunctionDeclaration",
+          "hash": "b47a7dc54927ef8b7db4faba401a4c5dcb800f94c4cd6faf5ac79c629b64f8d6"
+        },
+        {
+          "line": 1172,
+          "type": "FunctionDeclaration",
+          "hash": "5da93aaef6d2612a569fa6f75da9ca07e3b8d9d8ce9dce4a71f78124964e9a8f"
+        },
+        {
+          "line": 1178,
+          "type": "FunctionDeclaration",
+          "hash": "c6071e59d266a916378868fa419cc475adf9367e06687c570965600c81bedb7e"
+        },
+        {
+          "line": 1194,
+          "type": "FunctionDeclaration",
+          "hash": "7bedf8a6f65a822e8138aedf59cf6f0c9aa1521d3456bcbc44bc7dd8599f476f"
+        },
+        {
+          "line": 1199,
+          "type": "FunctionDeclaration",
+          "hash": "cef794eb6068f15d7cec404834a0e2df65ea4823171a621622d89e6a82184dd8"
+        },
+        {
+          "line": 1203,
+          "type": "FunctionDeclaration",
+          "hash": "648491911529c3c1c0c7fc08eea1d696d75acce5f715e259297872164067cf8b"
+        },
+        {
+          "line": 1208,
+          "type": "FunctionDeclaration",
+          "hash": "1bc23ddc5457e57460e3245d333d5df0ac17224c65e05bdcbb858baa90d8f1e5"
+        },
+        {
+          "line": 1221,
+          "type": "FunctionDeclaration",
+          "hash": "123c8ceb01cdacbb643bbd299a9e6dc4f7180a35cfaa4413e6f83f18bc030f1a"
+        },
+        {
+          "line": 1226,
+          "type": "FunctionDeclaration",
+          "hash": "de5d758d79b271fa203e6a04552f2c7141676e5aec906f9bb40eff32e9e40792"
+        },
+        {
+          "line": 1234,
+          "type": "FunctionDeclaration",
+          "hash": "1df3a4fd0217d8fdaf2aa3081b8fb2f5866bd8cdd7279dcf277c1664b9286ed5"
+        },
+        {
+          "line": 1240,
+          "type": "FunctionDeclaration",
+          "hash": "e7cef26a34ea9fea8a8a9c352e0698865100e7a6f26a73d2282732d343681703"
+        },
+        {
+          "line": 1248,
+          "type": "FunctionDeclaration",
+          "hash": "097153cb136fbfd0bdec3a516969f902d4c11219f255af536b6d5b1e599d2823"
+        },
+        {
+          "line": 1255,
+          "type": "FunctionDeclaration",
+          "hash": "f9842596ab60032730135976c6259253fb5b420bbfdf32279bb436b3ba6dc607"
+        },
+        {
+          "line": 1261,
+          "type": "FunctionDeclaration",
+          "hash": "77f9912c9eef4c5347411b4df0e1f966c3c252acccb277d585ec21330d126b6a"
+        },
+        {
+          "line": 1266,
+          "type": "FunctionDeclaration",
+          "hash": "028d92b3866e3bf4368aa5a1b90f37ed1fbaef884137acc64746381ac16b9083"
+        },
+        {
+          "line": 1271,
+          "type": "FunctionDeclaration",
+          "hash": "c2c364c059f5f284b46b90789af416140854f80a8abd4c95e26fa6a3f1b9fedf"
+        },
+        {
+          "line": 1275,
+          "type": "FunctionDeclaration",
+          "hash": "1b24b24f160598c3452f413c7930b4ccedd36f8c0ee47f5d8382bd6d4881ba1e"
+        },
+        {
+          "line": 1279,
+          "type": "FunctionDeclaration",
+          "hash": "0be3a501be9a52e7eeb9d85d7a077f6a9b71b8a76ab3b4ffa7774cf7f0347a3f"
+        },
+        {
+          "line": 1288,
+          "type": "FunctionDeclaration",
+          "hash": "c7d908055e1b01e6aed4ca75659c7f6ae9516fce462732fea515897174a4fd77"
+        },
+        {
+          "line": 1292,
+          "type": "FunctionDeclaration",
+          "hash": "77c0b0bd8940187c036ab7a6ab2e8a178c2fd0431accf186a4cd7be673fb96cf"
+        },
+        {
+          "line": 1300,
+          "type": "FunctionDeclaration",
+          "hash": "ede03cc45cbbbabe07367baa007de60a1d4e554d6eb52a299406429c23c927d2"
+        },
+        {
+          "line": 1305,
+          "type": "FunctionDeclaration",
+          "hash": "5e0c7da6e209103df9555891f87e1e3e0e6c167b42970ba5ee856a062267f971"
+        },
+        {
+          "line": 1309,
+          "type": "FunctionDeclaration",
+          "hash": "4562f2f78f3e07dec9f94a331d70402385a797778c6eaac6b87394afd44e02ef"
+        },
+        {
+          "line": 1313,
+          "type": "FunctionDeclaration",
+          "hash": "f70829a57bdba0b742e551ca01512b8919ebe3117ce7b2c44020323ad6887bb4"
+        }
+      ],
+      "globals": [
+        "Array",
+        "Boolean",
+        "CSS",
+        "Date",
+        "Error",
+        "FileReader",
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_xmlhttpRequest",
+        "JSON",
+        "JSZip",
+        "Math",
+        "MutationObserver",
+        "Node",
+        "Number",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "TextEncoder",
+        "URL",
+        "URLSearchParams",
+        "Uint8Array",
+        "alert",
+        "btoa",
+        "confirm",
+        "console",
+        "decodeURIComponent",
+        "document",
+        "encodeURIComponent",
+        "fetch",
+        "getComputedStyle",
+        "isFinite",
+        "location",
+        "parseFloat",
+        "parseInt",
+        "prompt",
+        "setTimeout",
+        "window"
+      ],
+      "version": "0.6.8"
+    },
+    "pt-one-click-claim": {
+      "file": "PT_OneClickClaim.user.js",
+      "sha256": "fb9b4507a0913fb13aa01a874b7d30ba4c0f17fc576ee8279a901cfba2cd1a0e",
+      "metadata": "// ==UserScript==\n// @name         PT一键认领 Plus\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.2.2\n// @description  根据标题表达式、体积、IP、客户端筛选当前做种列表，预览后批量认领 PT 种子。\n// @author       ngtrio & AI\n// @match        *://*/userdetails.php?id=*\n// @match        *://*/getusertorrentlist.php?userid=*\n// @match        https://audiences.me/usertorrentlist.php?userid=*\n// @run-at       document-idle\n// @grant        none\n// @noframes\n// @license      MIT\n// @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-oneclickclaim.png\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/PT_OneClickClaim.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 26,
+          "type": "VariableDeclaration",
+          "hash": "e34759d699921d384a3ab5c05927e2d4b1df2e2231b8be43bb11ba6ae554894a"
+        },
+        {
+          "line": 27,
+          "type": "VariableDeclaration",
+          "hash": "c6468fd19348648731269b8d84f63f9c2c4dd69555e489cfc1039b6ff939dfee"
+        },
+        {
+          "line": 28,
+          "type": "VariableDeclaration",
+          "hash": "a66264cfa6f272cfdb6be788541de63a34d6b34149260ec6501f29c387d19505"
+        },
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "b1be596ee64bfe49f6c44e3e676c96a5df8443c31974b61e12c17528c3030c99"
+        },
+        {
+          "line": 30,
+          "type": "VariableDeclaration",
+          "hash": "d96cabeea49cb1bea361e61294845926f5d14310967c006d37362880820e1862"
+        },
+        {
+          "line": 31,
+          "type": "VariableDeclaration",
+          "hash": "1c7305d0fadd8a003cc62b0a960229d44e65351bc0bb9e927460788fc5270a12"
+        },
+        {
+          "line": 32,
+          "type": "VariableDeclaration",
+          "hash": "665b2b83fd98d47b2ba80a0da05fbc931ceff0197ea07a1cb39fd9bc4f259e70"
+        },
+        {
+          "line": 34,
+          "type": "VariableDeclaration",
+          "hash": "5a4b5049adc4b75aa41cbe65afc7c0409ff57e5753bf478546593225de7a5df5"
+        },
+        {
+          "line": 41,
+          "type": "ExpressionStatement",
+          "hash": "4179fd9e2f51d26b57b08fab65ded5c11c55b0ecb116c017e200e2c701a33959"
+        },
+        {
+          "line": 43,
+          "type": "FunctionDeclaration",
+          "hash": "00f4c8a9873e4705ed0b75584e82a8550bec65cb72f79ba7449e4e624d790386"
+        },
+        {
+          "line": 53,
+          "type": "FunctionDeclaration",
+          "hash": "d9585e05ad6aa63ae455a86005c57df8d0b700c0ca26b5a24e58b4ac51c068d7"
+        },
+        {
+          "line": 65,
+          "type": "FunctionDeclaration",
+          "hash": "90ff7b915b75f54bc154df53de40f7c55cf27054c5b29b4f7321fec3022b9819"
+        },
+        {
+          "line": 69,
+          "type": "FunctionDeclaration",
+          "hash": "893aae6ff9fb1042ee13e243b0c39a3258cdfb8c42830c2cb17dcedb48484c60"
+        },
+        {
+          "line": 86,
+          "type": "FunctionDeclaration",
+          "hash": "bc8ffc2c177864af5382b519aef31b6594811e7f05290fa32e91e470d3296c16"
+        },
+        {
+          "line": 92,
+          "type": "FunctionDeclaration",
+          "hash": "81d4b52462fd8847dd00317a746bcaec14ef709c9a2999b654374e9e081c1469"
+        },
+        {
+          "line": 96,
+          "type": "FunctionDeclaration",
+          "hash": "1477c02abdaf659c8c952b3e620285b8e10fa9be796e1f8bff9d49d743262c92"
+        },
+        {
+          "line": 97,
+          "type": "FunctionDeclaration",
+          "hash": "c524ae04b4f5851607d817ddbd935f037c5fcd5f5524ed5b0f5d55ffc225f1f0"
+        },
+        {
+          "line": 99,
+          "type": "FunctionDeclaration",
+          "hash": "df1350ec67d7316e22cbf128b6f02cbe07b0caa33879f981228a7610c8c2399a"
+        },
+        {
+          "line": 125,
+          "type": "FunctionDeclaration",
+          "hash": "3be318a2d41056373fc8299bf80f7355995499d32c2459db29c8e69180ee17cc"
+        },
+        {
+          "line": 152,
+          "type": "FunctionDeclaration",
+          "hash": "06161603f5b9bb14286c421356be39a1bbfe0081a849889701b44d9953943c67"
+        },
+        {
+          "line": 159,
+          "type": "FunctionDeclaration",
+          "hash": "6fc9985435c202c221bde4b86f57466c86f7c2142c0dde4af8141e6bd5a47f0d"
+        },
+        {
+          "line": 166,
+          "type": "FunctionDeclaration",
+          "hash": "bf129f606e45cc80b6af9f6fb3eed6664a9aa34c7a1beeab6b3bacb63b9dc153"
+        },
+        {
+          "line": 167,
+          "type": "FunctionDeclaration",
+          "hash": "1918246bd2a98b602a7c6b0bf5d2119fd30810808eb15b639f8621a629b2e4ff"
+        },
+        {
+          "line": 173,
+          "type": "FunctionDeclaration",
+          "hash": "4225ac4bcaccfdf828f36caa7cc9825a42aa6da27c85d8719d4b1653a63171f4"
+        },
+        {
+          "line": 186,
+          "type": "FunctionDeclaration",
+          "hash": "5593162b1526298d9f5bbc0f1100fc32fbb1c678f53d00e0c930d67cdafdc1e7"
+        },
+        {
+          "line": 192,
+          "type": "FunctionDeclaration",
+          "hash": "a9aff016809d7ef00afe3df3c3a85e00d5eb9220cb4e2dccd803ac0fef2058fb"
+        },
+        {
+          "line": 207,
+          "type": "FunctionDeclaration",
+          "hash": "5e6b4b794a88d872399e2f9e2296926305e2655903893120790207fd6d9979e9"
+        },
+        {
+          "line": 214,
+          "type": "FunctionDeclaration",
+          "hash": "97f111663f4473c3d676c2660d0e06c9141578e7589931e1e2f673696a8fd57b"
+        },
+        {
+          "line": 223,
+          "type": "FunctionDeclaration",
+          "hash": "b0d5abba04a9404f8e4eba21545564f985863f2fd2ed148c8cdca4c28758432d"
+        },
+        {
+          "line": 225,
+          "type": "FunctionDeclaration",
+          "hash": "8ed7bd3077f8562bab3a518214418aeb7d37cc1c01a054ae82e662a182880a4c"
+        },
+        {
+          "line": 231,
+          "type": "FunctionDeclaration",
+          "hash": "acb7c84adc524581f9c51342bf7bd8ee420669c59b7f1d17e9a818e9d33d9887"
+        },
+        {
+          "line": 245,
+          "type": "FunctionDeclaration",
+          "hash": "8b81cb4fadb139535f4d4bfcda45f57cf47f01c3edaf05350b1e5313d2e627c3"
+        },
+        {
+          "line": 246,
+          "type": "FunctionDeclaration",
+          "hash": "4e4e61af2504473974ccc1ebe57f29c8ef422cbb1601fe6e1deacbaec3132635"
+        },
+        {
+          "line": 247,
+          "type": "FunctionDeclaration",
+          "hash": "94cf642b1796f16166ee4d0814fb72095633db2888f57b5e9644aa4b4950ac9a"
+        },
+        {
+          "line": 248,
+          "type": "FunctionDeclaration",
+          "hash": "f9fa394aafef6aee6fea12704bedd5e1a9ec389612c6960195850e181a6f2d18"
+        },
+        {
+          "line": 261,
+          "type": "FunctionDeclaration",
+          "hash": "142566840faba2b85ca2c2f01e9f358942e086d8e91fe7ffa082b507240b5738"
+        },
+        {
+          "line": 266,
+          "type": "FunctionDeclaration",
+          "hash": "c757c03a1c728e4654dd87dfed41836f410a904a6f052792651d3e1741a0549c"
+        },
+        {
+          "line": 267,
+          "type": "FunctionDeclaration",
+          "hash": "6275a7a340899083da75ec7831d8c3b6968cf4dedff3bc238934a85ec143843f"
+        },
+        {
+          "line": 268,
+          "type": "FunctionDeclaration",
+          "hash": "85079cd08df45ec63fd5f01f9d594fd948b74c3507809aa7890dc9b4707da11d"
+        },
+        {
+          "line": 270,
+          "type": "FunctionDeclaration",
+          "hash": "b5117e3f76be82eed6a46e3b1abd9d317f263c1ccf2bf0de2173118b2066d362"
+        },
+        {
+          "line": 271,
+          "type": "FunctionDeclaration",
+          "hash": "c86ee1bd90de5d0d7acbc45510f3888eda88ba82fd5e7c0b6f6f1242b31be63b"
+        },
+        {
+          "line": 272,
+          "type": "FunctionDeclaration",
+          "hash": "c0438df2540dcab9311110e87b659a898ebe900af40cd722f1d2cbbf5bb31bd3"
+        },
+        {
+          "line": 273,
+          "type": "FunctionDeclaration",
+          "hash": "82ced01687388872f1e5e5272295c2d02fcc021803256701c82e5c386ae439d7"
+        },
+        {
+          "line": 274,
+          "type": "FunctionDeclaration",
+          "hash": "9c6fdcda985bc607c67d834e832e98afb5cc52a14ca3cfd2ae8f0552dccdb269"
+        },
+        {
+          "line": 275,
+          "type": "FunctionDeclaration",
+          "hash": "226fea35b497c162b874497425ac080c8017770a4792e5f8e29e6e21aa1bef4a"
+        },
+        {
+          "line": 276,
+          "type": "FunctionDeclaration",
+          "hash": "7120e746348271c59f370bbd8e7b7f60552ed100694b76a1dd85508f59732438"
+        },
+        {
+          "line": 277,
+          "type": "VariableDeclaration",
+          "hash": "07b6acf4d19230a947418bd5ac47baee9e4e559d75075ab0e19daa231e691cb3"
+        },
+        {
+          "line": 278,
+          "type": "FunctionDeclaration",
+          "hash": "36b97f9484efcd448c2e039007b20ed1b05806ab8a99817f7e07c2928c8e9937"
+        },
+        {
+          "line": 279,
+          "type": "FunctionDeclaration",
+          "hash": "25484758cb17c36e7e502e6391193aa04a9c66257b5230852fb197ecff160482"
+        },
+        {
+          "line": 280,
+          "type": "FunctionDeclaration",
+          "hash": "d564c0a3f4f160a7462863e40eef34371889eab9968c7cd62219af31df79da71"
+        },
+        {
+          "line": 281,
+          "type": "FunctionDeclaration",
+          "hash": "8c405662e9c0aac6e16d967681a81f4109adbb6c25554dd5ec6689039ba6e454"
+        },
+        {
+          "line": 282,
+          "type": "FunctionDeclaration",
+          "hash": "828dceb331e4cc86335ee22c7d47c8351448db21aaa0c8c5e82207f55b26e474"
+        },
+        {
+          "line": 283,
+          "type": "FunctionDeclaration",
+          "hash": "122791afafb7c72607581298bb8409d40f2ebb43112a79c0f5fb4138642988a7"
+        },
+        {
+          "line": 284,
+          "type": "FunctionDeclaration",
+          "hash": "45806beed9b6fc5e62b270df92953aad3ef2b9715977c1501b615e2c76ac14bb"
+        },
+        {
+          "line": 285,
+          "type": "FunctionDeclaration",
+          "hash": "05e2661ca475a6e187760fed062daa9a1bfbe8089ee4d3a10cb316874d38a8e0"
+        },
+        {
+          "line": 286,
+          "type": "FunctionDeclaration",
+          "hash": "5b499fc1d89583e87f9a40c826e8a32edb98a0d6951ba0ff7bc49043f63ae930"
+        },
+        {
+          "line": 287,
+          "type": "FunctionDeclaration",
+          "hash": "d5807d425e34a13353aee0d5dd4b907a4d96fbeafaeadef3f8b27f90647c38b1"
+        },
+        {
+          "line": 288,
+          "type": "FunctionDeclaration",
+          "hash": "c2586f4be93fdb7a12f3063ac8249494de5fc5d92ffdce18d9fbc4cfcf578840"
+        },
+        {
+          "line": 289,
+          "type": "FunctionDeclaration",
+          "hash": "44120a5cd455ca36b18f224e3f3e7ad9eda9d6a05588a874c16fdcd2f2a772d6"
+        },
+        {
+          "line": 290,
+          "type": "FunctionDeclaration",
+          "hash": "d4abe1fc73c0a3f6621e3a0a93952249b94b10075ce0c0ed34ead164a257689a"
+        },
+        {
+          "line": 291,
+          "type": "FunctionDeclaration",
+          "hash": "c2c364c059f5f284b46b90789af416140854f80a8abd4c95e26fa6a3f1b9fedf"
+        },
+        {
+          "line": 292,
+          "type": "FunctionDeclaration",
+          "hash": "5bf1156b36b5a5facf668657cc8b45b63862fefe7abf15b7264eaeff4532011e"
+        },
+        {
+          "line": 293,
+          "type": "FunctionDeclaration",
+          "hash": "22239a11a25cf1e139f5147b5cdfcd9440009838aac66e85e8518e50f76bac69"
+        },
+        {
+          "line": 294,
+          "type": "FunctionDeclaration",
+          "hash": "3ee43978a7401071a7f5b8287130d3247b43ac23baa891a6197186ed5a1a098d"
+        },
+        {
+          "line": 295,
+          "type": "FunctionDeclaration",
+          "hash": "7917ffbc54bd160e32efdd2245dc2a35b1f0ca5c445a32ff12f0afbf03d22dc2"
+        },
+        {
+          "line": 296,
+          "type": "FunctionDeclaration",
+          "hash": "e0acfc60e33ba57b825564885f9b029261ce75629097c30dc808df7bdfaaeaf3"
+        },
+        {
+          "line": 297,
+          "type": "FunctionDeclaration",
+          "hash": "03714eec3c23b4357e9239ff7afb8f6d7f336ad26c71a1c357a5aedbc4a7bc47"
+        },
+        {
+          "line": 298,
+          "type": "FunctionDeclaration",
+          "hash": "124a09df5f9ea44bac54d9ec90993f95e284ecd35bfdaaab5ca8ff236f394767"
+        }
+      ],
+      "globals": [
+        "Boolean",
+        "Error",
+        "Map",
+        "Math",
+        "Number",
+        "Object",
+        "Promise",
+        "RegExp",
+        "Set",
+        "String",
+        "URL",
+        "URLSearchParams",
+        "confirm",
+        "console",
+        "document",
+        "encodeURIComponent",
+        "fetch",
+        "getComputedStyle",
+        "location",
+        "sessionStorage",
+        "setTimeout",
+        "undefined",
+        "window"
+      ],
+      "version": "0.2.3"
+    },
+    "zhuque-batch-download": {
+      "file": "Zhuque_BatchDownload.user.js",
+      "sha256": "e74d541d4f3d82dd8908b25b27d7e2c39c49010770b3ad5e40ee27768ef07f22",
+      "metadata": "// ==UserScript==\n// @name         朱雀批量下载种子\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.2.1\n// @description  在朱雀(ZHUQUE)种子搜索页注入批量下载面板，支持按体积区间、做种数、下载数、上传/下载倍率多选筛选当前页种子并批量下载。\n// @author       wuyaos & AI\n// @match        https://zhuque.in/torrent/search/*\n// @run-at       document-idle\n// @grant        GM_addStyle\n// @grant        GM_setValue\n// @grant        GM_getValue\n// @grant        GM_registerMenuCommand\n// @connect      zhuque.in\n// @noframes\n// @license      MIT\n// @icon         https://zhuque.in/assets/images/512.png\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Zhuque_BatchDownload.user.js\n// ==/UserScript==",
+      "statements": [
+        {
+          "line": 28,
+          "type": "VariableDeclaration",
+          "hash": "8f9274b564baab30600e50c18a54e9c83478058216d2925623c7e89dbaa353a5"
+        },
+        {
+          "line": 29,
+          "type": "VariableDeclaration",
+          "hash": "fd2216a480819a38b74e9d59c5fab0332b2b13885c72bb8a75c06a644f7724e3"
+        },
+        {
+          "line": 30,
+          "type": "VariableDeclaration",
+          "hash": "168af60a1adac3d04bfc8444b0530f81eb22a02870e9d5b73b940a669199ecbf"
+        },
+        {
+          "line": 31,
+          "type": "VariableDeclaration",
+          "hash": "3d1f382b8c9313064309753d1167871f83cc12976ef99cf1bc2d6756d13c5810"
+        },
+        {
+          "line": 32,
+          "type": "VariableDeclaration",
+          "hash": "86eb264aa85e9c430ebf973304eb6213bcd9e21c7c85a015438c1697684f400e"
+        },
+        {
+          "line": 34,
+          "type": "FunctionDeclaration",
+          "hash": "9654b277c908a8a44185f5270f4e98e8a2acc17bbff4f6c607a9a7f5fa6ba188"
+        },
+        {
+          "line": 42,
+          "type": "FunctionDeclaration",
+          "hash": "0888b47b9421b248d55c4ea342d8b4cf717fbbc8347e9f7ee4c560fc7ad15a65"
+        },
+        {
+          "line": 48,
+          "type": "FunctionDeclaration",
+          "hash": "26139afcd9ec54c0baa9afdf0cedac069fd70d85631ae4124b779ff7717f7e2e"
+        },
+        {
+          "line": 65,
+          "type": "FunctionDeclaration",
+          "hash": "3c33b457c682b6e832cb670b95c398e8bb58bee2f51c54be2a73d253154fa50b"
+        },
+        {
+          "line": 82,
+          "type": "FunctionDeclaration",
+          "hash": "a5c5ce7b0d0cf4ebf2cfaff433b54a3b5e542faa80189ed33f3f1943a5a0b294"
+        },
+        {
+          "line": 100,
+          "type": "FunctionDeclaration",
+          "hash": "decf5b4a13fe1d5d84921d15d9359a5653b102d3abe92f4153fb7ea4c1967f5b"
+        },
+        {
+          "line": 113,
+          "type": "FunctionDeclaration",
+          "hash": "50f8afd29e04d23caf291059f0f5b12be0309551c407474a9a3129ce6742cc3b"
+        },
+        {
+          "line": 147,
+          "type": "FunctionDeclaration",
+          "hash": "46e0be2d54aaf3b0fff80991affa641a911bdd4f98670c706ac7fdb0d661778c"
+        },
+        {
+          "line": 155,
+          "type": "FunctionDeclaration",
+          "hash": "55f02887b6e7730ae23424f95ff8fb0fa1fc252a11588a323c4887a3d93acead"
+        },
+        {
+          "line": 165,
+          "type": "FunctionDeclaration",
+          "hash": "760a83b9dc8fbfa4efdde0f2913698f2b1e474ece0f914b0b90df8bd7cb1aec5"
+        },
+        {
+          "line": 170,
+          "type": "FunctionDeclaration",
+          "hash": "9b922501887916e842090024693da823aaf03f7761192f130c19c5288f24d50c"
+        },
+        {
+          "line": 177,
+          "type": "FunctionDeclaration",
+          "hash": "af2d8c7f0c525bc2e922899829a02c72c76a54110a5b1f9c7ae0230707af008b"
+        },
+        {
+          "line": 185,
+          "type": "FunctionDeclaration",
+          "hash": "df1c1bac2ae032c4048ac8e06301c06eb9b7fd5f072f50d7768748c80196c5dc"
+        },
+        {
+          "line": 194,
+          "type": "FunctionDeclaration",
+          "hash": "d0de873efd71dd7be892282d9cc0d2e73383c3a50c98de61002ec09d4d1b83eb"
+        },
+        {
+          "line": 198,
+          "type": "FunctionDeclaration",
+          "hash": "a4298e9544ba2b8c37c3d58531237fc0a37b68933defadc147b3c6b35cf96462"
+        },
+        {
+          "line": 202,
+          "type": "FunctionDeclaration",
+          "hash": "67c5e42f9da1fcd60873053f18e7a0d0b1e583ab80791600c1fcc6d3892147a9"
+        },
+        {
+          "line": 205,
+          "type": "FunctionDeclaration",
+          "hash": "f93f19df4e5ae9f09fa7be1ee38c70d7566e19c31f57607bfd6b0e0657c965c1"
+        },
+        {
+          "line": 218,
+          "type": "FunctionDeclaration",
+          "hash": "c57907db2e9781d498295009f70e7f926b42df10c2e76169a457376ee109dd34"
+        },
+        {
+          "line": 221,
+          "type": "FunctionDeclaration",
+          "hash": "ed7569900563c306c72108f1af4bd4448b093e128a3d1cf72c7fd5410785dd5b"
+        },
+        {
+          "line": 237,
+          "type": "FunctionDeclaration",
+          "hash": "d9079617df398b1d76f0e1c36c5e2e8017d51fcd18664d5ac1967b46bcc15179"
+        },
+        {
+          "line": 241,
+          "type": "FunctionDeclaration",
+          "hash": "4b2fb30abfb9171105619cc3efea92f9cd27d9609af03e1a6d18fc89c1ad29a6"
+        },
+        {
+          "line": 245,
+          "type": "FunctionDeclaration",
+          "hash": "c732a9a054c1d09ab36fb5db6245266ba1048c84a3843603716fab461a14e1f8"
+        },
+        {
+          "line": 246,
+          "type": "FunctionDeclaration",
+          "hash": "f5856b2c441981d6b52a388317637d64b543581b3248bed876bf13892954e4da"
+        },
+        {
+          "line": 247,
+          "type": "FunctionDeclaration",
+          "hash": "f053a32c2c0bdc7ba68929b86c8dbc65771bce42cccb0b36234bbefd82c74d3f"
+        },
+        {
+          "line": 248,
+          "type": "FunctionDeclaration",
+          "hash": "b2bcb16d9383ce9f5ce7e3a7d9af3c5ad09848ecb348e4b76fcb0c2d63ae3989"
+        },
+        {
+          "line": 249,
+          "type": "FunctionDeclaration",
+          "hash": "55536f0883898ac9b366f5d739f75557744b27ad0b3d089bb581f7b16fa96b54"
+        },
+        {
+          "line": 252,
+          "type": "FunctionDeclaration",
+          "hash": "713e51cb1f02511d0f437bfa433acc68a667b6acd33043c78bef70bbc394e854"
+        },
+        {
+          "line": 253,
+          "type": "FunctionDeclaration",
+          "hash": "7a59c331c666a0d34b07bf76c1e97fa86667aa425d100abda15fa3fc539832ba"
+        },
+        {
+          "line": 254,
+          "type": "FunctionDeclaration",
+          "hash": "75306d21a11af458ef66fc11808864fe32e521651c9d8d022b95c13f34989f9b"
+        },
+        {
+          "line": 255,
+          "type": "FunctionDeclaration",
+          "hash": "2db92f4398087ba1f3ccd834c108525a7faa730c2cb828c95cf61bd043dd5389"
+        },
+        {
+          "line": 256,
+          "type": "FunctionDeclaration",
+          "hash": "474cd830ee6d3729f8edd28a850ef71d8d9711b9f27fe1155504774d8df55875"
+        },
+        {
+          "line": 257,
+          "type": "FunctionDeclaration",
+          "hash": "8542aff1e825727a0d59cce793e267d5965db828a6ac796929a74c31d42cd68c"
+        },
+        {
+          "line": 258,
+          "type": "FunctionDeclaration",
+          "hash": "f6bde7b5ff8d9c192cdf7bd8ff1c945fffbeee0d047c9a99033e385ca7fb7262"
+        },
+        {
+          "line": 259,
+          "type": "FunctionDeclaration",
+          "hash": "8261f097b1a05388c623f28402d7dbfffbca585160967c862e5fda436e04dfa6"
+        },
+        {
+          "line": 260,
+          "type": "FunctionDeclaration",
+          "hash": "cbec91364f029eb6cbe6d17b1c046f8b4dc7aa5082606f388e796f1bcee25244"
+        },
+        {
+          "line": 261,
+          "type": "FunctionDeclaration",
+          "hash": "4475f7838036d59766570117a3fbafd9661876648c87975b16826bac4634508a"
+        },
+        {
+          "line": 262,
+          "type": "FunctionDeclaration",
+          "hash": "e119d2cb2838966081b9c78bb93c7edd6ef5d18dc64b00a1b68f94e1702a84bf"
+        },
+        {
+          "line": 314,
+          "type": "FunctionDeclaration",
+          "hash": "255bab212098a0628b720db9b6f2883d1966db12c81ffb16e399db6f8f017463"
+        },
+        {
+          "line": 315,
+          "type": "FunctionDeclaration",
+          "hash": "be635c8502460e49a02272268fc72c910cb16c67178c2d4585c2346adeb6a78d"
+        },
+        {
+          "line": 316,
+          "type": "FunctionDeclaration",
+          "hash": "7917ffbc54bd160e32efdd2245dc2a35b1f0ca5c445a32ff12f0afbf03d22dc2"
+        },
+        {
+          "line": 317,
+          "type": "FunctionDeclaration",
+          "hash": "5bf1156b36b5a5facf668657cc8b45b63862fefe7abf15b7264eaeff4532011e"
+        },
+        {
+          "line": 318,
+          "type": "FunctionDeclaration",
+          "hash": "cef794eb6068f15d7cec404834a0e2df65ea4823171a621622d89e6a82184dd8"
+        },
+        {
+          "line": 319,
+          "type": "FunctionDeclaration",
+          "hash": "fe79fa1152a528928c79cac0d80076cc170362e25e798360e7bcb6da9dfa259b"
+        },
+        {
+          "line": 320,
+          "type": "FunctionDeclaration",
+          "hash": "e5a38b99d756cbab6bfa05cf16a2edc0df2dcc7b4ad54df2b8c5dd26d880a8ba"
+        },
+        {
+          "line": 321,
+          "type": "FunctionDeclaration",
+          "hash": "0f99614aa6dc16ac88ec299ff7b6bde8375a5fd8910b1535775e4b16e7d7a13d"
+        },
+        {
+          "line": 322,
+          "type": "FunctionDeclaration",
+          "hash": "b9a5380759bf2cae66c9527198abc6a1e8b13367649fc059f5a724f61765e343"
+        },
+        {
+          "line": 323,
+          "type": "FunctionDeclaration",
+          "hash": "c7f3e821f4f0ca66ea7f0dc7e4657212255bbec9407f0ebeea5fc40c8d841b21"
+        },
+        {
+          "line": 324,
+          "type": "FunctionDeclaration",
+          "hash": "b609f0a9b7e78628406c5a0812c844cdec6aa6fc15f87bdb33705519db588f24"
+        },
+        {
+          "line": 325,
+          "type": "FunctionDeclaration",
+          "hash": "f3d079b43c203a7278fc1b423b90051f5199a17b185b7b56ae912bca844a66aa"
+        },
+        {
+          "line": 326,
+          "type": "FunctionDeclaration",
+          "hash": "fae8645db13812b31addc15ec98b18ce3c10a72c0bcf1689b8b358e2e56bdc27"
+        },
+        {
+          "line": 327,
+          "type": "FunctionDeclaration",
+          "hash": "595dc053f106422ba04071a3644b0caf819790c07b678bc306718ba30a28d4a3"
+        },
+        {
+          "line": 328,
+          "type": "FunctionDeclaration",
+          "hash": "37a564d0408a9c3f03fa41027045095407b1f60406d518ba0a6a3fc2eaad8edf"
+        },
+        {
+          "line": 329,
+          "type": "FunctionDeclaration",
+          "hash": "b634a81b84fc061c9a1bc5e5945a54442b87cc073884e4077366a1233abe9d62"
+        },
+        {
+          "line": 338,
+          "type": "ExpressionStatement",
+          "hash": "ba0777146da224b9bf3d8c2520cf3fc627151afe6614c4a6ad467681c215b763"
+        }
+      ],
+      "globals": [
+        "Boolean",
+        "Error",
+        "GM_addStyle",
+        "GM_getValue",
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "Map",
+        "Math",
+        "MutationObserver",
+        "Number",
+        "Object",
+        "RegExp",
+        "Set",
+        "String",
+        "URL",
+        "clearInterval",
+        "console",
+        "decodeURIComponent",
+        "document",
+        "fetch",
+        "getComputedStyle",
+        "isFinite",
+        "location",
+        "parseFloat",
+        "parseInt",
+        "prompt",
+        "setInterval",
+        "setTimeout"
+      ],
+      "version": "0.2.2"
+    }
+  }
+}

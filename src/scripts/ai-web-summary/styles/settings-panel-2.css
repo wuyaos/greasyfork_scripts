@@ -1,0 +1,23 @@
+
+           /* Custom Modal for adding models */
+           .ai-custom-model-modal {
+               width: clamp(280px, 75vw, 350px); /* 自适应宽度：最小280px，最大350px */
+           }
+           .ai-custom-model-modal .modal-content textarea {
+               width: 100%;
+               padding: 6px 10px;
+               border: 1px solid #ced4da;
+               border-radius: 4px;
+               font-size: 12px;
+               box-sizing: border-box;
+               background: #fff;
+               color: #495057;
+               resize: vertical;
+               font-family: inherit;
+           }
+           .ai-custom-model-modal .modal-content textarea:focus {
+               outline: none;
+               border-color: #3b82f6; /* 统一焦点颜色 */
+               box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); /* 统一焦点光晕 */
+           }
+       
