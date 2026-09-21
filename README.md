@@ -215,5 +215,6 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── icon/lounge-irc-translator.png
 greasyfork_scripts/
 ```
