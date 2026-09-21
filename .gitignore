@@ -16,3 +16,7 @@ __pycache__
 .pi-loop.json.lock
 
 .pi-subagents/
+
+# AI 工具工作产物
+.image-gen/
+.ralph/
