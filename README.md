@@ -249,3 +249,13 @@ greasyfork_scripts/
 ```
 
 模块按原有职责拆分，保留必要的实时绑定和惰性引用，不为消除循环引用而重写业务。迁移基线及验证覆盖说明见 [tests/README.md](tests/README.md)。
+
+## Overview
+
+TODO: Add project description.
+
+## Project Structure
+
+```
+greasyfork_scripts/
+```
