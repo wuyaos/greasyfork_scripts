@@ -22,6 +22,8 @@ async function bundleScript(script) {
   if (!metadata.startsWith('// ==UserScript==') || !metadata.endsWith('// ==/UserScript==')) {
     throw new Error(`${script.id}: invalid userscript metadata block`);
   }
+  const entrySource = await readFile(join(root, script.sourceDir, script.entry), 'utf8');
+  const headerComments = extractHeaderComments(entrySource);
   const bundle = await build({
     absWorkingDir: root,
     entryPoints: [join(root, script.sourceDir, script.entry)],
@@ -39,9 +41,40 @@ async function bundleScript(script) {
     minify: false,
     logLevel: 'silent'
   });
-  const content = `${metadata}\n\n// Generated from ${script.sourceDir}/${script.entry}; do not edit dist files.\n${bundle.outputFiles[0].text}`;
+  const content = `${metadata}\n\n${headerComments ? `${headerComments}\n\n` : ''}// Generated from ${script.sourceDir}/${script.entry}; do not edit dist files.\n${bundle.outputFiles[0].text}`;
   new Script(content, { filename: script.output });
   return { script, content };
+}
+
+// Extract leading comments (changelog, input/output/pos notes) from the entry
+// file. esbuild drops ordinary comments during bundling, but these blocks are
+// part of the published artifact contract.
+function extractHeaderComments(source) {
+  const lines = source.split('\n');
+  const kept = [];
+  let inBlock = false;
+  let blockLines = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (inBlock) {
+      blockLines.push(line);
+      if (trimmed.includes('*/')) { kept.push(...blockLines); blockLines = []; inBlock = false; }
+      continue;
+    }
+    if (trimmed.startsWith('/*')) {
+      blockLines = [line];
+      if (trimmed.includes('*/')) kept.push(...blockLines);
+      else inBlock = true;
+      continue;
+    }
+    if (trimmed.startsWith('//')) { kept.push(line); continue; }
+    // Skip the strict-mode directive and blank lines before the comment block;
+    // stop at any other statement (e.g. import).
+    if (trimmed === '' || trimmed === "'use strict';" || trimmed === '"use strict";') continue;
+    break;
+  }
+  if (kept.length) return kept.join('\n');
+  return '';
 }
 
 // Finish every bundle and syntax check before changing any installable artifact.
