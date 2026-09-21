@@ -14,6 +14,6 @@
 // @noframes
 // @license      MIT
 // @icon         https://zhuque.in/assets/images/512.png
-// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Zhuque_BatchDownload.user.js
-// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Zhuque_BatchDownload.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Zhuque_BatchDownload.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Zhuque_BatchDownload.user.js
 // ==/UserScript==

@@ -16,6 +16,6 @@
 // @connect      *
 // @noframes
 // @license      MIT
-// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Picix_CardQuickActions.user.js
-// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Picix_CardQuickActions.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js
 // ==/UserScript==

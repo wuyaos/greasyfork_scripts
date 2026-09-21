@@ -17,8 +17,8 @@
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-batch.png
 // @noframes
 // @license      MIT
-// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_BatchDownload.user.js
-// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_BatchDownload.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_BatchDownload.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_BatchDownload.user.js
 // ==/UserScript==
 
 // Generated from src/scripts/pt-batch-download/index.js; do not edit dist files.

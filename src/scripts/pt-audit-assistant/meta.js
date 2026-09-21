@@ -31,8 +31,8 @@
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
 // @license      MIT
-// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_AuditAssistant.user.js
-// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/PT_AuditAssistant.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_AuditAssistant.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_AuditAssistant.user.js
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/pt-audit.png
 // @noframes
 // ==/UserScript==

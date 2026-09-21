@@ -15,6 +15,6 @@
 // @connect      *
 // @noframes
 // @license      MIT
-// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Lounge_IRC_Translator.user.js
-// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/dist/Lounge_IRC_Translator.user.js
+// @downloadURL  https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js
+// @updateURL    https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js
 // ==/UserScript==

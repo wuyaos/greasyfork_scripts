@@ -78,9 +78,15 @@ for (const script of scripts) {
   if (expected.globals) assert.deepEqual([...unresolved].sort(), expected.globals, `${script.id}: external identifier contract drift`);
   const metadata = readFileSync(join(root, script.sourceDir, script.metadata), 'utf8').trimEnd();
   let normalizedHeader = metadata.replace(/(^\/\/ @version\s+)\S+/m, expected.metadata.match(/^\/\/ @version\s+\S+/m)[0]);
-  normalizedHeader = normalizedHeader.replace(/(^\/\/ @(?:downloadURL|updateURL)\s+.*\/)dist\//gm, '$1');
-  if (script.id === 'github-releases') normalizedHeader = normalizedHeader.replace(/^\/\/ @grant\s+GM_deleteValue\n/m, '');
-  assert.equal(normalizedHeader, expected.metadata, `${script.id}: unexpected metadata changes`);
+  // downloadURL/updateURL are release-channel metadata, not behavior contracts;
+  // the intentional dist/ and CDN URL changes are normalized away.
+  normalizedHeader = normalizedHeader.replace(/^(\/\/ @(?:downloadURL|updateURL)\s+)\S+$/gm, '$1<URL>');
+  let expectedHeader = expected.metadata.replace(/^(\/\/ @(?:downloadURL|updateURL)\s+)\S+$/gm, '$1<URL>');
+  if (script.id === 'github-releases') {
+    normalizedHeader = normalizedHeader.replace(/^\/\/ @grant\s+GM_deleteValue\n/m, '');
+    expectedHeader = expectedHeader.replace(/^\/\/ @grant\s+GM_deleteValue\n/m, '');
+  }
+  assert.equal(normalizedHeader, expectedHeader, `${script.id}: unexpected metadata changes`);
   assert.match(metadata, new RegExp(`^// @version\\s+${expected.version.replaceAll('.', '\\.')}\\s*$`, 'm'));
   total += expected.statements.length;
   console.log(`contracts ${script.id}: ${expected.statements.length} original statements, ${modules.size} modules`);
