@@ -569,15 +569,9 @@ function initializeEvents(elements) {
                 GM_setValue('MODEL', CONFIG.MODEL);
             }
 
-            const renderTagsFunc = settingsPanel.querySelector('#model-tags-container').renderModelTags;
-            if (typeof renderTagsFunc === 'function') {
-            renderTagsFunc();
-            }
-            if (settingsPanel && typeof settingsPanel.setDirtyStatus === 'function') {
-                settingsPanel.setDirtyStatus(true);
-            } else {
-                console.warn("setDirtyStatus function not found on settingsPanel from 'save-selected-models' event.");
-            }
+            settingsPanel.querySelector('#model-tags-container').renderModelTags();
+            settingsPanel.setDirtyStatus(true);
+
 
             modelSelectionModal.style.display = 'none';
             showToastNotification('模型列表已保存！');

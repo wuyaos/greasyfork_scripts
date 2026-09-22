@@ -10,7 +10,6 @@ import { clean, formatBytes, numberOrNull, setStatus, sizeInputToBytes } from '.
 
 function applyFilters(autoSelect = false) {
     const cfg = readFilters()
-    state.filter = cfg
     state.filtered = state.torrents.filter(item => matchFilters(item, cfg))
     const visibleIds = new Set(state.filtered.map(item => item.tid))
     if (autoSelect || !state.selected.size) {
@@ -31,8 +30,7 @@ function readFilters() {
       seedMin: numberOrNull(state.ui.seedMin.value),
       seedMax: numberOrNull(state.ui.seedMax.value),
       promotions: selectedMulti(state.ui.promotion),
-      seedingStatus: state.ui.seedingStatus.value,
-      delay: Math.max(300, parseInt(state.ui.delay.value, 10) || 1200)
+      seedingStatus: state.ui.seedingStatus.value
     }
   }
 

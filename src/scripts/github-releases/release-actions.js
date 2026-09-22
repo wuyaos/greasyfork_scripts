@@ -9,13 +9,7 @@ const releaseActions = {
                 newSelectedPlatforms.has(platformId) ? newSelectedPlatforms.delete(platformId) : newSelectedPlatforms.add(platformId);
 
                 const parsedAssets = GithubReleaseEnhancer.core.assetFilter.getParsedAssets();
-                const availableArchsNow = new Set();
-                const assetsToConsider = newSelectedPlatforms.size > 0
-                    ? parsedAssets.filter(asset => asset.info.platform && newSelectedPlatforms.has(asset.info.platform))
-                    : parsedAssets;
-                assetsToConsider.forEach(asset => {
-                    if (asset.info.architecture) availableArchsNow.add(asset.info.architecture);
-                });
+                const availableArchsNow = GithubReleaseEnhancer.utils.collectAvailableArchs(parsedAssets, newSelectedPlatforms);
 
                 const newSelectedArchs = new Set(state.selectedArchs);
                 for (const selected of newSelectedArchs) {
@@ -38,13 +32,7 @@ const releaseActions = {
             },
             toggleSupplementaryFilter(filterType) {
                 const { setState, state } = GithubReleaseEnhancer.store;
-                const stateKeyMap = {
-                    language: 'filterMatchLanguage',
-                    resolution: 'filterMatchResolution',
-                    keyword: 'hideByKeyword',
-                    source: 'hideSourceCode'
-                };
-                const stateKey = stateKeyMap[filterType];
+                const stateKey = GithubReleaseEnhancer.config.FILTER_STATE_KEYS[filterType];
                 if (stateKey) {
                     setState({ [stateKey]: !state[stateKey] });
                 }
@@ -66,8 +54,7 @@ const releaseActions = {
                     const supplementaryFilters = ['language', 'resolution', 'keyword', 'source'];
                     supplementaryFilters.forEach(type => {
                         if (state.availableFilters.has(type)) {
-                            const stateKey = { language: 'filterMatchLanguage', resolution: 'filterMatchResolution', keyword: 'hideByKeyword', source: 'hideSourceCode' }[type];
-                            if(stateKey) newState[stateKey] = true;
+                            newState[GithubReleaseEnhancer.config.FILTER_STATE_KEYS[type]] = true;
                         }
                     });
                     setState(newState);

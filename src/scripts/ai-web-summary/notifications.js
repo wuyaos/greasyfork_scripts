@@ -13,7 +13,7 @@ function showToastNotification(message, duration = 3000) {
         toast.style.cssText = stylesheet1;
 
         let shadowRootForToast = null;
-        if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
+        if (globalElements && globalElements.shadow) {
             shadowRootForToast = globalElements.shadow;
         } else {
             const rootEl = document.getElementById('ai-summary-root');

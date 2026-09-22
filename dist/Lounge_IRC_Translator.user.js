@@ -36,8 +36,6 @@
     // 待确认译文
     previewSnapshot: "",
     // 翻译发起时的输入框原文快照（编辑即作废预览）
-    errorText: "",
-    // 失败态原文（重试用）
     errorRaw: "",
     // 失败态原文快照
     candidates: [],
@@ -1219,8 +1217,6 @@ ${ctx}`;
         translated = await translateToZh(text);
         msgCacheSet(cacheKey, translated);
       }
-      row.dataset.litDone = "1";
-      renderMsgTranslation(row, translated);
       row.dataset.litDone = "1";
       renderMsgTranslation(row, translated);
       queueDelay = Math.max(QUEUE_DELAY_MIN, Math.floor(queueDelay / 2));

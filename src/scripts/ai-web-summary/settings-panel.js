@@ -49,7 +49,7 @@ function createSettingsPanel(shadow) {
             panel.querySelector('#max-tokens').value = CONFIG.MAX_TOKENS;
             panel.querySelector('#shortcut').value = CONFIG.SHORTCUT;
             
-            if (typeof globalElements !== 'undefined' && globalElements && globalElements.shadow) {
+            if (globalElements && globalElements.shadow) {
                 const configSelect = panel.querySelector('#config-select');
                 if (configSelect) {
                     configSelect.value = CONFIG.CURRENT_PROMPT_IDENTIFIER;
@@ -58,18 +58,11 @@ function createSettingsPanel(shadow) {
                 updateAllPromptSelectors(globalElements);
             }
 
-            const modelTagsContainer = panel.querySelector('#model-tags-container');
-            if (modelTagsContainer && typeof modelTagsContainer.renderModelTags === 'function') {
-                modelTagsContainer.renderModelTags();
-            } else {
-                console.warn("renderModelTags function not found on modelTagsContainer during cache clear.");
-            }
+            panel.querySelector('#model-tags-container').renderModelTags();
 
-            if (panel && typeof panel.setDirtyStatus === 'function') {
-                panel.setDirtyStatus(false);
-            }
+            panel.setDirtyStatus(false);
 
-            if (typeof globalElements !== 'undefined' && globalElements && globalElements.container) {
+            if (globalElements && globalElements.container) {
                 loadPosition(globalElements.container);
             }
 

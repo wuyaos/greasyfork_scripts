@@ -6,6 +6,23 @@ const releaseUtils = {
             keywordRegexCache: new Map(),
             maxCacheSize: 100,
 
+            collectAvailableArchs(parsedAssets, selectedPlatforms) {
+                const availableArchs = new Set();
+                const assetsToConsider = selectedPlatforms.size > 0
+                    ? parsedAssets.filter(asset => asset.info.platform && selectedPlatforms.has(asset.info.platform))
+                    : parsedAssets;
+                assetsToConsider.forEach(asset => { if (asset.info.architecture) availableArchs.add(asset.info.architecture); });
+                return availableArchs;
+            },
+
+            snapshotFilters(state) {
+                return {
+                    selectedPlatforms: state.selectedPlatforms, selectedArchs: state.selectedArchs,
+                    filterMatchLanguage: state.filterMatchLanguage, filterMatchResolution: state.filterMatchResolution,
+                    hideByKeyword: state.hideByKeyword, hideSourceCode: state.hideSourceCode,
+                };
+            },
+
             createElement(tag, options = {}) {
                 try {
                     const el = document.createElement(tag);
@@ -79,81 +96,76 @@ const releaseUtils = {
                 return 'sd';
             },
             parseAssetInfo(text) {
-                try {
-                    const GRE = GithubReleaseEnhancer;
-                    const lowerText = text.replace(/\s+/g, ' ').trim().toLowerCase();
-                    const isSourceCode = GRE.config.SOURCE_CODE_KEYWORDS.includes(lowerText);
-                    if (isSourceCode) {
-                        return { platform: null, architecture: null, language: null, resolution: null, isSourceCode: true, isByKeyword: false };
-                    }
-                    if (GRE.core.assetFilter.isHiddenAsset(text, GRE.store.state.hiddenKeywords)) {
-                         return { platform: null, architecture: null, language: null, resolution: null, isSourceCode: false, isByKeyword: true };
-                    }
-
-                    let detectedPlatform = null, detectedArch = null,
-                        detectedLang = null, detectedRes = null;
-
-                    for (const platform of GRE.config.PLATFORMS) {
-                        if (platform.exclusiveFormats.some(ext => lowerText.endsWith(ext))) {
-                            detectedPlatform = platform.id;
-                            break;
-                        }
-                    }
-                    if (!detectedPlatform) {
-                        for (const platformId in GRE.platformArchRules) {
-                            const platformRule = GRE.platformArchRules[platformId];
-                            if (platformRule.keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
-                                detectedPlatform = platformId;
-                                break;
-                            }
-                        }
-                    }
-                    const archRules = detectedPlatform ? GRE.platformArchRules[detectedPlatform]?.arch : null;
-                    if (archRules) {
-                        for (const archKey in archRules) {
-                            if (archRules[archKey].some(kw => this.getKeywordRegex(kw).test(lowerText))) {
-                                detectedArch = archKey;
-                                break;
-                            }
-                        }
-                    }
-                    if (!detectedArch) {
-                        const generalArchMap = {
-                            'arm64': ['arm64', 'aarch64'], 'x64': ['x64', 'amd64', 'x86_64'],
-                            'x86': ['x86', 'i386', 'i686', '386', 'win32'], 'arm': ['armv7', 'armhf', 'arm']
-                        };
-                        const archDetectionOrder = ['arm64', 'x64', 'x86', 'arm'];
-                        for (const arch of archDetectionOrder) {
-                            if (generalArchMap[arch].some(kw => {
-                                const regex = this.getKeywordRegex(kw);
-                                if (kw === 'win32' && (this.getKeywordRegex('x64').test(lowerText) || this.getKeywordRegex('amd64').test(lowerText))) return false;
-                                if (arch === 'x86' && kw !== 'win32' && (this.getKeywordRegex('x64').test(lowerText) || this.getKeywordRegex('amd64').test(lowerText))) return false;
-                                if (arch === 'arm' && (this.getKeywordRegex('arm64').test(lowerText) || this.getKeywordRegex('aarch64').test(lowerText))) return false;
-                                return regex.test(lowerText);
-                            })) {
-                                detectedArch = arch;
-                                break;
-                            }
-                        }
-                    }
-                    if (detectedPlatform === 'macos' && (this.getKeywordRegex('apple').test(lowerText) || this.getKeywordRegex('universal').test(lowerText))) detectedArch = 'arm64';
-                    for (const langCode in GRE.config.LANGUAGES) {
-                        if (GRE.config.LANGUAGES[langCode].keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
-                            detectedLang = langCode;
-                            break;
-                        }
-                    }
-                    for (const resCode in GRE.config.RESOLUTIONS) {
-                        if (GRE.config.RESOLUTIONS[resCode].keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
-                            detectedRes = resCode;
-                            break;
-                        }
-                    }
-                    return { platform: detectedPlatform, architecture: detectedArch, language: detectedLang, resolution: detectedRes, isSourceCode: false, isByKeyword: false };
-                } catch (error) {
-                    console.error(`[GitHub Filter@${location.pathname}] Error parsing asset info:`, error, 'Input text:', text);
-                    return { platform: null, architecture: null, language: null, resolution: null, isSourceCode: false, isByKeyword: false };
+                const GRE = GithubReleaseEnhancer;
+                const lowerText = text.replace(/\s+/g, ' ').trim().toLowerCase();
+                const isSourceCode = GRE.config.SOURCE_CODE_KEYWORDS.includes(lowerText);
+                if (isSourceCode) {
+                    return { platform: null, architecture: null, language: null, resolution: null, isSourceCode: true, isByKeyword: false };
                 }
+                if (GRE.core.assetFilter.isHiddenAsset(text, GRE.store.state.hiddenKeywords)) {
+                     return { platform: null, architecture: null, language: null, resolution: null, isSourceCode: false, isByKeyword: true };
+                }
+
+                let detectedPlatform = null, detectedArch = null,
+                    detectedLang = null, detectedRes = null;
+
+                for (const platform of GRE.config.PLATFORMS) {
+                    if (platform.exclusiveFormats.some(ext => lowerText.endsWith(ext))) {
+                        detectedPlatform = platform.id;
+                        break;
+                    }
+                }
+                if (!detectedPlatform) {
+                    for (const platformId in GRE.platformArchRules) {
+                        const platformRule = GRE.platformArchRules[platformId];
+                        if (platformRule.keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
+                            detectedPlatform = platformId;
+                            break;
+                        }
+                    }
+                }
+                const archRules = detectedPlatform ? GRE.platformArchRules[detectedPlatform]?.arch : null;
+                if (archRules) {
+                    for (const archKey in archRules) {
+                        if (archRules[archKey].some(kw => this.getKeywordRegex(kw).test(lowerText))) {
+                            detectedArch = archKey;
+                            break;
+                        }
+                    }
+                }
+                if (!detectedArch) {
+                    const generalArchMap = {
+                        'arm64': ['arm64', 'aarch64'], 'x64': ['x64', 'amd64', 'x86_64'],
+                        'x86': ['x86', 'i386', 'i686', '386', 'win32'], 'arm': ['armv7', 'armhf', 'arm']
+                    };
+                    const archDetectionOrder = ['arm64', 'x64', 'x86', 'arm'];
+                    for (const arch of archDetectionOrder) {
+                        if (generalArchMap[arch].some(kw => {
+                            const regex = this.getKeywordRegex(kw);
+                            if (kw === 'win32' && (this.getKeywordRegex('x64').test(lowerText) || this.getKeywordRegex('amd64').test(lowerText))) return false;
+                            if (arch === 'x86' && kw !== 'win32' && (this.getKeywordRegex('x64').test(lowerText) || this.getKeywordRegex('amd64').test(lowerText))) return false;
+                            if (arch === 'arm' && (this.getKeywordRegex('arm64').test(lowerText) || this.getKeywordRegex('aarch64').test(lowerText))) return false;
+                            return regex.test(lowerText);
+                        })) {
+                            detectedArch = arch;
+                            break;
+                        }
+                    }
+                }
+                if (detectedPlatform === 'macos' && (this.getKeywordRegex('apple').test(lowerText) || this.getKeywordRegex('universal').test(lowerText))) detectedArch = 'arm64';
+                for (const langCode in GRE.config.LANGUAGES) {
+                    if (GRE.config.LANGUAGES[langCode].keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
+                        detectedLang = langCode;
+                        break;
+                    }
+                }
+                for (const resCode in GRE.config.RESOLUTIONS) {
+                    if (GRE.config.RESOLUTIONS[resCode].keywords.some(kw => this.getKeywordRegex(kw).test(lowerText))) {
+                        detectedRes = resCode;
+                        break;
+                    }
+                }
+                return { platform: detectedPlatform, architecture: detectedArch, language: detectedLang, resolution: detectedRes, isSourceCode: false, isByKeyword: false };
             },
         };
 

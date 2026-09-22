@@ -257,5 +257,6 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── cleanup-inventory.tmp.mjs
 greasyfork_scripts/
 ```

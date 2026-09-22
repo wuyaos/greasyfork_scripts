@@ -8,7 +8,7 @@ function el(tag, attrs, ...kids) { const n = document.createElement(tag); if (at
 
 function append(parent, ...kids) { kids.forEach(k => parent.append(k)); return parent; }
 
-function text(value) { return document.createTextNode(value); }
+
 
 function setStatus(msg) { if (state.ui.status) state.ui.status.textContent = msg; }
 

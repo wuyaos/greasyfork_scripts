@@ -6,6 +6,7 @@ const releaseConfig = {
             POPUP_LEAVE_CLOSE_DELAY: 300,
             STORAGE_KEY_SETTINGS: 'ghre_user_settings_v3.8',
             REGEX_CACHE_SIZE: 100,
+            FILTER_STATE_KEYS: { language: 'filterMatchLanguage', resolution: 'filterMatchResolution', keyword: 'hideByKeyword', source: 'hideSourceCode' },
             texts: {
                 filterButton: { zh: '筛选', en: 'Filter' }, expandButton: { zh: '展开 ▾', en: 'Expand ▾' },
                 collapseButton: { zh: '收起 ▴', en: 'Collapse ▴' }, settingsPanelTitle: { zh: '脚本设置 - GitHub Releases 优化', en: 'Settings - GitHub Releases Enhancer' },

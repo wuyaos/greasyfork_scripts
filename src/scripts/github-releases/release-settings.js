@@ -2,6 +2,8 @@ import { GithubReleaseEnhancer } from './enhancer.js';
 
 
 
+const formatHiddenKeywords = keywords => keywords.map(k => k.includes(' ') ? `'${k}'` : k).join(', ');
+
 const releaseSettings = {
             parseHiddenKeywords(input) {
                 if (!input || typeof input !== 'string') return [];
@@ -145,7 +147,7 @@ const releaseSettings = {
                     </div>`;
 
                     panelHTML += `<div class="${CN.SETTINGS_FORM_GROUP}"><label for="${S.SETTINGS_MAX_HEIGHT_INPUT.substring(1)}" class="${CN.SETTINGS_LABEL}">${GRE.utils.getText('settingsMaxHeightLabel')}</label><input type="number" id="${S.SETTINGS_MAX_HEIGHT_INPUT.substring(1)}" class="${CN.SETTINGS_INPUT}" value="${state.releaseNotesMaxHeight}" min="50" step="10"></div>`;
-                    panelHTML += `<div class="${CN.SETTINGS_FORM_GROUP}"><label for="${S.SETTINGS_HIDDEN_RULES_TEXTAREA.substring(1)}" class="${CN.SETTINGS_LABEL}">${GRE.utils.getText('settingsHiddenRuleLabel')}</label><textarea id="${S.SETTINGS_HIDDEN_RULES_TEXTAREA.substring(1)}" class="${CN.SETTINGS_TEXTAREA}" placeholder="${GRE.utils.getText('settingsHiddenRulePlaceholder')}">${state.hiddenKeywords.map(k => k.includes(' ') ? `'${k}'` : k).join(', ')}</textarea></div>`;
+                    panelHTML += `<div class="${CN.SETTINGS_FORM_GROUP}"><label for="${S.SETTINGS_HIDDEN_RULES_TEXTAREA.substring(1)}" class="${CN.SETTINGS_LABEL}">${GRE.utils.getText('settingsHiddenRuleLabel')}</label><textarea id="${S.SETTINGS_HIDDEN_RULES_TEXTAREA.substring(1)}" class="${CN.SETTINGS_TEXTAREA}" placeholder="${GRE.utils.getText('settingsHiddenRulePlaceholder')}">${formatHiddenKeywords(state.hiddenKeywords)}</textarea></div>`;
 
                     panelHTML += createCheckboxGroup(S.SETTINGS_CLICK_OUTSIDE_CHECKBOX.substring(1), 'settingsClickOutsideLabel', state.clickOutsideToCollapse);
 
@@ -176,14 +178,7 @@ const releaseSettings = {
 
                     savePrefsBtn.addEventListener('click', (e) => {
                         e.preventDefault();
-                        const currentFilters = {
-                             selectedPlatforms: GRE.store.state.selectedPlatforms,
-                             selectedArchs: GRE.store.state.selectedArchs,
-                             filterMatchLanguage: GRE.store.state.filterMatchLanguage,
-                             filterMatchResolution: GRE.store.state.filterMatchResolution,
-                             hideByKeyword: GRE.store.state.hideByKeyword,
-                             hideSourceCode: GRE.store.state.hideSourceCode,
-                        };
+                        const currentFilters = GRE.utils.snapshotFilters(GRE.store.state);
                         this.saveUserSettings({ preferredFilters: currentFilters });
                         const btn = e.target;
                         const originalText = btn.textContent;
@@ -250,7 +245,7 @@ const releaseSettings = {
                    panel.querySelector(`input[name="filterMode"][value="${GRE.store.state.filterMode}"]`).checked = true;
                    panel.querySelector('#ghreSavePrefsBtn').disabled = GRE.store.state.filterMode !== 'preferred';
                    panel.querySelector(S.SETTINGS_MAX_HEIGHT_INPUT).value = GRE.store.state.releaseNotesMaxHeight;
-                   panel.querySelector(S.SETTINGS_HIDDEN_RULES_TEXTAREA).value = GRE.store.state.hiddenKeywords.map(k => k.includes(' ') ? `'${k}'` : k).join(', ');
+                   panel.querySelector(S.SETTINGS_HIDDEN_RULES_TEXTAREA).value = formatHiddenKeywords(GRE.store.state.hiddenKeywords);
                    panel.querySelector(S.SETTINGS_CLICK_OUTSIDE_CHECKBOX).checked = GRE.store.state.clickOutsideToCollapse;
                    settingsOverlayElement.style.display = 'flex';
                 }

@@ -20,7 +20,7 @@ const UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, 
 
 const SIZE_UNITS = ['GiB', 'MiB', 'KiB', 'TiB']
 
-const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', isDownloading: false, ui: {}, filter: { delay: 1200 } }
+const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', isDownloading: false, ui: {} }
 
 
 

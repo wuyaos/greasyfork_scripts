@@ -58,10 +58,6 @@
     return parent;
   }
   __name(append, "append");
-  function text(value) {
-    return document.createTextNode(value);
-  }
-  __name(text, "text");
   function setStatus(msg) {
     if (state.ui.status) state.ui.status.textContent = msg;
   }
@@ -97,9 +93,9 @@
   }
   __name(parseMult, "parseMult");
   function sizeValue(value, unit) {
-    const text2 = clean(value);
-    if (!text2) return null;
-    return /[KMGTP]iB/i.test(text2) ? parseSize(text2) : parseSize(`${text2} ${unit || "MiB"}`);
+    const text = clean(value);
+    if (!text) return null;
+    return /[KMGTP]iB/i.test(text) ? parseSize(text) : parseSize(`${text} ${unit || "MiB"}`);
   }
   __name(sizeValue, "sizeValue");
   function defaultSizeUnit(value) {
@@ -107,9 +103,9 @@
   }
   __name(defaultSizeUnit, "defaultSizeUnit");
   function normalizeInputValue(value) {
-    const text2 = clean(value);
-    const m = text2.match(/^([\d.]+)\s*[KMGTP]iB$/i);
-    return m ? m[1] : text2;
+    const text = clean(value);
+    const m = text.match(/^([\d.]+)\s*[KMGTP]iB$/i);
+    return m ? m[1] : text;
   }
   __name(normalizeInputValue, "normalizeInputValue");
   function toInt(value) {
@@ -127,9 +123,9 @@
   }
   __name(sanitize, "sanitize");
   function fileNameFromDisposition(value) {
-    const text2 = String(value || "");
-    const utf8 = text2.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-    const plain = text2.match(/filename=("?)([^";]+)\1/i)?.[2];
+    const text = String(value || "");
+    const utf8 = text.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    const plain = text.match(/filename=("?)([^";]+)\1/i)?.[2];
     const raw = utf8 || plain;
     if (!raw) return "";
     try {
@@ -141,22 +137,15 @@
   __name(fileNameFromDisposition, "fileNameFromDisposition");
 
   // src/scripts/zhuque-batch-download/filters.js
-  function parseSize(text2) {
-    if (!text2) return null;
-    const m = String(text2).trim().match(/([\d.]+)\s*([KMGTP]iB)/i);
+  function parseSize(text) {
+    if (!text) return null;
+    const m = String(text).trim().match(/([\d.]+)\s*([KMGTP]iB)/i);
     if (!m) return null;
     const val = parseFloat(m[1]);
     const factor = UNIT_BYTES[m[2].toLowerCase()];
     return isFinite(val) && factor ? val * factor : null;
   }
   __name(parseSize, "parseSize");
-  function formatBytes(bytes) {
-    if (bytes == null || !isFinite(bytes)) return "-";
-    const units = [["PiB", 1024 ** 5], ["TiB", 1024 ** 4], ["GiB", 1024 ** 3], ["MiB", 1024 ** 2], ["KiB", 1024]];
-    for (const [name, f] of units) if (bytes >= f) return (bytes / f).toFixed(2) + " " + name;
-    return bytes + " B";
-  }
-  __name(formatBytes, "formatBytes");
   function readRow(row) {
     const cells = row.cells ? [...row.cells] : [];
     const titleCell = cells[2];

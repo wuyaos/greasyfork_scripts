@@ -13,12 +13,6 @@ function parseSize(text) {
     return isFinite(val) && factor ? val * factor : null;
   }
 
-function formatBytes(bytes) {
-    if (bytes == null || !isFinite(bytes)) return '-';
-    const units = [['PiB', 1024 ** 5], ['TiB', 1024 ** 4], ['GiB', 1024 ** 3], ['MiB', 1024 ** 2], ['KiB', 1024]];
-    for (const [name, f] of units) if (bytes >= f) return (bytes / f).toFixed(2) + ' ' + name;
-    return bytes + ' B';
-  }
 
 function readRow(row) {
     const cells = row.cells ? [...row.cells] : [];

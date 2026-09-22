@@ -38,7 +38,7 @@
   var DEFAULT_DL = { id: "", name: "", type: "qb", host: "", username: "", password: "", qbCategory: "", qbTags: "", qbSavePath: "", trDownloadDir: "", trLabels: "" };
   var UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4, b: 1 };
   var SIZE_UNITS = ["GiB", "MiB", "KiB", "TiB"];
-  var state = { torrents: [], filtered: [], selected: /* @__PURE__ */ new Set(), selectedDownloaderId: "", isDownloading: false, ui: {}, filter: { delay: 1200 } };
+  var state = { torrents: [], filtered: [], selected: /* @__PURE__ */ new Set(), selectedDownloaderId: "", isDownloading: false, ui: {} };
 
   // src/scripts/pt-batch-download/upload.js
   function gmUploadFile({ url, headers = {}, fieldName, fileName, blob, extraFields = {} }) {
@@ -684,6 +684,23 @@ Content-Type: application/x-bittorrent\r
   __name(updateDownloaderStatus, "updateDownloaderStatus");
 
   // src/scripts/pt-batch-download/download.js
+  async function runSerialDownload(items, delay, label, worker) {
+    let success = 0;
+    let failed = 0;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      setStatus(`${label} ${i + 1}/${items.length}: ${item.title}`);
+      try {
+        await worker(item);
+        success++;
+      } catch (error) {
+        failed++;
+      }
+      if (i < items.length - 1) await sleep(delay);
+    }
+    return { success, failed };
+  }
+  __name(runSerialDownload, "runSerialDownload");
   async function batchDownload() {
     if (state.isDownloading) return;
     const items = uniqueByTid(state.filtered.filter((item) => state.selected.has(item.tid)));
@@ -702,17 +719,9 @@ Content-Type: application/x-bittorrent\r
         success = result.success;
         failed = result.failed;
       } else {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          setStatus(`${cfg ? "推送中" : "下载中"} ${i + 1}/${items.length}: ${item.title}`);
-          try {
-            await downloadTorrent(item);
-            success++;
-          } catch (error) {
-            failed++;
-          }
-          if (i < items.length - 1) await sleep(delay);
-        }
+        const result = await runSerialDownload(items, delay, cfg ? "推送中" : "下载中", downloadTorrent);
+        success = result.success;
+        failed = result.failed;
       }
     } finally {
       state.isDownloading = false;
@@ -739,42 +748,23 @@ Content-Type: application/x-bittorrent\r
   __name(downloadBlob, "downloadBlob");
   async function downloadZip(items, delay) {
     if (typeof JSZip === "undefined") {
-      let success2 = 0;
-      let failed2 = 0;
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        setStatus(`下载中 ${i + 1}/${items.length}: ${item.title}`);
-        try {
-          await downloadTorrent(item);
-          success2++;
-        } catch (error) {
-          failed2++;
-        }
-        if (i < items.length - 1) await sleep(delay);
-      }
-      return { success: success2, failed: failed2 };
+      return runSerialDownload(items, delay, "下载中", downloadTorrent);
     }
     const zip = new JSZip();
-    let success = 0;
-    let failed = 0;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      setStatus(`下载中 ${i + 1}/${items.length}: ${item.title}`);
+    const result = await runSerialDownload(items, delay, "下载中", async (item) => {
       try {
         const file = await fetchTorrentBlob(item);
         zip.file(file.name, file.blob);
-        success++;
       } catch (error) {
         fallbackDownload(item.downloadUrl);
-        failed++;
+        throw error;
       }
-      if (i < items.length - 1) await sleep(delay);
-    }
-    if (success) {
+    });
+    if (result.success) {
       const blob = await zip.generateAsync({ type: "blob" });
       clickDownload(blob, `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
     }
-    return { success, failed };
+    return result;
   }
   __name(downloadZip, "downloadZip");
   async function fetchTorrentBlob(item) {
@@ -822,7 +812,6 @@ Content-Type: application/x-bittorrent\r
   // src/scripts/pt-batch-download/filters.js
   function applyFilters(autoSelect = false) {
     const cfg = readFilters();
-    state.filter = cfg;
     state.filtered = state.torrents.filter((item) => matchFilters(item, cfg));
     const visibleIds = new Set(state.filtered.map((item) => item.tid));
     if (autoSelect || !state.selected.size) {
@@ -842,8 +831,7 @@ Content-Type: application/x-bittorrent\r
       seedMin: numberOrNull(state.ui.seedMin.value),
       seedMax: numberOrNull(state.ui.seedMax.value),
       promotions: selectedMulti(state.ui.promotion),
-      seedingStatus: state.ui.seedingStatus.value,
-      delay: Math.max(300, parseInt(state.ui.delay.value, 10) || 1200)
+      seedingStatus: state.ui.seedingStatus.value
     };
   }
   __name(readFilters, "readFilters");

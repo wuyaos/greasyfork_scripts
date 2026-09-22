@@ -74,7 +74,7 @@ RuleRegistry.register('officialLabelConsistency', {
 RuleRegistry.register('hdrTagsMatchMediainfo', {
     run(ctx) {
       const out = [];
-      const isHdr10Plus = ctx.parsed.isHdr10Plus, isHdr10 = ctx.parsed.isHdr10, isDV = ctx.parsed.isDolbyVision, isHdrAny = ctx.parsed.isHdr;
+      const isHdr10Plus = ctx.parsed.isHdr10Plus, isDV = ctx.parsed.isDolbyVision, isHdrAny = ctx.parsed.isHdr;
       const hasHdrTag = isTagSet(ctx, 'hdr') || isTagSet(ctx, 'hdr10') || isTagSet(ctx, 'hdr10Plus') || isTagSet(ctx, 'dolbyVision') || isTagSet(ctx, 'hdrVivid');
       // HDR 整体双向：检测到 HDR 但无任何 HDR 系列标签 / 有 HDR 标签但未检测到
       if (isHdrAny && !hasHdrTag) out.push({ severity: 'error', code: 'HDR_TAG_MISSING', message: 'MediaInfo/标题检测到 HDR，但未选择任何 HDR 系列标签' });

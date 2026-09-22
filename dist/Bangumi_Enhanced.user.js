@@ -38,8 +38,6 @@
   var CURRENT_PATHNAME = document.location.pathname;
   var TODAY_DATE_OBJ = /* @__PURE__ */ new Date();
   var TODAY_DAY_OF_WEEK = TODAY_DATE_OBJ.getDay();
-  var TODAY_MONTH = TODAY_DATE_OBJ.getMonth() + 1;
-  var TODAY_DATE_IN_MONTH = TODAY_DATE_OBJ.getDate();
 
   // src/scripts/bangumi-enhanced/styles/styles-1.css
   var styles_1_default = "\n            /* 全局 */\n            #main { /* From Calendar Script */\n                width: 990px;\n            }\n            #header small.blue { /* From Calendar Script, header统计 */\n                font-size: 16px;\n            }\n            /* 隐藏doujin天窗联盟 (Merged from both scripts) */\n            #navNeue2 #navMenuNeue li.doujin {\n                display: none;\n            }\n            #navNeue2 #menuNeue { /* From Title/Style Script */\n                width: inherit;\n            }\n            /* 搜索框拉长 (From Title/Style Script) */\n            #headerNeue2 #headerSearch input.textfield {\n                width: initial;\n            }\n            /* 全局输入字体调大 (From Title/Style Script) */\n            input[type=text], input[type=password], textarea {\n                font-size: 1.2em;\n            }\n        ";
@@ -336,29 +334,21 @@
 
   // src/scripts/bangumi-enhanced/homepage.js
   function homepage_convertTitlesAndButtons() {
-    document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.epGird > div > a:nth-last-of-type(1)").forEach(function(t) {
-      const cnTitle = t.getAttribute("title") || t.getAttribute("data-original-title");
+    const applyCnTitle = /* @__PURE__ */ __name((el, target) => {
+      const cnTitle = el.getAttribute("title") || el.getAttribute("data-original-title");
       if (cnTitle && cnTitle.trim() !== "") {
-        if (t.innerText.trim() !== cnTitle.trim()) {
-          t.innerText = cnTitle;
+        if (target.innerText.trim() !== cnTitle.trim()) {
+          target.innerText = cnTitle;
         }
-        t.removeAttribute("title");
-        t.removeAttribute("data-original-title");
+        el.removeAttribute("title");
+        el.removeAttribute("data-original-title");
       }
-    });
-    document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.header.clearit > div > h3 > a").forEach(function(t) {
-      const cnTitle = t.getAttribute("title") || t.getAttribute("data-original-title");
-      if (cnTitle && cnTitle.trim() !== "") {
-        if (t.innerText.trim() !== cnTitle.trim()) {
-          t.innerText = cnTitle;
-        }
-        t.removeAttribute("title");
-        t.removeAttribute("data-original-title");
-      }
-    });
+    }, "applyCnTitle");
+    document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.epGird > div > a:nth-last-of-type(1)").forEach((t) => applyCnTitle(t, t));
+    document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.header.clearit > div > h3 > a").forEach((t) => applyCnTitle(t, t));
     document.querySelectorAll("#prgSubjectList li a.subjectItem.title.textTip").forEach(function(t) {
-      const cnTitle = t.getAttribute("title") || t.getAttribute("data-original-title");
       const span = t.querySelector("span");
+      const cnTitle = t.getAttribute("title") || t.getAttribute("data-original-title");
       if (span && cnTitle && cnTitle.trim() !== "") {
         if (span.innerHTML.trim() !== cnTitle.trim()) {
           span.innerHTML = cnTitle;

@@ -3,34 +3,24 @@ import { CONFIG_HOMEPAGE_EDIT_BUTTON_TEXT, CONFIG_HOMEPAGE_ENABLE_EDIT_BUTTON } 
 
 
 function homepage_convertTitlesAndButtons() {
-        // Convert titles in tinyMode
-        document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.epGird > div > a:nth-last-of-type(1)").forEach(function (t) {
-            const cnTitle = t.getAttribute('title') || t.getAttribute('data-original-title');
+        // 中文标题替换（tinyMode / blockMode 中央列 / blockMode 左侧列表共用同一处理）
+        const applyCnTitle = (el, target) => {
+            const cnTitle = el.getAttribute('title') || el.getAttribute('data-original-title');
             if (cnTitle && cnTitle.trim() !== "") {
-                if (t.innerText.trim() !== cnTitle.trim()) {
-                    t.innerText = cnTitle;
+                if (target.innerText.trim() !== cnTitle.trim()) {
+                    target.innerText = cnTitle;
                 }
-                t.removeAttribute('title'); // Clear to prevent default tooltip
-                t.removeAttribute('data-original-title');
+                el.removeAttribute('title'); // Clear to prevent default tooltip
+                el.removeAttribute('data-original-title');
             }
-        });
-
-        // Convert titles in blockMode (central column)
-        document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.header.clearit > div > h3 > a").forEach(function (t) {
-            const cnTitle = t.getAttribute('title') || t.getAttribute('data-original-title');
-            if (cnTitle && cnTitle.trim() !== "") {
-                 if (t.innerText.trim() !== cnTitle.trim()) {
-                    t.innerText = cnTitle;
-                }
-                t.removeAttribute('title');
-                t.removeAttribute('data-original-title');
-            }
-        });
-        
-        // Convert titles in blockMode (left list #prgSubjectList)
+        };
+        document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.epGird > div > a:nth-last-of-type(1)")
+            .forEach(t => applyCnTitle(t, t));
+        document.querySelectorAll("#prgsMakerList [id^='subjectPanel'] > div.header.clearit > div > h3 > a")
+            .forEach(t => applyCnTitle(t, t));
         document.querySelectorAll("#prgSubjectList li a.subjectItem.title.textTip").forEach(function (t) {
-            const cnTitle = t.getAttribute('title') || t.getAttribute('data-original-title');
             const span = t.querySelector("span");
+            const cnTitle = t.getAttribute('title') || t.getAttribute('data-original-title');
             if (span && cnTitle && cnTitle.trim() !== "") {
                 if (span.innerHTML.trim() !== cnTitle.trim()) {
                     span.innerHTML = cnTitle;

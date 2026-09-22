@@ -148,8 +148,6 @@ async function translateMsg(row) {
       }
       row.dataset.litDone = "1";
       renderMsgTranslation(row, translated);
-      row.dataset.litDone = "1";
-      renderMsgTranslation(row, translated);
       // 成功：间隔减半回落，尽快恢复吞吐
       queueDelay = Math.max(QUEUE_DELAY_MIN, Math.floor(queueDelay / 2));
     } catch (error) {

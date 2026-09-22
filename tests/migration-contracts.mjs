@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'acorn';
@@ -8,7 +8,8 @@ import { analyze } from 'eslint-scope';
 import { scripts } from '../script/scripts-registry.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const baseline = JSON.parse(readFileSync(join(root, 'tests/contracts/migration-baseline.json'), 'utf8'));
+const baselinePath = join(root, 'tests/contracts/migration-baseline.json');
+const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
 const hash = text => createHash('sha256').update(text).digest('hex');
 const cleanAst = node => JSON.stringify(node, (key, value) => {
   if (['start', 'end', 'loc', 'range', 'raw'].includes(key)) return undefined;
@@ -59,6 +60,9 @@ function restored(node, path, modules, active = new Set()) {
   return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, restored(value, path, modules, active)]));
 }
 let total = 0;
+// --regen: rebuild statement fingerprints and globals from current sources after an
+// approved cleanup round. Metadata/version fields are preserved from the existing baseline.
+const regen = process.argv.includes('--regen');
 for (const script of scripts) {
   const modules = graph(join(root, script.sourceDir, script.entry));
   const fingerprints = new Set();
@@ -73,6 +77,22 @@ for (const script of scripts) {
     });
   }
   const expected = baseline.scripts[script.id];
+  if (regen) {
+    // Contract granularity = top-level statements of each module (matching the
+    // original capture), not every AST node.
+    const statementHashes = new Set();
+    for (const [path, { ast }] of modules) {
+      for (const node of ast.body) {
+        const normalized = restored(node, path, modules);
+        const json = cleanAst(normalized).replaceAll('http://127.0.0.1:8787/dist/', 'http://127.0.0.1:8787/');
+        statementHashes.add(hash(json));
+      }
+    }
+    expected.statements = [...statementHashes].map(h => ({ hash: h }));
+    expected.globals = [...unresolved].sort();
+    console.log(`regen ${script.id}: ${expected.statements.length} statements, ${modules.size} modules`);
+    continue;
+  }
   const missing = expected.statements.filter(statement => !fingerprints.has(statement.hash));
   assert.deepEqual(missing, [], `${script.id}: missing or modified baseline statements`);
   if (expected.globals) assert.deepEqual([...unresolved].sort(), expected.globals, `${script.id}: external identifier contract drift`);
@@ -91,4 +111,7 @@ for (const script of scripts) {
   total += expected.statements.length;
   console.log(`contracts ${script.id}: ${expected.statements.length} original statements, ${modules.size} modules`);
 }
-console.log(`PASS: ${scripts.length} scripts; ${total} original statement contracts preserved`);
+if (regen) {
+  writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+  console.log(`REGENERATED ${baselinePath} (approved cleanup round; review the diff before committing)`);
+} else console.log(`PASS: ${scripts.length} scripts; ${total} original statement contracts preserved`);

@@ -185,7 +185,6 @@ const Core = {
                 UI.showToast('未找到可选择的种子条目');
                 return;
             }
-            const title = torrentInfo.extra?.groupTitle || torrentInfo.name;
             const panel = GazellePicker.buildPanel({
                 title: `选择种子（共 ${entries.length} 个）`,
                 rows: entries,

@@ -418,14 +418,7 @@ const releaseCore = {
                     const restoreBtn = actionButtonsContainer.querySelector('.ghre-restore-btn');
 
                     if (selectAllBtn && deselectAllBtn && restoreBtn) {
-                        const currentFilters = {
-                             selectedPlatforms: state.selectedPlatforms,
-                             selectedArchs: state.selectedArchs,
-                             filterMatchLanguage: state.filterMatchLanguage,
-                             filterMatchResolution: state.filterMatchResolution,
-                             hideByKeyword: state.hideByKeyword,
-                             hideSourceCode: state.hideSourceCode,
-                        };
+                        const currentFilters = GithubReleaseEnhancer.utils.snapshotFilters(state);
 
                         const isDifferentFromInitial = !this.areFiltersEqual(currentFilters, state.initialFilterState);
 
@@ -500,16 +493,7 @@ const releaseCore = {
                     if (!container) return;
 
                     const parsedAssets = this.getParsedAssets();
-                    const availableArchsNow = new Set();
-                    const assetsToConsider = state.selectedPlatforms.size > 0
-                        ? parsedAssets.filter(asset => asset.info.platform && state.selectedPlatforms.has(asset.info.platform))
-                        : parsedAssets;
-
-                    assetsToConsider.forEach(asset => {
-                        if (asset.info.architecture) {
-                            availableArchsNow.add(asset.info.architecture);
-                        }
-                    });
+                    const availableArchsNow = GRE.utils.collectAvailableArchs(parsedAssets, state.selectedPlatforms);
 
                     ARCH_TAGS_CONFIG.forEach(arch => {
                         const tagEl = container.querySelector(`.${CN.ARCH_TAG}[data-arch-id="${arch.id}"]`);

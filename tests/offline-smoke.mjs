@@ -53,6 +53,14 @@ async function runtime(code, script) {
   const timers = [];
   const requests = [];
   const denyRequest = (...args) => { requests.push(String(args[0]?.url || args[0])); throw new Error('External request blocked by offline fixture'); };
+  // bangumi-enhanced embeds the current weekday into its stylesheet
+  // (translateX(-weekday * 330px)); pin Date so captures stay comparable
+  // across day boundaries. 2026-09-21 is the Monday the baseline was taken.
+  const PINNED_NOW = Date.parse('2026-09-21T12:00:00Z');
+  win.Date = class PinnedDate extends Date {
+    constructor(...args) { super(args.length ? args[0] : PINNED_NOW); }
+    static now() { return PINNED_NOW; }
+  };
   win.fetch = denyRequest;
   win.XMLHttpRequest = class { open(...args) { denyRequest(args[1]); } };
   win.WebSocket = class { constructor(url) { denyRequest(url); } };

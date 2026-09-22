@@ -9,6 +9,24 @@ import { el } from './controls.js';
 import { fileNameFromDisposition, sanitize, setStatus, sleep, uniqueByTid } from './formatting.js';
 
 
+// 推送/浏览器直下/打包三处共用的串行下载循环：统一进度提示、计数与间隔
+async function runSerialDownload(items, delay, label, worker) {
+  let success = 0
+  let failed = 0
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    setStatus(`${label} ${i + 1}/${items.length}: ${item.title}`)
+    try {
+      await worker(item)
+      success++
+    } catch (error) {
+      failed++
+    }
+    if (i < items.length - 1) await sleep(delay)
+  }
+  return { success, failed }
+}
+
 
 async function batchDownload() {
     if (state.isDownloading) return
@@ -28,17 +46,9 @@ async function batchDownload() {
         success = result.success
         failed = result.failed
       } else {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i]
-          setStatus(`${cfg ? '推送中' : '下载中'} ${i + 1}/${items.length}: ${item.title}`)
-          try {
-            await downloadTorrent(item)
-            success++
-          } catch (error) {
-            failed++
-          }
-          if (i < items.length - 1) await sleep(delay)
-        }
+        const result = await runSerialDownload(items, delay, cfg ? '推送中' : '下载中', downloadTorrent)
+        success = result.success
+        failed = result.failed
       }
     } finally {
       state.isDownloading = false
@@ -66,42 +76,23 @@ async function downloadBlob(item) {
 async function downloadZip(items, delay) {
     // JSZip 依赖未加载（CDN 被墙/超时）时降级为逐个浏览器下载，避免静默失败
     if (typeof JSZip === 'undefined') {
-      let success = 0
-      let failed = 0
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]
-        setStatus(`下载中 ${i + 1}/${items.length}: ${item.title}`)
-        try {
-          await downloadTorrent(item)
-          success++
-        } catch (error) {
-          failed++
-        }
-        if (i < items.length - 1) await sleep(delay)
-      }
-      return { success, failed }
+      return runSerialDownload(items, delay, '下载中', downloadTorrent)
     }
     const zip = new JSZip()
-    let success = 0
-    let failed = 0
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      setStatus(`下载中 ${i + 1}/${items.length}: ${item.title}`)
+    const result = await runSerialDownload(items, delay, '下载中', async item => {
       try {
         const file = await fetchTorrentBlob(item)
         zip.file(file.name, file.blob)
-        success++
       } catch (error) {
         fallbackDownload(item.downloadUrl)
-        failed++
+        throw error
       }
-      if (i < items.length - 1) await sleep(delay)
-    }
-    if (success) {
+    })
+    if (result.success) {
       const blob = await zip.generateAsync({ type: 'blob' })
       clickDownload(blob, `pt_batch_${new Date().toISOString().slice(0, 10)}.zip`)
     }
-    return { success, failed }
+    return result
   }
 
 async function fetchTorrentBlob(item) {

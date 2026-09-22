@@ -143,8 +143,7 @@ const GithubReleaseEnhancer = {
                     this.core.assetFilter.updateAllPlatformOptionsVisualState(currentState);
                     this.core.assetFilter.updateAllArchTagsVisualState(currentState);
                     ['language', 'resolution', 'keyword', 'source'].forEach(type => {
-                        const stateKeyMap = { language: 'filterMatchLanguage', resolution: 'filterMatchResolution', keyword: 'hideByKeyword', source: 'hideSourceCode' };
-                        this.core.assetFilter.updateSpecificFilterVisualState(type, currentState[stateKeyMap[type]], currentState.filterUIInstance);
+                        this.core.assetFilter.updateSpecificFilterVisualState(type, currentState[GithubReleaseEnhancer.config.FILTER_STATE_KEYS[type]], currentState.filterUIInstance);
                     });
                     this.core.assetFilter.updateActionButtons(currentState);
                     this.core.assetFilter.updateAvailabilityMarkers(currentState);
@@ -154,7 +153,6 @@ const GithubReleaseEnhancer = {
                     this.core.assetFilter.updateFilterCounter(currentState);
                 });
 
-                this.ui.theme.watchSystemTheme();
                 this.core.releaseNotes.initializeExpansion();
 
                 if (!this.store.state.isMainReleasesPage) {

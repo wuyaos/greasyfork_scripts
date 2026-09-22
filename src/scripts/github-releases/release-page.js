@@ -54,15 +54,13 @@ const releasePage = {
             },
             navigation: {
                 setupListeners() {
-                    try {
-                        if (navigationReInit) {
-                            document.removeEventListener('turbo:load', navigationReInit);
-                            window.removeEventListener('popstate', navigationReInit);
-                        }
-                        navigationReInit = () => setTimeout(() => GithubReleaseEnhancer.init(), 100);
-                        document.addEventListener('turbo:load', navigationReInit);
-                        window.addEventListener('popstate', navigationReInit);
-                    } catch (e) { console.error(`[GitHub Filter@${location.pathname}] Error setting up navigation listeners:`, e); }
+                    if (navigationReInit) {
+                        document.removeEventListener('turbo:load', navigationReInit);
+                        window.removeEventListener('popstate', navigationReInit);
+                    }
+                    navigationReInit = () => setTimeout(() => GithubReleaseEnhancer.init(), 100);
+                    document.addEventListener('turbo:load', navigationReInit);
+                    window.addEventListener('popstate', navigationReInit);
                 }
             }
         };

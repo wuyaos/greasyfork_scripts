@@ -19,20 +19,14 @@ function main() {
         try {
             loadConfig();
             globalElements = createElements();
-            if (!globalElements || !globalElements.container) {
-                console.error('AI_WebSummary: createElements() failed to return valid elements. Aborting initialization.');
-                showToastNotification('AI Web Summary: 无法初始化悬浮窗核心元素，脚本可能无法正常工作。请检查浏览器控制台获取更多信息。');
-                return;
-            }
+
 
             initializeEvents(globalElements);
             const isDefaultApiKey = CONFIG.API_KEY === DEFAULT_CONFIG.API_KEY;
 
             if (isDefaultApiKey) {
                 openSettings(globalElements);
-                if (isDefaultApiKey) {
-                    showToastNotification(`欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。`);
-                }
+                showToastNotification(`欢迎使用 AI 网页内容总结！请首次配置您的 API Key 和 Base URL。`);
             }
         } catch (error) {
             console.error('AI_WebSummary: Critical error during script initialization:', error);

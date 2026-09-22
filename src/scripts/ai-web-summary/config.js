@@ -29,7 +29,7 @@ function getCurrentPromptContent() {
         }
 
         const defaultTemplate = PROMPT_TEMPLATES.find(t => t.identifier === DEFAULT_CONFIG.CURRENT_PROMPT_IDENTIFIER);
-        return defaultTemplate ? defaultTemplate.content : "请用markdown格式全面总结以下网页内容，包含主要观点、关键信息和重要细节。总结需要完整、准确、有条理。"; // 最后的硬编码后备
+        return defaultTemplate.content; // DEFAULT_CONFIG 指向 PROMPT_TEMPLATES[0]，find 必命中
     }
 
 

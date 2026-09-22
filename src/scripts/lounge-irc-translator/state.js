@@ -7,7 +7,6 @@ const state = {
     overlayMode: "", // '' | translate（译文预览确认中）
     translated: "", // 待确认译文
     previewSnapshot: "", // 翻译发起时的输入框原文快照（编辑即作废预览）
-    errorText: "", // 失败态原文（重试用）
     errorRaw: "", // 失败态原文快照
     candidates: [], // 当前候选列表
     sending: false, // 派发 Enter 时防递归拦截

@@ -26,9 +26,6 @@ const TODAY_DATE_OBJ = new Date();
 
 const TODAY_DAY_OF_WEEK = TODAY_DATE_OBJ.getDay();
 
-const TODAY_MONTH = TODAY_DATE_OBJ.getMonth() + 1;
-
-const TODAY_DATE_IN_MONTH = TODAY_DATE_OBJ.getDate();
 
 
 

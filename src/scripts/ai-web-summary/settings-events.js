@@ -391,9 +391,7 @@ function initializeSettingsEvents(panel, modal, settingsOverlay, modelSelectionM
 
             populateModalModelSelector(modal);
 
-            if (typeof panel.takeSettingsSnapshot === 'function') {
-                panel.takeSettingsSnapshot();
-            }
+            panel.takeSettingsSnapshot();
             setDirtyStatus(false);
             isSaving = false;
 
@@ -414,26 +412,8 @@ function openSettings(elements) {
 
         updateAllPromptSelectors(elements);
 
-        const takeSnapshotFunc = settingsPanel.takeSettingsSnapshot;
-        if (typeof takeSnapshotFunc === 'function') {
-            takeSnapshotFunc();
-        } else {
-            console.error("takeSettingsSnapshot function is not attached to the panel.");
-        }
-
-        const setDirtyStatusFunc = settingsPanel.setDirtyStatus;
-        if (typeof setDirtyStatusFunc === 'function') {
-            setDirtyStatusFunc(false);
-        } else {
-            if (panel && typeof panel.setDirtyStatus === 'function') {
-                panel.setDirtyStatus(false);
-            } else if (elements && elements.settingsPanel && typeof elements.settingsPanel.setDirtyStatus === 'function') {
-                elements.settingsPanel.setDirtyStatus(false);
-            }
-            else {
-                console.warn("setDirtyStatus function could not be called directly on panel open. Dirty state might be initially incorrect.");
-            }
-        }
+        settingsPanel.takeSettingsSnapshot();
+        settingsPanel.setDirtyStatus(false);
 
 
         settingsPanel.style.display = 'flex';

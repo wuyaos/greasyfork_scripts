@@ -69,12 +69,6 @@ const releaseUi = {
                 addGlobalStyles() { this.addStyleElement('common', this.commonStylesTemplate()); },
                 updateMaxHeightVar(height) { document.documentElement.style.setProperty('--ghre-notes-max-height', `${height}px`); }
             },
-            theme: {
-                watchSystemTheme() {
-                    const themeObserver = new MutationObserver(() => {});
-                    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-color-mode', 'data-light-theme', 'data-dark-theme'] });
-                }
-            },
         };
 
 
