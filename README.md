@@ -269,6 +269,7 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── .agents/notes/implemented/bug-fix/2026-09-23-pt-batch-download-timeout.md
 ├── src/scripts/xingtan-bonus-pergbh/meta.js
 ├── src/scripts/xingtan-bonus-pergbh/bonus.js
 ├── src/scripts/xingtan-bonus-pergbh/startup.js

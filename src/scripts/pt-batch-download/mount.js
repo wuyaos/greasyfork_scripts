@@ -1,5 +1,7 @@
 import { getAdapter } from './sites.js';
 
+import { ID } from './config.js';
+
 import { buildPanel } from './panel.js';
 
 import { refreshTorrents } from './torrents.js';
@@ -23,7 +25,13 @@ function watchListChanges() {
     const adapter = getAdapter()
     const root = adapter?.listRoot?.() || document.body
     let timer = null
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver(records => {
+      const panel = document.getElementById(ID)
+      const panelChanged = panel && records.some(record => {
+        if (panel.contains(record.target)) return true
+        return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE && (node === panel || panel.contains(node)))
+      })
+      if (panelChanged) return
       if (timer) return
       timer = setTimeout(() => { timer = null; refreshTorrents() }, 600)
     })

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.8
+// @version      0.6.9
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -684,6 +684,8 @@ Content-Type: application/x-bittorrent\r
   __name(updateDownloaderStatus, "updateDownloaderStatus");
 
   // src/scripts/pt-batch-download/download.js
+  var DIRECT_FETCH_TIMEOUT_MS = 2e4;
+  var DIRECT_FETCH_CONCURRENCY = 4;
   async function runSerialDownload(items, delay, label, worker) {
     let success = 0;
     let failed = 0;
@@ -701,6 +703,29 @@ Content-Type: application/x-bittorrent\r
     return { success, failed };
   }
   __name(runSerialDownload, "runSerialDownload");
+  async function runConcurrentDownload(items, delay, label, worker, concurrency = DIRECT_FETCH_CONCURRENCY) {
+    let nextIndex = 0;
+    let success = 0;
+    let failed = 0;
+    const workerLoop = /* @__PURE__ */ __name(async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        const item = items[index];
+        setStatus(`${label} ${index + 1}/${items.length}: ${item.title}`);
+        try {
+          await worker(item);
+          success++;
+        } catch (error) {
+          failed++;
+        }
+        if (delay > 0 && index < items.length - 1) await sleep(delay);
+      }
+    }, "workerLoop");
+    const count = Math.min(Math.max(1, concurrency), items.length);
+    await Promise.all(Array.from({ length: count }, workerLoop));
+    return { success, failed };
+  }
+  __name(runConcurrentDownload, "runConcurrentDownload");
   async function batchDownload() {
     if (state.isDownloading) return;
     const items = uniqueByTid(state.filtered.filter((item) => state.selected.has(item.tid)));
@@ -709,7 +734,7 @@ Content-Type: application/x-bittorrent\r
       return;
     }
     const cfg = getDownloaderById(state.selectedDownloaderId);
-    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || 1200);
+    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || (cfg ? 1200 : 300));
     let success = 0;
     let failed = 0;
     state.isDownloading = true;
@@ -748,19 +773,16 @@ Content-Type: application/x-bittorrent\r
   __name(downloadBlob, "downloadBlob");
   async function downloadZip(items, delay) {
     if (typeof JSZip === "undefined") {
-      return runSerialDownload(items, delay, "下载中", downloadTorrent);
+      setStatus("JSZip 未加载，改为逐个浏览器下载");
+      return runSerialDownload(items, Math.min(delay, 300), "下载中", downloadTorrent);
     }
     const zip = new JSZip();
-    const result = await runSerialDownload(items, delay, "下载中", async (item) => {
-      try {
-        const file = await fetchTorrentBlob(item);
-        zip.file(file.name, file.blob);
-      } catch (error) {
-        fallbackDownload(item.downloadUrl);
-        throw error;
-      }
+    const result = await runConcurrentDownload(items, delay, "下载中", async (item) => {
+      const file = await fetchTorrentBlob(item);
+      zip.file(file.name, file.blob);
     });
     if (result.success) {
+      setStatus(result.failed ? `正在打包已成功的 ${result.success} 个种子` : "正在打包种子");
       const blob = await zip.generateAsync({ type: "blob" });
       clickDownload(blob, `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
     }
@@ -768,12 +790,21 @@ Content-Type: application/x-bittorrent\r
   }
   __name(downloadZip, "downloadZip");
   async function fetchTorrentBlob(item) {
-    const response = await fetch(item.downloadUrl, { credentials: "include" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    if (!blob.size) throw new Error("空文件");
-    const name = fileNameFromDisposition(response.headers.get("content-disposition")) || `${item.tid}_${sanitize(item.title)}.torrent`;
-    return { blob, name };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DIRECT_FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(item.downloadUrl, { credentials: "include", signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.size) throw new Error("空文件");
+      const name = fileNameFromDisposition(response.headers.get("content-disposition")) || `${item.tid}_${sanitize(item.title)}.torrent`;
+      return { blob, name };
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error(`下载超时（${DIRECT_FETCH_TIMEOUT_MS / 1e3} 秒）`);
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
   __name(fetchTorrentBlob, "fetchTorrentBlob");
   function clickDownload(blob, name) {
@@ -1448,7 +1479,13 @@ Content-Type: application/x-bittorrent\r
     const adapter = getAdapter();
     const root = adapter?.listRoot?.() || document.body;
     let timer = null;
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((records) => {
+      const panel = document.getElementById(ID);
+      const panelChanged = panel && records.some((record) => {
+        if (panel.contains(record.target)) return true;
+        return [...record.addedNodes, ...record.removedNodes].some((node) => node.nodeType === Node.ELEMENT_NODE && (node === panel || panel.contains(node)));
+      });
+      if (panelChanged) return;
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;

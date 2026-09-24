@@ -8,6 +8,8 @@ import { el } from './controls.js';
 
 import { fileNameFromDisposition, sanitize, setStatus, sleep, uniqueByTid } from './formatting.js';
 
+const DIRECT_FETCH_TIMEOUT_MS = 20000;
+const DIRECT_FETCH_CONCURRENCY = 4;
 
 // 推送/浏览器直下/打包三处共用的串行下载循环：统一进度提示、计数与间隔
 async function runSerialDownload(items, delay, label, worker) {
@@ -27,6 +29,29 @@ async function runSerialDownload(items, delay, label, worker) {
   return { success, failed }
 }
 
+// 浏览器直下的 ZIP 获取允许有限并发，避免大量种子时逐个等待。
+async function runConcurrentDownload(items, delay, label, worker, concurrency = DIRECT_FETCH_CONCURRENCY) {
+  let nextIndex = 0
+  let success = 0
+  let failed = 0
+  const workerLoop = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      const item = items[index]
+      setStatus(`${label} ${index + 1}/${items.length}: ${item.title}`)
+      try {
+        await worker(item)
+        success++
+      } catch (error) {
+        failed++
+      }
+      if (delay > 0 && index < items.length - 1) await sleep(delay)
+    }
+  }
+  const count = Math.min(Math.max(1, concurrency), items.length)
+  await Promise.all(Array.from({ length: count }, workerLoop))
+  return { success, failed }
+}
 
 async function batchDownload() {
     if (state.isDownloading) return
@@ -36,7 +61,7 @@ async function batchDownload() {
       return
     }
     const cfg = getDownloaderById(state.selectedDownloaderId)
-    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || 1200)
+    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || (cfg ? 1200 : 300))
     let success = 0
     let failed = 0
     state.isDownloading = true
@@ -74,21 +99,18 @@ async function downloadBlob(item) {
   }
 
 async function downloadZip(items, delay) {
-    // JSZip 依赖未加载（CDN 被墙/超时）时降级为逐个浏览器下载，避免静默失败
+    // JSZip 依赖未加载时降级为逐个浏览器下载，并缩短直下间隔。
     if (typeof JSZip === 'undefined') {
-      return runSerialDownload(items, delay, '下载中', downloadTorrent)
+      setStatus('JSZip 未加载，改为逐个浏览器下载')
+      return runSerialDownload(items, Math.min(delay, 300), '下载中', downloadTorrent)
     }
     const zip = new JSZip()
-    const result = await runSerialDownload(items, delay, '下载中', async item => {
-      try {
-        const file = await fetchTorrentBlob(item)
-        zip.file(file.name, file.blob)
-      } catch (error) {
-        fallbackDownload(item.downloadUrl)
-        throw error
-      }
+    const result = await runConcurrentDownload(items, delay, '下载中', async item => {
+      const file = await fetchTorrentBlob(item)
+      zip.file(file.name, file.blob)
     })
     if (result.success) {
+      setStatus(result.failed ? `正在打包已成功的 ${result.success} 个种子` : '正在打包种子')
       const blob = await zip.generateAsync({ type: 'blob' })
       clickDownload(blob, `pt_batch_${new Date().toISOString().slice(0, 10)}.zip`)
     }
@@ -96,12 +118,21 @@ async function downloadZip(items, delay) {
   }
 
 async function fetchTorrentBlob(item) {
-    const response = await fetch(item.downloadUrl, { credentials: 'include' })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const blob = await response.blob()
-    if (!blob.size) throw new Error('空文件')
-    const name = fileNameFromDisposition(response.headers.get('content-disposition')) || `${item.tid}_${sanitize(item.title)}.torrent`
-    return { blob, name }
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), DIRECT_FETCH_TIMEOUT_MS)
+    try {
+      const response = await fetch(item.downloadUrl, { credentials: 'include', signal: controller.signal })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      if (!blob.size) throw new Error('空文件')
+      const name = fileNameFromDisposition(response.headers.get('content-disposition')) || `${item.tid}_${sanitize(item.title)}.torrent`
+      return { blob, name }
+    } catch (error) {
+      if (error?.name === 'AbortError') throw new Error(`下载超时（${DIRECT_FETCH_TIMEOUT_MS / 1000} 秒）`)
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 
 function clickDownload(blob, name) {
@@ -135,7 +166,6 @@ function gmRequest({ method = 'GET', url, headers = {}, data, responseType = '' 
       })
     })
   }
-
 
 
 export { batchDownload, downloadTorrent, gmRequest };
