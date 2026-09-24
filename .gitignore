@@ -37,5 +37,6 @@ pnpm-debug.log*
 .pi-subagents/
 
 # AI 工具工作产物
+.agents/
 .image-gen/
 .ralph/
