@@ -8,7 +8,7 @@ import { el } from './controls.js';
 
 import { fileNameFromDisposition, sanitize, setStatus, sleep, uniqueByTid } from './formatting.js';
 
-import { generateZipBlob } from './zip.js';
+import { buildZipBlob } from './zip.js';
 
 const DIRECT_FETCH_TIMEOUT_MS = 20000;
 const DIRECT_FETCH_CONCURRENCY = 4;
@@ -100,39 +100,33 @@ function saveTorrentFile(file) {
   }
 
 async function downloadZip(items, delay) {
-    // 降级仍遵守用户设置的间隔，并固定为浏览器下载，避免中途切换目标导致推送。
-    if (typeof JSZip === 'undefined') {
-      const result = await runSerialDownload(items, delay, 'JSZip 未加载，逐个下载', downloadBlob)
-      return { ...result, notice: 'JSZip 未加载，已改为逐个浏览器下载' }
-    }
+    // 打包器自包含，不再依赖 JSZip；仍遵守用户设置的间隔。
     const files = []
     const result = await runConcurrentDownload(items, delay, async item => {
-      // 完整读取也受网络超时约束；JSZip 不再接收需要异步 FileReader 转换的 Blob。
+      // 完整读取受网络超时约束，打包阶段纯同步，无沙箱调度依赖。
       const file = await fetchTorrentFile(item)
       files.push({ ...file, title: item.title })
     })
     if (result.success) {
+      setStatus(`正在打包 ${result.success} 个种子...（失败 ${result.failed} 个）`)
       try {
-        const zip = new JSZip()
-        for (const file of files) {
+        const seen = new Set()
+        const entries = files.map(file => {
           // 同名种子不能覆盖已入包文件。
           let name = file.name
           let suffix = 1
-          while (zip.file(name)) name = `${suffix++}_${file.name}`
-          zip.file(name, file.bytes, { binary: true })
-        }
-        setStatus(`正在打包 ${result.success} 个种子：0%（失败 ${result.failed} 个）`)
-        const blob = await generateZipBlob(zip, metadata => {
-          setStatus(`正在打包 ${result.success} 个种子：${Math.floor(metadata.percent)}%（失败 ${result.failed} 个）`)
+          while (seen.has(name)) name = `${suffix++}_${file.name}`
+          seen.add(name)
+          return { name, bytes: file.bytes }
         })
-        clickDownload(blob, `pt_batch_${new Date().toISOString().slice(0, 10)}.zip`)
+        clickDownload(buildZipBlob(entries), `pt_batch_${new Date().toISOString().slice(0, 10)}.zip`)
       } catch (error) {
         // 不重新 fetch 或导航到下载链接；直接使用已获取的数据，避免重复计数或离开页面。
         const saved = await runSerialDownload(files, delay, 'ZIP 打包失败，逐个下载已获取文件', saveTorrentFile)
         return {
           success: saved.success,
           failed: result.failed + saved.failed,
-          notice: 'ZIP 打包失败或无进度超时，已逐个触发浏览器下载；若未出现文件，请允许本页多文件下载'
+          notice: 'ZIP 打包失败，已逐个触发浏览器下载；若未出现文件，请允许本页多文件下载'
         }
       }
     }

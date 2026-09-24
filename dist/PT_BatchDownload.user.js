@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.11
+// @version      0.6.12
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -684,61 +684,98 @@ Content-Type: application/x-bittorrent\r
   __name(updateDownloaderStatus, "updateDownloaderStatus");
 
   // src/scripts/pt-batch-download/zip.js
-  var ZIP_IDLE_TIMEOUT_MS = 15e3;
-  function generateZipBlob(zip, onProgress) {
-    return new Promise((resolve, reject) => {
-      let stream;
-      let timer;
-      let settled = false;
-      let chunks = [];
-      const fail = /* @__PURE__ */ __name((error) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        chunks = [];
-        try {
-          stream?.pause();
-        } catch (_) {
-        }
-        reject(error);
-      }, "fail");
-      const armTimeout = /* @__PURE__ */ __name(() => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fail(new Error("ZIP 打包连续 15 秒无进度")), ZIP_IDLE_TIMEOUT_MS);
-      }, "armTimeout");
-      try {
-        stream = zip.generateInternalStream({ type: "uint8array", compression: "STORE" });
-        stream.on("data", (chunk, metadata) => {
-          if (settled) return;
-          try {
-            chunks.push(chunk);
-            armTimeout();
-            onProgress(metadata);
-          } catch (error) {
-            fail(error);
-          }
-        });
-        stream.on("error", fail);
-        stream.on("end", () => {
-          if (settled) return;
-          try {
-            const blob = new Blob(chunks, { type: "application/zip" });
-            settled = true;
-            clearTimeout(timer);
-            chunks = [];
-            resolve(blob);
-          } catch (error) {
-            fail(error);
-          }
-        });
-        armTimeout();
-        stream.resume();
-      } catch (error) {
-        fail(error);
-      }
-    });
+  var CRC_TABLE = new Uint32Array(256).map((_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+    return c >>> 0;
+  });
+  function crc32(bytes) {
+    let c = 4294967295;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ c >>> 8;
+    return (c ^ 4294967295) >>> 0;
   }
-  __name(generateZipBlob, "generateZipBlob");
+  __name(crc32, "crc32");
+  function dosDateTime(d = /* @__PURE__ */ new Date()) {
+    return {
+      time: d.getHours() << 11 | d.getMinutes() << 5 | d.getSeconds() >> 1,
+      date: Math.max(0, d.getFullYear() - 1980) << 9 | d.getMonth() + 1 << 5 | d.getDate()
+    };
+  }
+  __name(dosDateTime, "dosDateTime");
+  function concatBytes(parts) {
+    const total = parts.reduce((sum, part) => sum + part.length, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
+    }
+    return out;
+  }
+  __name(concatBytes, "concatBytes");
+  var u16 = /* @__PURE__ */ __name((v) => new Uint8Array([v & 255, v >>> 8 & 255]), "u16");
+  var u32 = /* @__PURE__ */ __name((v) => new Uint8Array([v & 255, v >>> 8 & 255, v >>> 16 & 255, v >>> 24 & 255]), "u32");
+  function buildZipBlob(entries) {
+    const encoder = new TextEncoder();
+    const { time, date } = dosDateTime();
+    const body = [];
+    const central = [];
+    let offset = 0;
+    for (const entry of entries) {
+      const name = encoder.encode(entry.name);
+      const data = entry.bytes;
+      const crc = crc32(data);
+      const local = concatBytes([
+        u32(67324752),
+        u16(20),
+        u16(2048),
+        u16(0),
+        u16(time),
+        u16(date),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(name.length),
+        u16(0),
+        name
+      ]);
+      body.push(local, data);
+      central.push(concatBytes([
+        u32(33639248),
+        u16(20),
+        u16(20),
+        u16(2048),
+        u16(0),
+        u16(time),
+        u16(date),
+        u32(crc),
+        u32(data.length),
+        u32(data.length),
+        u16(name.length),
+        u16(0),
+        u16(0),
+        u16(0),
+        u16(0),
+        u32(0),
+        u32(offset),
+        name
+      ]));
+      offset += local.length + data.length;
+    }
+    const centralBytes = concatBytes(central);
+    const eocd = concatBytes([
+      u32(101010256),
+      u16(0),
+      u16(0),
+      u16(entries.length),
+      u16(entries.length),
+      u32(centralBytes.length),
+      u32(offset),
+      u16(0)
+    ]);
+    return new Blob([...body, centralBytes, eocd], { type: "application/zip" });
+  }
+  __name(buildZipBlob, "buildZipBlob");
 
   // src/scripts/pt-batch-download/download.js
   var DIRECT_FETCH_TIMEOUT_MS = 2e4;
@@ -830,35 +867,29 @@ Content-Type: application/x-bittorrent\r
   }
   __name(saveTorrentFile, "saveTorrentFile");
   async function downloadZip(items, delay) {
-    if (typeof JSZip === "undefined") {
-      const result2 = await runSerialDownload(items, delay, "JSZip 未加载，逐个下载", downloadBlob);
-      return { ...result2, notice: "JSZip 未加载，已改为逐个浏览器下载" };
-    }
     const files = [];
     const result = await runConcurrentDownload(items, delay, async (item) => {
       const file = await fetchTorrentFile(item);
       files.push({ ...file, title: item.title });
     });
     if (result.success) {
+      setStatus(`正在打包 ${result.success} 个种子...（失败 ${result.failed} 个）`);
       try {
-        const zip = new JSZip();
-        for (const file of files) {
+        const seen = /* @__PURE__ */ new Set();
+        const entries = files.map((file) => {
           let name = file.name;
           let suffix = 1;
-          while (zip.file(name)) name = `${suffix++}_${file.name}`;
-          zip.file(name, file.bytes, { binary: true });
-        }
-        setStatus(`正在打包 ${result.success} 个种子：0%（失败 ${result.failed} 个）`);
-        const blob = await generateZipBlob(zip, (metadata) => {
-          setStatus(`正在打包 ${result.success} 个种子：${Math.floor(metadata.percent)}%（失败 ${result.failed} 个）`);
+          while (seen.has(name)) name = `${suffix++}_${file.name}`;
+          seen.add(name);
+          return { name, bytes: file.bytes };
         });
-        clickDownload(blob, `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
+        clickDownload(buildZipBlob(entries), `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
       } catch (error) {
         const saved = await runSerialDownload(files, delay, "ZIP 打包失败，逐个下载已获取文件", saveTorrentFile);
         return {
           success: saved.success,
           failed: result.failed + saved.failed,
-          notice: "ZIP 打包失败或无进度超时，已逐个触发浏览器下载；若未出现文件，请允许本页多文件下载"
+          notice: "ZIP 打包失败，已逐个触发浏览器下载；若未出现文件，请允许本页多文件下载"
         };
       }
     }

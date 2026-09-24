@@ -32,9 +32,11 @@ It uses the supplied V3.0.8 envelope samples alongside V2 objects, raw/wrapped l
 
 This suite is separate from the immutable migration AST baseline. Intentional API behavior changes are not migration parity; do not regenerate that baseline to hide the changes.
 
-## PT batch ZIP lifecycle
+## PT batch ZIP writer
 
-After authorization, run `node --test tests/pt-batch-zip.mjs` for stream collection, stalled generation, renewed idle deadlines, and late callbacks. Fake ZIP streams and timers make no network requests. These cases do not verify real JSZip archive validity or a Tampermonkey sandbox; both remain separate runtime checks.
+After authorization, run `node --test tests/pt-batch-zip.mjs`. It validates the built-in STORE writer offline: CRC-32 check vectors, EOCD/central-directory/local-header field walk, UTF-8 names, and verbatim payloads. No network requests; JSZip is no longer part of the ZIP path (its `@require` remains for metadata stability). Real Tampermonkey sandbox behavior still needs a user-side run.
+
+## Limits
 
 ## Limits
 
