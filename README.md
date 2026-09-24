@@ -271,6 +271,9 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── src/scripts/moviepilot-name-test/response.js
+├── tests/moviepilot-response.mjs
+├── .agents/notes/implemented/bug-fix/2026-09-24-moviepilot-v3-response-envelope.md
 ├── .agents/notes/implemented/bug-fix/2026-09-23-pt-batch-download-timeout.md
 ├── src/scripts/xingtan-bonus-pergbh/meta.js
 ├── src/scripts/xingtan-bonus-pergbh/bonus.js
