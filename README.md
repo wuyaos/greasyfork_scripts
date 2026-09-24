@@ -272,6 +272,9 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── src/scripts/pt-batch-download/zip.js
+├── tests/pt-batch-zip.mjs
+├── .agents/notes/implemented/bug-fix/2026-09-24-pt-batch-zip-stall.md
 ├── src/scripts/moviepilot-name-test/response.js
 ├── tests/moviepilot-response.mjs
 ├── .agents/notes/implemented/bug-fix/2026-09-24-moviepilot-v3-response-envelope.md
