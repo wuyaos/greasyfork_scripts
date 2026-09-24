@@ -11,7 +11,7 @@
 | 脚本 | 版本 | 简述 | 安装 |
 |---|---|---|---|
 | <img src="icon/moviepilot-autologin.png" width="24" alt=""> [Moviepilot_AutoLogin](#moviepilot_autologin) | 1.3.2 | MoviePilot 自动登录 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Moviepilot_AutoLogin.user.js) |
-| <img src="icon/moviepilot.png" width="24" alt=""> [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.16 | PT 站种子名称识别，推送 MoviePilot | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Moviepilot_NameTest.user.js) |
+| <img src="icon/moviepilot.png" width="24" alt=""> [Moviepilot_NameTest](#moviepilot_nametest) | 3.5.17 | PT 站种子名称识别，推送 MoviePilot V2/V3 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Moviepilot_NameTest.user.js) |
 | <img src="icon/iyuu-reseed.png" width="24" alt=""> [IYUU_Reseed_Checker](#iyuu_reseed_checker) | 1.1.18 | IYUU 辅种检测助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/IYUU_Reseed_Checker.user.js) |
 | <img src="icon/pt-oneclickclaim.png" width="24" alt=""> [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.3 | PT 一键认领增强脚本 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_OneClickClaim.user.js) |
 | <img src="icon/pt-audit.png" width="24" alt=""> [PT_AuditAssistant](#pt_auditassistant) | 0.1.1 | 聚合 PT 审种助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_AuditAssistant.user.js) |
@@ -43,7 +43,7 @@ MoviePilot 自动登录脚本，用于在 MoviePilot 登录页自动填充已配
 
 <a id="moviepilot_nametest"></a>
 ### [Moviepilot_NameTest](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Moviepilot_NameTest.user.js)
-> 版本 3.5.16 · 作者 wuyaos & AI<br>
+> 版本 3.5.17 · 作者 wuyaos & AI<br>
 > @match 站点范围：PT/BT 种子详情页，含 NexusPHP、TTG、Bangumi/Mikan、M-Team、GPW、IPT、BHD、Nyaa 等  
 > 图标 <img src="icon/moviepilot.png" width="24" alt="icon">
 
@@ -53,6 +53,8 @@ PT 站种子名称识别脚本，可将种子标题推送到 MoviePilot 进行�
 - 在多类 PT/BT 详情页注入 MoviePilot 识别入口
 - 支持手动查询、可选自动查询与本地识别缓存
 - 复用公共 PT 页面适配逻辑，兼容多站点标题和元数据提取
+- 兼容 MoviePilot V2 裸响应与 V3 的 `{success, message, data}` 响应封装，登录和 API 地址保持不变
+- 识别结果为空时继续候选词/TMDB 兜底；测试连接和推送均检查业务失败，避免 HTTP 200 被误报为成功
 
 <a id="iyuu_reseed_checker"></a>
 ### [IYUU_Reseed_Checker](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/IYUU_Reseed_Checker.user.js)
