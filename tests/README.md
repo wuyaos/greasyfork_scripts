@@ -32,6 +32,10 @@ It uses the supplied V3.0.8 envelope samples alongside V2 objects, raw/wrapped l
 
 This suite is separate from the immutable migration AST baseline. Intentional API behavior changes are not migration parity; do not regenerate that baseline to hide the changes.
 
+## PT batch ZIP lifecycle
+
+After authorization, run `node --test tests/pt-batch-zip.mjs` for stream collection, stalled generation, renewed idle deadlines, and late callbacks. Fake ZIP streams and timers make no network requests. These cases do not verify real JSZip archive validity or a Tampermonkey sandbox; both remain separate runtime checks.
+
 ## Limits
 
 `NOT_VERIFIED`: live authenticated pages, all theme variants, native Tampermonkey realms, Windows-native Node execution, external API responses, real downloads, approvals or claims. These require separate user authorization and targeted fixtures or the user's running browser. Initialization parity is not full workflow equivalence; AST contracts and independent review complement it.

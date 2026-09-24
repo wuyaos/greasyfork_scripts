@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.9
+// @version      0.6.10
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -683,6 +683,63 @@ Content-Type: application/x-bittorrent\r
   }
   __name(updateDownloaderStatus, "updateDownloaderStatus");
 
+  // src/scripts/pt-batch-download/zip.js
+  var ZIP_IDLE_TIMEOUT_MS = 15e3;
+  function generateZipBlob(zip, onProgress) {
+    return new Promise((resolve, reject) => {
+      let stream;
+      let timer;
+      let settled = false;
+      let chunks = [];
+      const fail = /* @__PURE__ */ __name((error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        chunks = [];
+        try {
+          stream?.pause();
+        } catch (_) {
+        }
+        reject(error);
+      }, "fail");
+      const armTimeout = /* @__PURE__ */ __name(() => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fail(new Error("ZIP 打包连续 15 秒无进度")), ZIP_IDLE_TIMEOUT_MS);
+      }, "armTimeout");
+      try {
+        stream = zip.generateInternalStream({ type: "uint8array", compression: "STORE" });
+        stream.on("data", (chunk, metadata) => {
+          if (settled) return;
+          try {
+            chunks.push(chunk);
+            armTimeout();
+            onProgress(metadata);
+          } catch (error) {
+            fail(error);
+          }
+        });
+        stream.on("error", fail);
+        stream.on("end", () => {
+          if (settled) return;
+          try {
+            const blob = new Blob(chunks, { type: "application/zip" });
+            settled = true;
+            clearTimeout(timer);
+            chunks = [];
+            resolve(blob);
+          } catch (error) {
+            fail(error);
+          }
+        });
+        armTimeout();
+        stream.resume();
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+  __name(generateZipBlob, "generateZipBlob");
+
   // src/scripts/pt-batch-download/download.js
   var DIRECT_FETCH_TIMEOUT_MS = 2e4;
   var DIRECT_FETCH_CONCURRENCY = 4;
@@ -760,47 +817,65 @@ Content-Type: application/x-bittorrent\r
   __name(downloadTorrent, "downloadTorrent");
   async function downloadBlob(item) {
     try {
-      const file = await fetchTorrentBlob(item);
-      clickDownload(file.blob, file.name);
+      const file = await fetchTorrentFile(item);
+      saveTorrentFile(file);
     } catch (error) {
       fallbackDownload(item.downloadUrl);
       throw error;
     }
   }
   __name(downloadBlob, "downloadBlob");
+  function saveTorrentFile(file) {
+    clickDownload(new Blob([file.bytes], { type: file.type }), file.name);
+  }
+  __name(saveTorrentFile, "saveTorrentFile");
   async function downloadZip(items, delay) {
     if (typeof JSZip === "undefined") {
       const result2 = await runSerialDownload(items, delay, "JSZip 未加载，逐个下载", downloadBlob);
       return { ...result2, notice: "JSZip 未加载，已改为逐个浏览器下载" };
     }
-    const zip = new JSZip();
+    const files = [];
     const result = await runConcurrentDownload(items, delay, async (item) => {
-      const file = await fetchTorrentBlob(item);
-      let name = file.name;
-      let suffix = 1;
-      while (zip.file(name)) name = `${suffix++}_${file.name}`;
-      zip.file(name, file.blob);
+      const file = await fetchTorrentFile(item);
+      files.push({ ...file, title: item.title });
     });
     if (result.success) {
-      setStatus(`正在打包 ${result.success} 个种子：0%（失败 ${result.failed} 个）`);
-      const blob = await zip.generateAsync({ type: "blob" }, (metadata) => {
-        setStatus(`正在打包 ${result.success} 个种子：${Math.floor(metadata.percent)}%（失败 ${result.failed} 个）`);
-      });
-      clickDownload(blob, `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
+      try {
+        const zip = new JSZip();
+        for (const file of files) {
+          let name = file.name;
+          let suffix = 1;
+          while (zip.file(name)) name = `${suffix++}_${file.name}`;
+          zip.file(name, file.bytes, { binary: true });
+        }
+        setStatus(`正在打包 ${result.success} 个种子：0%（失败 ${result.failed} 个）`);
+        const blob = await generateZipBlob(zip, (metadata) => {
+          setStatus(`正在打包 ${result.success} 个种子：${Math.floor(metadata.percent)}%（失败 ${result.failed} 个）`);
+        });
+        clickDownload(blob, `pt_batch_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.zip`);
+      } catch (error) {
+        const saved = await runSerialDownload(files, delay, "ZIP 打包失败，逐个下载已获取文件", saveTorrentFile);
+        return {
+          success: saved.success,
+          failed: result.failed + saved.failed,
+          notice: "ZIP 打包失败或无进度超时，已逐个触发浏览器下载；若未出现文件，请允许本页多文件下载"
+        };
+      }
     }
     return { ...result, notice: result.failed ? "失败项未入 ZIP，请重新选择重试" : "" };
   }
   __name(downloadZip, "downloadZip");
-  async function fetchTorrentBlob(item) {
+  async function fetchTorrentFile(item) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DIRECT_FETCH_TIMEOUT_MS);
     try {
       const response = await fetch(item.downloadUrl, { credentials: "include", signal: controller.signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      if (!blob.size) throw new Error("空文件");
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (!bytes.byteLength) throw new Error("空文件");
       const name = fileNameFromDisposition(response.headers.get("content-disposition")) || `${item.tid}_${sanitize(item.title)}.torrent`;
-      return { blob, name };
+      const type = response.headers.get("content-type") || "application/x-bittorrent";
+      return { bytes, name, type };
     } catch (error) {
       if (error?.name === "AbortError") throw new Error(`下载超时（${DIRECT_FETCH_TIMEOUT_MS / 1e3} 秒）`);
       throw error;
@@ -808,7 +883,7 @@ Content-Type: application/x-bittorrent\r
       clearTimeout(timeout);
     }
   }
-  __name(fetchTorrentBlob, "fetchTorrentBlob");
+  __name(fetchTorrentFile, "fetchTorrentFile");
   function clickDownload(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = el("a", { href: url, download: name, style: "display:none" });
