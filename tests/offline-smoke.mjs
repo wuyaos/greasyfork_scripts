@@ -26,7 +26,8 @@ const urls = {
   'pt-audit-assistant': 'https://fixture.invalid/details.php?id=1',
   'pt-batch-download': 'https://fixture.invalid/torrents.php',
   'pt-one-click-claim': 'https://pterclub.com/getusertorrentlist.php?userid=1',
-  'zhuque-batch-download': 'https://zhuque.in/torrent/search/1'
+  'zhuque-batch-download': 'https://zhuque.in/torrent/search/1',
+  'xingtan-bonus-pergbh': 'https://xingtan.one/torrents.php'
 };
 const html = `<!doctype html><html><head><title>Offline Fixture</title></head><body>
 <div id="app"></div><div id="content"><div id="columnSubjectBrowser"><h1>Calendar</h1></div></div>
@@ -124,16 +125,26 @@ async function runtime(code, script) {
   dom.window.close();
   return JSON.parse(JSON.stringify(summary));
 }
-
 for (const script of scripts) {
   if (capture) {
-    const original = execFileSync('git', ['show', `${baseline.baseline}:${script.output}`], { cwd: root, encoding: 'utf8' });
+    let original;
+    try {
+      original = execFileSync('git', ['show', `${baseline.baseline}:${script.output}`], { cwd: root, encoding: 'utf8' });
+    } catch {
+      console.log(`offline ${script.id}: no original artifact in baseline commit, skipped`);
+      continue;
+    }
     const result = await runtime(original, script);
     assert.equal(result.requests.length, 0, `${script.id}: baseline attempted an external request`);
     golden[script.id] = result;
   } else {
     const artifact = readFileSync(join(root, 'dist', script.output), 'utf8');
     const result = await runtime(artifact, script);
+    if (golden[script.id] === undefined) {
+      assert.equal(result.requests.length, 0, `${script.id}: initialization attempted an external request`);
+      console.log(`offline ${script.id}: no baseline contract, network boundary verified`);
+      continue;
+    }
     assert.deepEqual(result, golden[script.id], `${script.id}: initialization differs from original offline fixture`);
     console.log(`offline ${script.id}: initialization, DOM, styles, timers and network boundary match baseline`);
   }

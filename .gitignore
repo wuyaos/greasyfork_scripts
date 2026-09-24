@@ -40,3 +40,5 @@ pnpm-debug.log*
 .agents/
 .image-gen/
 .ralph/
+/.pi-loop.json
+/TODO.md

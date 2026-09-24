@@ -12,7 +12,8 @@ const definitions = [
   ['pt-audit-assistant', 'PT_AuditAssistant.user.js'],
   ['pt-batch-download', 'PT_BatchDownload.user.js'],
   ['pt-one-click-claim', 'PT_OneClickClaim.user.js'],
-  ['zhuque-batch-download', 'Zhuque_BatchDownload.user.js']
+  ['zhuque-batch-download', 'Zhuque_BatchDownload.user.js'],
+  ['xingtan-bonus-pergbh', 'Xingtan_BonusPerGBh.user.js']
 ];
 
 export const scripts = definitions.map(([id, output]) => ({

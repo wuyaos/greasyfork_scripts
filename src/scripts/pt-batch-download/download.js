@@ -11,7 +11,7 @@ import { fileNameFromDisposition, sanitize, setStatus, sleep, uniqueByTid } from
 const DIRECT_FETCH_TIMEOUT_MS = 20000;
 const DIRECT_FETCH_CONCURRENCY = 4;
 
-// 推送/浏览器直下/打包三处共用的串行下载循环：统一进度提示、计数与间隔
+// 推送和浏览器逐个下载共用的串行循环。
 async function runSerialDownload(items, delay, label, worker) {
   let success = 0
   let failed = 0
@@ -29,27 +29,29 @@ async function runSerialDownload(items, delay, label, worker) {
   return { success, failed }
 }
 
-// 浏览器直下的 ZIP 获取允许有限并发，避免大量种子时逐个等待。
-async function runConcurrentDownload(items, delay, label, worker, concurrency = DIRECT_FETCH_CONCURRENCY) {
-  let nextIndex = 0
+// 一个调度器统一控制启动间隔；慢请求可重叠，但全局最多 4 路，避免同时突发请求。
+async function runConcurrentDownload(items, delay, worker) {
+  const active = new Set()
+  let nextStart = 0
   let success = 0
   let failed = 0
-  const workerLoop = async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++
-      const item = items[index]
-      setStatus(`${label} ${index + 1}/${items.length}: ${item.title}`)
-      try {
-        await worker(item)
-        success++
-      } catch (error) {
-        failed++
-      }
-      if (delay > 0 && index < items.length - 1) await sleep(delay)
-    }
+  const progress = () => setStatus(`获取种子：完成 ${success + failed}/${items.length}，成功 ${success}，失败 ${failed}，进行中 ${active.size}`)
+  for (const item of items) {
+    if (active.size >= DIRECT_FETCH_CONCURRENCY) await Promise.race(active)
+    const wait = nextStart - Date.now()
+    if (wait > 0) await sleep(wait)
+    nextStart = Date.now() + delay
+    const task = Promise.resolve().then(() => worker(item)).then(
+      () => { success++ },
+      () => { failed++ }
+    ).then(() => {
+      active.delete(task)
+      progress()
+    })
+    active.add(task)
+    progress()
   }
-  const count = Math.min(Math.max(1, concurrency), items.length)
-  await Promise.all(Array.from({ length: count }, workerLoop))
+  await Promise.all(active)
   return { success, failed }
 }
 
@@ -61,28 +63,21 @@ async function batchDownload() {
       return
     }
     const cfg = getDownloaderById(state.selectedDownloaderId)
-    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || (cfg ? 1200 : 300))
-    let success = 0
-    let failed = 0
+    const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || 1200)
     state.isDownloading = true
     try {
-      if (!cfg && items.length > 1) {
-        const result = await downloadZip(items, delay)
-        success = result.success
-        failed = result.failed
-      } else {
-        const result = await runSerialDownload(items, delay, cfg ? '推送中' : '下载中', downloadTorrent)
-        success = result.success
-        failed = result.failed
-      }
+      const result = !cfg && items.length > 1
+        ? await downloadZip(items, delay)
+        : await runSerialDownload(items, delay, cfg ? '推送中' : '下载中', item => downloadTorrent(item, cfg))
+      setStatus(`完成：${items.length} 个，成功 ${result.success}，失败 ${result.failed}${result.notice ? `；${result.notice}` : ''}`)
+    } catch (error) {
+      setStatus(`批量${cfg ? '推送' : '下载/打包'}失败，请重试`)
     } finally {
       state.isDownloading = false
     }
-    setStatus(`完成：${items.length} 个，成功 ${success}，失败 ${failed}`)
   }
 
-async function downloadTorrent(item) {
-    const cfg = getDownloaderById(state.selectedDownloaderId)
+async function downloadTorrent(item, cfg = getDownloaderById(state.selectedDownloaderId)) {
     if (cfg?.type === 'qb') return pushToQBittorrent(item, cfg)
     if (cfg?.type === 'tr') return pushToTransmission(item, cfg)
     return downloadBlob(item)
@@ -99,22 +94,28 @@ async function downloadBlob(item) {
   }
 
 async function downloadZip(items, delay) {
-    // JSZip 依赖未加载时降级为逐个浏览器下载，并缩短直下间隔。
+    // 降级仍遵守用户设置的间隔，并固定为浏览器下载，避免中途切换目标导致推送。
     if (typeof JSZip === 'undefined') {
-      setStatus('JSZip 未加载，改为逐个浏览器下载')
-      return runSerialDownload(items, Math.min(delay, 300), '下载中', downloadTorrent)
+      const result = await runSerialDownload(items, delay, 'JSZip 未加载，逐个下载', downloadBlob)
+      return { ...result, notice: 'JSZip 未加载，已改为逐个浏览器下载' }
     }
     const zip = new JSZip()
-    const result = await runConcurrentDownload(items, delay, '下载中', async item => {
+    const result = await runConcurrentDownload(items, delay, async item => {
       const file = await fetchTorrentBlob(item)
-      zip.file(file.name, file.blob)
+      // 同名种子不能覆盖已入包文件。
+      let name = file.name
+      let suffix = 1
+      while (zip.file(name)) name = `${suffix++}_${file.name}`
+      zip.file(name, file.blob)
     })
     if (result.success) {
-      setStatus(result.failed ? `正在打包已成功的 ${result.success} 个种子` : '正在打包种子')
-      const blob = await zip.generateAsync({ type: 'blob' })
+      setStatus(`正在打包 ${result.success} 个种子：0%（失败 ${result.failed} 个）`)
+      const blob = await zip.generateAsync({ type: 'blob' }, metadata => {
+        setStatus(`正在打包 ${result.success} 个种子：${Math.floor(metadata.percent)}%（失败 ${result.failed} 个）`)
+      })
       clickDownload(blob, `pt_batch_${new Date().toISOString().slice(0, 10)}.zip`)
     }
-    return result
+    return { ...result, notice: result.failed ? '失败项未入 ZIP，请重新选择重试' : '' }
   }
 
 async function fetchTorrentBlob(item) {
@@ -166,6 +167,5 @@ function gmRequest({ method = 'GET', url, headers = {}, data, responseType = '' 
       })
     })
   }
-
 
 export { batchDownload, downloadTorrent, gmRequest };

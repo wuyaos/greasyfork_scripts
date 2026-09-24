@@ -77,6 +77,11 @@ for (const script of scripts) {
     });
   }
   const expected = baseline.scripts[script.id];
+  // 新脚本（加入 registry 时无历史基线）跳过契约对比；--regen 只重建已有脚本基线。
+  if (!expected) {
+    console.log(`contracts ${script.id}: no baseline, skipped`);
+    continue;
+  }
   if (regen) {
     // Contract granularity = top-level statements of each module (matching the
     // original capture), not every AST node.

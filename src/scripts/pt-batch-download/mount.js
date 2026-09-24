@@ -27,11 +27,12 @@ function watchListChanges() {
     let timer = null
     const observer = new MutationObserver(records => {
       const panel = document.getElementById(ID)
-      const panelChanged = panel && records.some(record => {
-        if (panel.contains(record.target)) return true
-        return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE && (node === panel || panel.contains(node)))
+      const listChanged = records.some(record => {
+        if (panel?.contains(record.target)) return false
+        const nodes = [...record.addedNodes, ...record.removedNodes]
+        return nodes.some(node => !(node === panel || panel?.contains(node)))
       })
-      if (panelChanged) return
+      if (!listChanged) return
       if (timer) return
       timer = setTimeout(() => { timer = null; refreshTorrents() }, 600)
     })
