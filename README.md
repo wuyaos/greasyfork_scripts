@@ -16,7 +16,7 @@
 | <img src="icon/pt-oneclickclaim.png" width="24" alt=""> [PT_OneClickClaim](#pt_oneclickclaim) | 0.2.3 | PT 一键认领增强脚本 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_OneClickClaim.user.js) |
 | <img src="icon/pt-audit.png" width="24" alt=""> [PT_AuditAssistant](#pt_auditassistant) | 0.1.1 | 聚合 PT 审种助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_AuditAssistant.user.js) |
 | <img src="icon/zhuque-batch.png" width="24" alt=""> [Zhuque_BatchDownload](#zhuque_batchdownload) | 0.2.2 | 朱雀搜索页批量下载 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Zhuque_BatchDownload.user.js) |
-| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.6.9 | 通用 PT 当前页批量下载 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_BatchDownload.user.js) |
+| <img src="icon/pt-batch.png" width="24" alt=""> [PT_BatchDownload](#pt_batchdownload) | 0.6.10 | 通用 PT 当前页批量下载 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_BatchDownload.user.js) |
 | <img src="icon/bangumi.png" width="24" alt=""> [Bangumi_Enhanced](#bangumi_enhanced) | 1.0.1 | Bangumi 中文标题与放送日历增强 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Bangumi_Enhanced.user.js) |
 | <img src="icon/ai.png" width="24" alt=""> [AI_WebSummary](#ai_websummary) | 2.0.6 | 使用 AI 总结网页内容 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AI_WebSummary.user.js) |
 | <img src="icon/nicept.png" width="24" alt=""> [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0.1 | 替换 NicePT 分类图标 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/NicePT_ReplaceIcon.user.js) |
@@ -110,7 +110,7 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 
 <a id="pt_batchdownload"></a>
 ### [PT_BatchDownload](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/PT_BatchDownload.user.js)
-> 版本 0.6.9 · 作者 wuyaos & AI<br>
+> 版本 0.6.10 · 作者 wuyaos & AI<br>
 > @match 站点范围：通用 PT 站 PHP 页面、Unit3D 架构 `/torrents` 列表页（如 darkland.top）、Gazelle 架构（GGn/Anthelion 等）列表页  
 > 图标 <img src="icon/pt-batch.png" width="24" alt="icon">
 
@@ -119,6 +119,7 @@ PT 一键认领增强脚本，用于筛选当前做种并在预览确认后批�
 主要特性：
 - 支持关键字、体积、做种数、优惠、做种状态筛选
 - 支持浏览器直下 ZIP 打包，使用有限并发、单项超时与失败计数
+- ZIP 输入使用已读取的字节数组；打包连续 15 秒无数据输出或失败时，自动逐个下载已获取文件，不重复请求站点（浏览器可能需要允许多文件下载）
 - 支持 qBittorrent / Transmission 推送配置
 - 站点适配器架构：基类 `SiteAdapter` + `NexusPHPAdapter` / `Unit3DAdapter` 子类
 - 同时适配 NexusPHP（`download.php?id=`）与 Unit3D（`/torrents/download/{id}` RESTful 路由）两种架构
