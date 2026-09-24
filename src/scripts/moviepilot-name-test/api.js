@@ -4,6 +4,8 @@ import { CONFIG } from './settings.js';
 
 import { UI } from './ui.js';
 
+import { readMoviePilotResponse } from './response.js';
+
 
 
 const API = {
@@ -64,7 +66,14 @@ const API = {
                     headers: finalHeaders,
                     responseType,
                     onload: (res) => {
-                        if (res.status >= 200 && res.status < 300) {
+                        // 仅处理本模块发往 MoviePilot 的相对 API 路径，不影响 TMDB/M-Team 响应。
+                        if (!absolute && url.startsWith('/api/v1/')) {
+                            try {
+                                resolve(readMoviePilotResponse(res.response, res.status));
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else if (res.status >= 200 && res.status < 300) {
                             resolve(res.response);
                         } else {
                             reject({ status: res.status, response: res.response, message: `HTTP Error ${res.status}` });

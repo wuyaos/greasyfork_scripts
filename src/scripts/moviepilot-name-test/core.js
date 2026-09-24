@@ -357,7 +357,8 @@ const Core = {
         },
 
         renderSuccess(container, data, torrentInfo) {
-            const { media_info, meta_info } = data;
+            const { media_info } = data;
+            const meta_info = data.meta_info ?? {};
             const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
             let finalHtml = `<div style="${containerStyle}">`;
 

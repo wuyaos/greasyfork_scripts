@@ -4,6 +4,8 @@ import { CONFIG } from './settings.js';
 
 import { UTILS } from './media-formatting.js';
 
+import { readMoviePilotResponse } from './response.js';
+
 
 
 const UI = {
@@ -117,19 +119,18 @@ const UI = {
                             data: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`,
                             responseType: 'json', onload: resolve, onerror: reject
                         }));
-                        if (loginRes.status !== 200) throw new Error(`登录失败: ${loginRes.status}`);
-                        headers['Authorization'] = `bearer ${loginRes.response?.access_token}`;
+                        const loginData = readMoviePilotResponse(loginRes.response, loginRes.status);
+                        if (!loginData?.access_token) throw new Error('无效的登录响应');
+                        headers['Authorization'] = `bearer ${loginData.access_token}`;
                     }
                     const res = await new Promise((resolve, reject) => GM_xmlhttpRequest({
                         method: 'GET', url: testUrl, headers, responseType: 'json', onload: resolve, onerror: reject
                     }));
-                    if (res.status === 200) {
-                        btn.textContent = '连接成功'; btn.style.color = '#27ae60';
-                    } else {
-                        btn.textContent = `失败: ${res.status}`; btn.style.color = '#e74c3c';
-                    }
+                    readMoviePilotResponse(res.response, res.status);
+                    btn.textContent = '连接成功'; btn.style.color = '#27ae60';
                 } catch (err) {
                     btn.textContent = '连接失败'; btn.style.color = '#e74c3c';
+                    this.showToast(err?.message || 'MoviePilot 连接失败', 5000);
                 }
                 setTimeout(() => { btn.disabled = false; btn.textContent = '测试连接'; btn.style.color = ''; }, 3000);
             });

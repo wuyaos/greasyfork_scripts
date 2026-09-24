@@ -20,6 +20,18 @@ No test connects to a target site. The test DOM has site-shaped URLs to exercise
 
 Routine verification never updates baselines. `node tests/offline-smoke.mjs --capture` is a deliberate maintenance action and reads only the original commit with `git show`; do not replace expected results with current output to silence a failure. `node tests/migration-contracts.mjs --regen` is likewise a deliberate, documented maintenance action for approved cleanup rounds.
 
+## MoviePilot V2/V3 response compatibility
+
+After authorization to run behavior checks, use the standalone offline suite:
+
+```bash
+node --test tests/moviepilot-response.mjs
+```
+
+It uses the supplied V3.0.8 envelope samples alongside V2 objects, raw/wrapped login tokens, arrays, null recognition results, and HTTP/business failures. The integration case mocks GM requests and checks recognition, site lookup, clients, push acknowledgment, and isolation of TMDB/M-Team responses. No real MoviePilot instance is contacted.
+
+This suite is separate from the immutable migration AST baseline. Intentional API behavior changes are not migration parity; do not regenerate that baseline to hide the changes.
+
 ## Limits
 
 `NOT_VERIFIED`: live authenticated pages, all theme variants, native Tampermonkey realms, Windows-native Node execution, external API responses, real downloads, approvals or claims. These require separate user authorization and targeted fixtures or the user's running browser. Initialization parity is not full workflow equivalence; AST contracts and independent review complement it.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.16
+// @version      3.5.17
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/

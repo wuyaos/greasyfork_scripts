@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         moviepilotNameTest(自用)
 // @namespace    http://tampermonkey.net/
-// @version      3.5.16
+// @version      3.5.17
 // @description  moviepilots名称测试 - 多候选识别+TMDB兜底+API Key+M-Team API Key+识别缓存24h+BT站点适配
 // @author       yubanmeiqin9048, benz1 (Refactored by ffwu & AI)
 // @include      /^https?:\/\/[^/]+\/details\.php\?[^#]*\bid=/
@@ -39,6 +39,7 @@
 // ==/UserScript==
 
 // changelog:
+// - 3.5.17: 兼容 MoviePilot V2 裸响应与 V3 业务 envelope；检查业务失败、空元信息及测试连接响应。
 // - 3.5.15: Haidan 单种子详情页(group_id 空)从 DOM 提取真实 group_id 存入种子定位，与 IYUU 同步。
 // - 3.5.6: Gazelle DOM 解析改为复用 pt-common 公共实现，并保持 Orpheus/Haidan/GPW group 页选择识别。
 // - 3.5.5: 新增 Orpheus/Haidan Gazelle 适配器，支持 Gazelle group 页多种子选择识别。
@@ -237,6 +238,22 @@
     }
   };
 
+  // src/scripts/moviepilot-name-test/response.js
+  function readMoviePilotResponse(payload, status = 200) {
+    const httpSuccess = status >= 200 && status < 300;
+    if (!httpSuccess || payload?.success === false) {
+      const message = typeof payload?.message === "string" && payload.message ? payload.message : typeof payload?.detail === "string" ? payload.detail : "";
+      const error = new Error(message || (httpSuccess ? "MoviePilot 请求失败" : `HTTP Error ${status}`));
+      error.status = status;
+      throw error;
+    }
+    if (payload?.success === true && Object.prototype.hasOwnProperty.call(payload, "data")) {
+      return payload.data;
+    }
+    return payload;
+  }
+  __name(readMoviePilotResponse, "readMoviePilotResponse");
+
   // src/scripts/moviepilot-name-test/ui.js
   var UI = {
     configModal: {
@@ -351,8 +368,9 @@
               onload: resolve,
               onerror: reject
             }));
-            if (loginRes.status !== 200) throw new Error(`登录失败: ${loginRes.status}`);
-            headers["Authorization"] = `bearer ${loginRes.response?.access_token}`;
+            const loginData = readMoviePilotResponse(loginRes.response, loginRes.status);
+            if (!loginData?.access_token) throw new Error("无效的登录响应");
+            headers["Authorization"] = `bearer ${loginData.access_token}`;
           }
           const res = await new Promise((resolve, reject) => GM_xmlhttpRequest({
             method: "GET",
@@ -362,16 +380,13 @@
             onload: resolve,
             onerror: reject
           }));
-          if (res.status === 200) {
-            btn.textContent = "连接成功";
-            btn.style.color = "#27ae60";
-          } else {
-            btn.textContent = `失败: ${res.status}`;
-            btn.style.color = "#e74c3c";
-          }
+          readMoviePilotResponse(res.response, res.status);
+          btn.textContent = "连接成功";
+          btn.style.color = "#27ae60";
         } catch (err) {
           btn.textContent = "连接失败";
           btn.style.color = "#e74c3c";
+          this.showToast(err?.message || "MoviePilot 连接失败", 5e3);
         }
         setTimeout(() => {
           btn.disabled = false;
@@ -1589,7 +1604,13 @@ ${root?.textContent || ""}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || "";
           headers: finalHeaders,
           responseType,
           onload: /* @__PURE__ */ __name((res) => {
-            if (res.status >= 200 && res.status < 300) {
+            if (!absolute && url.startsWith("/api/v1/")) {
+              try {
+                resolve(readMoviePilotResponse(res.response, res.status));
+              } catch (error) {
+                reject(error);
+              }
+            } else if (res.status >= 200 && res.status < 300) {
               resolve(res.response);
             } else {
               reject({ status: res.status, response: res.response, message: `HTTP Error ${res.status}` });
@@ -2235,7 +2256,8 @@ ${root?.textContent || ""}`.match(/Hash[：:]\s*([a-fA-F0-9]{40})/)?.[1] || "";
       }
     },
     renderSuccess(container, data, torrentInfo) {
-      const { media_info, meta_info } = data;
+      const { media_info } = data;
+      const meta_info = data.meta_info ?? {};
       const containerStyle = `display: flex; align-items: center; gap: 5px; flex-wrap: wrap;`;
       let finalHtml = `<div style="${containerStyle}">`;
       finalHtml += UI.renderActionButton("识别", "成功", CONSTANTS.COLORS.SECONDARY, "idle", "重新识别");
