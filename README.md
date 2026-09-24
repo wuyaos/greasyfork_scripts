@@ -1,6 +1,6 @@
 # Greasy Fork Scripts
 
-本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 14 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。可安装产物统一位于 `dist/`，模块化源码位于 `src/`，构建工具位于 `script/`。
+本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 15 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。可安装产物统一位于 `dist/`，模块化源码位于 `src/`，构建工具位于 `script/`。
 
 > 说明：本仓库脚本均为自用，部分代码由 AI 辅助生成，可能存在未覆盖的边界情况；安装和使用前请自行评估风险，并优先在熟悉的站点与环境中验证。
 
@@ -24,6 +24,7 @@
 | <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.3 | GitHub Releases 页面导航增强 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/GitHubReleases_NavigationEnhancer.user.js) |
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.6 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.7 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
+| [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
 
 ---
 
@@ -192,11 +193,22 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 
 在 Lounge IRC 页面提供翻译、候选回复、短语管理和本地配置。
 
-<a id="picix_cardquickactions"></a>
 ### [Picix_CardQuickActions](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js)
 > 版本 0.4.7 · Picix 卡片快捷操作
 
 为 Picix 卡片提供翻译和快捷操作入口。
+
+<a id="xingtan_bonuspergbh"></a>
+### [Xingtan_BonusPerGBh](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js)
+> 版本 0.1.0 · 作者 wuyaos & AI<br>
+> @match 站点范围：杏坛（xingtan.one）种子列表页 torrents.php
+
+在杏坛种子列表自动计算每个种子的每GB·h体积收益（体积收益/天 ÷ 24 ÷ 种子体积GB），追加到站点已有的“数量/体积: X /天”显示之后，用于比较不同体积种子的做种收益效率。
+
+主要特性：
+- 复用站点已有的体积收益公式与显示（K·atan(s/L)，L 为当前人均做种体积），分母读取种子列表实际体积列并统一换算为 GB
+- 每行追加“每GB·h: X.XXXXX”，小种子收益高、大种子因 atan 饱和递减
+- 幂等追加，翻页/刷新后自动重算
 
 ## 本地调试
 
@@ -218,7 +230,7 @@ npm run build:script -- iyuu-reseed-checker
 npm run check
 ```
 
-要求 Node.js 20.19+。`npm run check` 包括产物漂移检查、元数据/GM 权限校验、597 个原始语法块契约、14 个离线 DOM 初始化对照及构建失败保护测试。测试不会连接目标站点，也不执行真实认领、下载或审批。
+要求 Node.js 20.19+。`npm run check` 包括产物漂移检查、元数据/GM 权限校验、597 个原始语法块契约、14 个离线 DOM 初始化对照（新脚本无基线时仅验证网络边界）及构建失败保护测试。测试不会连接目标站点，也不执行真实认领、下载或审批。
 
 `meta.js` 是元数据唯一来源；原有 `@require` 保留，不改为动态加载。可独立提取的静态 CSS 在各脚本的 `styles/` 中，含运行时插值的样式保留在对应功能模块中，不压缩、不改变 CSS 文本。
 
@@ -239,7 +251,7 @@ greasyfork_scripts/
 │   ├── common/                     # IYUU/MP 公共代码
 │   └── scripts/<script-id>/        # meta.js、index.js、功能模块、styles/
 ├── script/                        # 构建、注册表、校验、本地调试工具
-├── dist/                          # 14 个可安装 .user.js，提交版本控制
+├── dist/                          # 15 个可安装 .user.js，提交版本控制
 ├── tests/                         # 离线对照与迁移契约，不含真实凭据
 ├── icon/                          # 保持已有资源 URL
 ├── class_icon/
@@ -257,6 +269,10 @@ TODO: Add project description.
 ## Project Structure
 
 ```
+├── src/scripts/xingtan-bonus-pergbh/meta.js
+├── src/scripts/xingtan-bonus-pergbh/bonus.js
+├── src/scripts/xingtan-bonus-pergbh/startup.js
+├── src/scripts/xingtan-bonus-pergbh/index.js
 ├── cleanup-inventory.tmp.mjs
 greasyfork_scripts/
 ```
