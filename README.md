@@ -22,7 +22,7 @@
 | <img src="icon/nicept.png" width="24" alt=""> [NicePT_ReplaceIcon](#nicept_replaceicon) | 1.0.1 | 替换 NicePT 分类图标 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/NicePT_ReplaceIcon.user.js) |
 | [Local_Debug_Loader](#local_debug_loader) | 0.2.4 | 本地调试入口 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Local_Debug_Loader.user.js) |
 | <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.3 | GitHub Releases 页面导航增强 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/GitHubReleases_NavigationEnhancer.user.js) |
-| <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.6 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
+| <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.7 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
 
@@ -193,7 +193,8 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 
 <a id="lounge_irc_translator"></a>
 ### [Lounge_IRC_Translator](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js)
-> 版本 0.8.6 · Lounge IRC 翻译助手
+> 版本 0.8.7 · Lounge IRC 翻译助手<br>
+> 面板标题栏可拖动，位置自动记忆
 
 在 Lounge IRC 页面提供翻译、候选回复、短语管理和本地配置。
 

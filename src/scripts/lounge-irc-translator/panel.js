@@ -1,5 +1,7 @@
 import { ICON_URL, NS } from './config.js';
 
+const PANEL_POS_KEY = `${NS}_panel_pos`;
+
 import { state } from './state.js';
 
 import { locateForm } from './chat.js';
@@ -133,6 +135,8 @@ function buildUI() {
     );
     state.panel = panel;
     document.body.append(panel);
+    makePanelDraggable(panel);
+    restorePanelPos();
     panel.querySelector(".lit-panel-trans").addEventListener("click", () => {
       const text = clean(state.input.value);
       if (text) translateAndPreview(text);
@@ -176,6 +180,64 @@ function buildUI() {
       },
       true,
     );
+  }
+
+function clampPanelPos(left, top) {
+    const maxLeft = Math.max(0, window.innerWidth - state.panel.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - state.panel.offsetHeight);
+    return {
+      left: Math.min(Math.max(0, left), maxLeft),
+      top: Math.min(Math.max(0, top), maxTop),
+    };
+  }
+
+function restorePanelPos() {
+    let pos;
+    try {
+      pos = JSON.parse(GM_getValue(PANEL_POS_KEY, "null")) || {};
+    } catch {
+      pos = {};
+    }
+    if (!Number.isFinite(pos.left) || !Number.isFinite(pos.top)) return;
+    state.panel.style.right = "auto";
+    state.panel.style.bottom = "auto";
+    const clamped = clampPanelPos(pos.left, pos.top);
+    state.panel.style.left = `${clamped.left}px`;
+    state.panel.style.top = `${clamped.top}px`;
+  }
+
+function makePanelDraggable(panel) {
+    const head = panel.querySelector(".lit-panel-head");
+    // 拖动手感用内联样式，保持 GM_addStyle 原样式表与迁移基线一致。
+    head.style.cursor = "move";
+    head.style.touchAction = "none";
+    head.style.userSelect = "none";
+    let drag = null;
+    head.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button")) return;
+      event.preventDefault();
+      const rect = panel.getBoundingClientRect();
+      drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.left = `${rect.left}px`;
+      panel.style.top = `${rect.top}px`;
+      head.setPointerCapture(event.pointerId);
+    });
+    head.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const clamped = clampPanelPos(event.clientX - drag.dx, event.clientY - drag.dy);
+      panel.style.left = `${clamped.left}px`;
+      panel.style.top = `${clamped.top}px`;
+    });
+    const stop = (event) => {
+      if (!drag) return;
+      drag = null;
+      if (head.hasPointerCapture(event.pointerId)) head.releasePointerCapture(event.pointerId);
+      GM_setValue(PANEL_POS_KEY, JSON.stringify({ left: panel.offsetLeft, top: panel.offsetTop }));
+    };
+    head.addEventListener("pointerup", stop);
+    head.addEventListener("pointercancel", stop);
   }
 
 function ensureOverlayInForm() {

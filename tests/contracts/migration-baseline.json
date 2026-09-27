@@ -1259,6 +1259,9 @@
           "hash": "071229b040f8ccac8fe394401ba47eac949713851780732eca33066e5b91f369"
         },
         {
+          "hash": "cc976692c7fceea47567d509e985ab1f31349e471e46199bc7398fe592b49b47"
+        },
+        {
           "hash": "7448a6de12aad80fe569072121087f3e870d32be3475c13889cf8893993498c2"
         },
         {
@@ -1277,7 +1280,16 @@
           "hash": "eec42823370232cf641169940cdd0e02fb37ab7b9ef177ba716e680e96bdb7dd"
         },
         {
-          "hash": "609c2165beed5aeed7305a2355c261d4bf8e2fb11ced39dea3cb46055983feae"
+          "hash": "85dcfb550ef0ebbd1a2d45d1871860ad370074d0c2c4269b48a605eab2601366"
+        },
+        {
+          "hash": "4b39e27d8861ed53ee4f197f123beb5b64ac6a4279a5011f3168d6349417b4b8"
+        },
+        {
+          "hash": "c92198e02bef95a01c1a071e8b7c90feb7bbca528b5188fde6c4677d7e82cd0d"
+        },
+        {
+          "hash": "331002b7b7bf2fb996c80a185532c62ccb6f79fbd5a59b7c6a4a0b7eebc4986f"
         },
         {
           "hash": "fac28670803a26561456b6043791a689fa724b2fa4b8c530a8c04e15c6301ae9"
@@ -1407,6 +1419,7 @@
         "Math",
         "MutationObserver",
         "Node",
+        "Number",
         "Object",
         "Promise",
         "RegExp",
@@ -1416,9 +1429,10 @@
         "document",
         "encodeURIComponent",
         "parseInt",
-        "setTimeout"
+        "setTimeout",
+        "window"
       ],
-      "version": "0.8.6"
+      "version": "0.8.7"
     },
     "moviepilot-auto-login": {
       "file": "Moviepilot_AutoLogin.user.js",
@@ -1620,7 +1634,10 @@
           "hash": "e8846474c0da899f8a5a59fd139e64328a51fac7b6839eac573142575050a816"
         },
         {
-          "hash": "6502efa27190f90dce624f43a19ffd25f11a5e22ba76e875be1d4584830dcfbb"
+          "hash": "719c27ca4329ba2792533020ed69d88600b3b9f143873609917c4fc4f91df39f"
+        },
+        {
+          "hash": "cbf0fb6ac6f3ae53c4f83dc8320de399dbd4f5905cf87ec79be436809e41e7ce"
         },
         {
           "hash": "f7f899e02f44e1ca5509e91ceb16c93e505d2dbc2a7a4c8b2821e351bfbb0fff"
@@ -1630,6 +1647,12 @@
         },
         {
           "hash": "ee9b6f8b7db7303751b1be6f414ea61912803c7b1bcff94964b67266cd0a4ae8"
+        },
+        {
+          "hash": "caba96283173667d490a62b486a0361955500ea185478d3ea9a6e0d9421dbf13"
+        },
+        {
+          "hash": "d6c22cb5915981a97255aca8dbf78ee9e5d214076b5d0fbabb0a11db0d6c6cbe"
         },
         {
           "hash": "19c8df1f7a4f94dd3947fe4c88f2000a9f900a910b112add40afd78b0a56a203"
@@ -1686,7 +1709,7 @@
           "hash": "1707374e3f4efb658f5d890e6f16b251da9b258c009ed823b5f6256d773cbcef"
         },
         {
-          "hash": "6be107c560dc6772f864870a25deb4212cc23ce363ccf1ce128e1e96c4319bb5"
+          "hash": "5776851643377623742e4e25eab470495ac19524e707c9d824f3bb486254402c"
         },
         {
           "hash": "ce7679edd2054e11809a98853191a751431c3634c027c5de235222d31b4b3939"
@@ -1704,7 +1727,7 @@
           "hash": "92d37c1ffb21c4e72b65bed5d8a42a2cf0d19afaa762c06e902ae2de73ca3a22"
         },
         {
-          "hash": "0daf7baed17729dbbcae9cf8578ed30be2608ba378a310e76dc172eabd65aea6"
+          "hash": "b6cee4b50ceb696b98a6ee9781838e0d8d30f56eb0d9faa841d57c6e58cf41e0"
         },
         {
           "hash": "e046cfdb6ebb0808ae56d92e201de25e09cebb92b921b92a7a913b0ab7ed5501"
@@ -1769,7 +1792,7 @@
         "undefined",
         "window"
       ],
-      "version": "3.5.16"
+      "version": "3.5.17"
     },
     "nicept-replace-icon": {
       "file": "NicePT_ReplaceIcon.user.js",
@@ -2349,6 +2372,12 @@
           "hash": "59363b0119a2c8cc3125689763eb0608e702925d69be09bdd66de8b179dfb4f7"
         },
         {
+          "hash": "696eb7e8eb4602a71d77588bdccd97c3a2cb2a382194bb10e0128ad6374c400a"
+        },
+        {
+          "hash": "46c19bc40b637d140ddec68e8baf51695f6642b808e3f0e2d8bdff372268bb7d"
+        },
+        {
           "hash": "224c2b616d23d99eba3580528cb221c03e81ebe5e2b3f57fb50e624d9089ce7f"
         },
         {
@@ -2574,22 +2603,37 @@
           "hash": "5904762e9e9c3826363fa84be3d2d2825310bab771439d1e719adb94c36245ef"
         },
         {
+          "hash": "3eb7b9a08bac97726ca062043e0de896e2056db420e5e4fdb39795988c85b8a8"
+        },
+        {
+          "hash": "b7dae7658e49e7845b26bff05d578a5d1d628dbac2389728e1e550e24b5ab8e0"
+        },
+        {
+          "hash": "eaa491ba1e69fc49b4c98fcf42c9b49c9e46e4e2663714125cd4444da2a1a293"
+        },
+        {
           "hash": "fd0071d29606939c57443bd8445cab7d2d941c7bd187fb15aece8508688af68c"
         },
         {
-          "hash": "b9039f71894648968e29ca45151caab551cd1599e06552244779f3588d9a7bc7"
+          "hash": "e044ce708ebe43c171480e0bd6cddc078ad190b131b226a6558dfa5216c2082c"
         },
         {
-          "hash": "0be59738fe01cc9bab918434afc81a13abdc89a0df4f50f88786382d7bb32400"
+          "hash": "9a1c0fd77b2a9ae2739ae8ec269d679e087add1b5a503e89e27850a158e5b349"
         },
         {
-          "hash": "607b415149f31144a783dd3251ce298190c7ae161984dd292ce8af4d6b705f0d"
+          "hash": "76208750f69ed1b765deca9ac370607bd4879a619d21d01a98eb0c47e993c3bb"
         },
         {
-          "hash": "311b674398009da66592ce1d7d807a80f4050d9f45521094cb55db8b70ff4ed1"
+          "hash": "9deb2174d28b3daf8f606882c892d13cf3e6fb51aa40470db0c2ba0a0fdd742a"
         },
         {
-          "hash": "6a72ba590f22db7fff18dd451501173302b4820c489bba2e5428ff38cdd782e4"
+          "hash": "6e0c1a2531dee8d80ff1ec1953e4b9ce373dbfaadef6adcac6007e535bc14fe0"
+        },
+        {
+          "hash": "2a783b80a897192f3846dd46df55fd9765f027c641c35dd99a335f92979df31f"
+        },
+        {
+          "hash": "8f4501a451fc37b2e6814b2bbadf497ae5fea116672e64ec5df9bb08f2f48a46"
         },
         {
           "hash": "bc43a37a1e07908648eb80cf76974eafe655208f070a60e1d685799fdeec0419"
@@ -2787,6 +2831,33 @@
           "hash": "519c74dfaee171e3cc2e0995713835882cee7baa96d068a9cfbe1139eeb9387a"
         },
         {
+          "hash": "fea7ef5bcf40f800126b8aa3f441146028f9db6c9c65599e221654b51cacf683"
+        },
+        {
+          "hash": "090f3c641ebc74215f921fb2b2851b9ccef08ef427423b1d01a68fe5366e9d3e"
+        },
+        {
+          "hash": "9b72e47675bbaf498cb3e0cf1095f85cf55efaf0d203b2f47752b23f0da6e585"
+        },
+        {
+          "hash": "efb891faac6c35ff4a13e72c0e101826d09b74c2098bcf345ffdab38f36054dd"
+        },
+        {
+          "hash": "f19d2085910e1e54e49c4862ed3c5e305b15c041a4c06da6241d8e4e83c097ad"
+        },
+        {
+          "hash": "7c1f079cca0cdb23caa1980ab00f90a78208742007d0b1ea92ad6e01b58281f6"
+        },
+        {
+          "hash": "f7306d9f46076525b995a2a1ae8fe0dc20833ce14d2815de0dc4bd8da302832b"
+        },
+        {
+          "hash": "1363489c48c89b27166aff7542ee3c68a6bfc6291d1a6e7542d17621a136af0e"
+        },
+        {
+          "hash": "489bdfcfd2d0e8ba5a18a428358aae2c0724f1d4eacc4f63ad1f60677da24f22"
+        },
+        {
           "hash": "24cbc5ca36d211ce637f32e0c8c36c68c978377a9d2773c27dc2762b3a5e99f9"
         },
         {
@@ -2796,7 +2867,7 @@
           "hash": "e6c840faea76f879dfd144b1ffa872b9c05d441d1edf61269422b231043f610c"
         },
         {
-          "hash": "d18173f2c24850792a90efaeb914553a8450173ed93f56915e8bc520ca82a9e6"
+          "hash": "71e937b459749a96e0dda7cb961b3e38fafb0b9996595bf0105a9945c02bce4f"
         },
         {
           "hash": "7d7db48d8ac854e8047b10f8d6ab200474437268af2f531dc8973cb1cccbf399"
@@ -2839,7 +2910,9 @@
         }
       ],
       "globals": [
+        "AbortController",
         "Array",
+        "Blob",
         "Boolean",
         "CSS",
         "Date",
@@ -2851,7 +2924,6 @@
         "GM_setValue",
         "GM_xmlhttpRequest",
         "JSON",
-        "JSZip",
         "Math",
         "MutationObserver",
         "Node",
@@ -2864,9 +2936,11 @@
         "TextEncoder",
         "URL",
         "URLSearchParams",
+        "Uint32Array",
         "Uint8Array",
         "alert",
         "btoa",
+        "clearTimeout",
         "confirm",
         "console",
         "decodeURIComponent",
@@ -2874,6 +2948,7 @@
         "encodeURIComponent",
         "fetch",
         "getComputedStyle",
+        "globalThis",
         "isFinite",
         "location",
         "parseFloat",
@@ -2882,7 +2957,7 @@
         "setTimeout",
         "window"
       ],
-      "version": "0.6.8"
+      "version": "0.6.12"
     },
     "pt-one-click-claim": {
       "file": "PT_OneClickClaim.user.js",

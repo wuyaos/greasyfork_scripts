@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Lounge IRC 翻译助手
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.8.6
+// @version      0.8.7
 // @description  The Lounge IRC 翻译助手：频道外文消息自动翻译为中文（引擎可选谷歌/LLM），译文内联下划虚线跟随原文；常驻侧边面板提供候选回答与常用语（{nick} 点名、自定义增删），免展开；中文输入 Enter 预览确认（预览与频道消息同列）或快捷键就地翻译（三连空格/Tab/Ctrl+Enter 可选），风格提示词可自定义；LLM 思考模式可配置。/命令、#频道、昵称原样保留。
 // @author       wuyaos & AI
 // @icon         https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/icon/lounge-irc-translator.png
@@ -905,6 +905,7 @@ ${ctx}`;
   __name(retryTranslate, "retryTranslate");
 
   // src/scripts/lounge-irc-translator/panel.js
+  var PANEL_POS_KEY = `${NS}_panel_pos`;
   function buildUI() {
     ensureStyle();
     state.overlay = el("div", { id: `${NS}-overlay`, class: `${NS}-hidden` });
@@ -1014,6 +1015,8 @@ ${ctx}`;
     );
     state.panel = panel;
     document.body.append(panel);
+    makePanelDraggable(panel);
+    restorePanelPos();
     panel.querySelector(".lit-panel-trans").addEventListener("click", () => {
       const text = clean(state.input.value);
       if (text) translateAndPreview(text);
@@ -1045,6 +1048,63 @@ ${ctx}`;
     );
   }
   __name(buildUI, "buildUI");
+  function clampPanelPos(left, top) {
+    const maxLeft = Math.max(0, window.innerWidth - state.panel.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - state.panel.offsetHeight);
+    return {
+      left: Math.min(Math.max(0, left), maxLeft),
+      top: Math.min(Math.max(0, top), maxTop)
+    };
+  }
+  __name(clampPanelPos, "clampPanelPos");
+  function restorePanelPos() {
+    let pos;
+    try {
+      pos = JSON.parse(GM_getValue(PANEL_POS_KEY, "null")) || {};
+    } catch {
+      pos = {};
+    }
+    if (!Number.isFinite(pos.left) || !Number.isFinite(pos.top)) return;
+    state.panel.style.right = "auto";
+    state.panel.style.bottom = "auto";
+    const clamped = clampPanelPos(pos.left, pos.top);
+    state.panel.style.left = `${clamped.left}px`;
+    state.panel.style.top = `${clamped.top}px`;
+  }
+  __name(restorePanelPos, "restorePanelPos");
+  function makePanelDraggable(panel) {
+    const head = panel.querySelector(".lit-panel-head");
+    head.style.cursor = "move";
+    head.style.touchAction = "none";
+    head.style.userSelect = "none";
+    let drag = null;
+    head.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button")) return;
+      event.preventDefault();
+      const rect = panel.getBoundingClientRect();
+      drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      panel.style.left = `${rect.left}px`;
+      panel.style.top = `${rect.top}px`;
+      head.setPointerCapture(event.pointerId);
+    });
+    head.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const clamped = clampPanelPos(event.clientX - drag.dx, event.clientY - drag.dy);
+      panel.style.left = `${clamped.left}px`;
+      panel.style.top = `${clamped.top}px`;
+    });
+    const stop = /* @__PURE__ */ __name((event) => {
+      if (!drag) return;
+      drag = null;
+      if (head.hasPointerCapture(event.pointerId)) head.releasePointerCapture(event.pointerId);
+      GM_setValue(PANEL_POS_KEY, JSON.stringify({ left: panel.offsetLeft, top: panel.offsetTop }));
+    }, "stop");
+    head.addEventListener("pointerup", stop);
+    head.addEventListener("pointercancel", stop);
+  }
+  __name(makePanelDraggable, "makePanelDraggable");
   function ensureOverlayInForm() {
     if (!state.overlay) return;
     if (!state.overlay.isConnected) {
