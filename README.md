@@ -23,7 +23,7 @@
 | [Local_Debug_Loader](#local_debug_loader) | 0.2.4 | 本地调试入口 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Local_Debug_Loader.user.js) |
 | <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.3 | GitHub Releases 页面导航增强 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/GitHubReleases_NavigationEnhancer.user.js) |
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
-| [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.7 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
+| [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
 
 ---
@@ -199,7 +199,8 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 在 Lounge IRC 页面提供翻译、候选回复、短语管理和本地配置。
 
 ### [Picix_CardQuickActions](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js)
-> 版本 0.4.7 · Picix 卡片快捷操作
+> 版本 0.4.8 · Picix 卡片快捷操作<br>
+> 站点范围：jav.picix.us（原 picix.us 迁移）
 
 为 Picix 卡片提供翻译和快捷操作入口。
 

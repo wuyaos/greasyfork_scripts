@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Picix 卡片快捷操作
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.4.7
-// @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。
+// @version      0.4.8
+// @description  在 jav.picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。
 // @author       wuyaos & AI
-// @match        https://picix.us/*
-// @icon         https://picix.us/favicon.ico
+// @match        https://jav.picix.us/*
+// @icon         https://jav.picix.us/favicon.ico
 // @run-at       document-idle
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest

@@ -1845,7 +1845,7 @@
     "picix-card-actions": {
       "file": "Picix_CardQuickActions.user.js",
       "sha256": "5fb5421798c4d8f36c9f6f9aba0d895276edb8573ad95c336098a417a0f516bb",
-      "metadata": "// ==UserScript==\n// @name         Picix 卡片快捷操作\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.4.6\n// @description  在 picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。\n// @author       wuyaos & AI\n// @match        https://picix.us/*\n// @icon         https://picix.us/favicon.ico\n// @run-at       document-idle\n// @grant        GM_addStyle\n// @grant        GM_xmlhttpRequest\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        unsafeWindow\n// @connect      *\n// @noframes\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// ==/UserScript==",
+      "metadata": "// ==UserScript==\n// @name         Picix 卡片快捷操作\n// @namespace    https://github.com/wuyaos/greasyfork_scripts\n// @version      0.4.6\n// @description  在 jav.picix.us 影片卡片上直接解锁/收藏，无需进入详情页。复用页面 Vue $api（带签名），支持 Movies/Search、Movies/Rank、MovieList/Detail、Dashs 等含 a.movie-card 的页面。\n// @author       wuyaos & AI\n// @match        https://jav.picix.us/*\n// @icon         https://jav.picix.us/favicon.ico\n// @run-at       document-idle\n// @grant        GM_addStyle\n// @grant        GM_xmlhttpRequest\n// @grant        GM_getValue\n// @grant        GM_setValue\n// @grant        GM_registerMenuCommand\n// @grant        unsafeWindow\n// @connect      *\n// @noframes\n// @license      MIT\n// @downloadURL  https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// @updateURL    https://github.com/wuyaos/greasyfork_scripts/raw/refs/heads/main/Picix_CardQuickActions.user.js\n// ==/UserScript==",
       "statements": [
         {
           "hash": "5ea9bd06df98a0af9575324dde64d1e39c0d5e0435fd1951248bfd99b6b6bf08"
@@ -2023,7 +2023,7 @@
         "unsafeWindow",
         "window"
       ],
-      "version": "0.4.7"
+      "version": "0.4.8"
     },
     "pt-audit-assistant": {
       "file": "PT_AuditAssistant.user.js",
