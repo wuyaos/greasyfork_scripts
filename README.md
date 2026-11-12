@@ -1,6 +1,6 @@
 # Greasy Fork Scripts
 
-本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 15 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。可安装产物统一位于 `dist/`，模块化源码位于 `src/`，构建工具位于 `script/`。
+本仓库收录自用 Greasy Fork / Tampermonkey 脚本，共 16 个，涵盖 MoviePilot、PT 站点、Bangumi、GitHub Releases 与本地调试等场景。可安装产物统一位于 `dist/`，模块化源码位于 `src/`，构建工具位于 `script/`。
 
 > 说明：本仓库脚本均为自用，部分代码由 AI 辅助生成，可能存在未覆盖的边界情况；安装和使用前请自行评估风险，并优先在熟悉的站点与环境中验证。
 
@@ -25,6 +25,20 @@
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
+| [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.2.0 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
+
+<a id="animebytes_uploadassistant"></a>
+### AnimeBytes_UploadAssistant
+
+在 `https://animebytes.tv/series.php?id=…` 的每个分组标题旁显示「添加格式」。从真实分组行和详情链接识别 `groupid`，`torrents.php` 分区使用 `type=anime`，`torrents2.php` 分区使用 `type=music`（并非只支持动画/音乐两种分类）；点击后进入上传页，不自动提交。无 API、无额外权限。
+
+上传页分类与 `type` 不是一一对应关系：Anime、Manga、Artbooks、Light Novels、Games、Visual Novels、Live Action、Packs 属于前一分区；Music、PVs & Lives 属于后一分区。具体上传表单由 `groupid` 决定，不使用 `type=manga` 或 `type=games`。实站已核对系列 `2121` 的动画/音乐，以及系列 `185` 的漫画 `11498`、游戏 `60068` 原生添加格式链接及表单；其余分类未逐一实站验证。
+
+Anime 上传表单：在 MediaInfo/BDInfo 框下点击「解析并填充」，明确识别的字段覆盖当前选择，不确定的保持原值。支持一次撤销，解析后手动改过的字段不回退。BDInfo 摘要不猜 ISO/目录；MediaInfo 文件名里的 BD/Web 只提示来源候选；无字幕轨不等于 RAW。Aspect Ratio 仅在原生附加字段可见时填写；Region 永不修改，只给说明。按钮沿用站点原生控件样式，无固定配色。
+
+需要诊断时先勾选 Debug，再解析，并点击「复制调试日志」。JSON 含版本、轨道数量、字段映射/跳过理由、填充和撤销记录；控制台前缀 `[AB Upload Assistant]`。日志仅在本页内存保留最多 200 条，不保存原始文本、文件名/路径或账号，不发网络请求。
+
+本地安装文件：`dist/AnimeBytes_UploadAssistant.user.js`。远端安装链接需代码发布后才可用。安装新版前请在 Tampermonkey 中删除旧的「AnimeBytes 添加格式快捷入口」，避免重复运行。
 
 ---
 

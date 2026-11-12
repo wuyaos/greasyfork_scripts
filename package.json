@@ -10,7 +10,7 @@
     "build:check": "node script/build-userscripts.mjs --check",
     "build:script": "node script/build-userscripts.mjs --script",
     "validate": "node script/validate-userscripts.mjs",
-    "test": "node tests/migration-contracts.mjs && node tests/offline-smoke.mjs && node tests/build-cli.mjs",
+    "test": "node tests/migration-contracts.mjs && node tests/offline-smoke.mjs && node tests/build-cli.mjs && node tests/animebytes-upload-assistant.mjs",
     "check": "npm run build:check && npm run validate && npm test"
   },
   "devDependencies": {
