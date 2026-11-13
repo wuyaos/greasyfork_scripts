@@ -6,7 +6,7 @@ import { applyFilters, resetFilters, restoreFilters, selectVisible } from './fil
 
 import { batchDownload } from './download.js';
 
-import { downloaderSelect, downloaderStatusText, getDownloaders } from './downloader-settings.js';
+import { configDownloader, downloaderSelect, downloaderStatusText, getDownloaders } from './downloader-settings.js';
 
 import { getPushConfigs, pushSelect, pushStatusText } from './push-settings.js';
 
@@ -85,6 +85,7 @@ function actionsRow() {
       state.ui.batchButton,
       state.ui.downloaderStatus,
       state.ui.downloaderSelect,
+      button('设置下载器/推送', configDownloader, 'ptbd-btn ptbd-btn-check'),
       state.ui.pushStatus,
       state.ui.pushSelect,
       state.ui.selectedSize,

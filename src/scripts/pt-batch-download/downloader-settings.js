@@ -4,6 +4,8 @@ import { testDownloaderConnection } from './downloaders.js';
 
 import { button, el, field, input, select } from './controls.js';
 
+import { getPushConfigs, openPushEditor, savePushConfigs, updatePushStatus } from './push-settings.js';
+
 import { clean, setStatus, uniqueId } from './formatting.js';
 
 import { ensureStyle } from './styles.js';
@@ -21,22 +23,36 @@ function configDownloader() {
       body
     )
     const renderList = () => {
-      body.append(el('div', { class: 'ptbd-empty' }, '此处仅配置连接（host/账密）；分类、标签、保存路径、autoTMM 等推送参数请用菜单「推送配置」'))
       body.textContent = ''
       const list = getDownloaders()
       if (!list.length) body.append(el('div', { class: 'ptbd-empty' }, '暂无下载器'))
       list.forEach(cfg => {
-        const edit = button('编辑', () => renderEditor(cfg), 'ptbd-btn')
+        const pushConfigs = getPushConfigs().filter(item => String(item.downloaderId) === String(cfg.id))
+        const edit = button('编辑下载器', () => renderEditor(cfg), 'ptbd-btn')
+        const addPush = button('添加推送配置', () => openPushEditor(cfg, null, renderList), 'ptbd-btn ptbd-btn-check')
         const del = button('删除', () => {
           if (!confirm(`删除下载器：${cfg.name || cfg.host || (cfg.type === 'tr' ? 'Transmission' : 'qBittorrent')}？`)) return
           saveDownloaders(getDownloaders().filter(item => item.id !== cfg.id))
+          savePushConfigs(getPushConfigs().filter(item => String(item.downloaderId) !== String(cfg.id)))
           if (state.selectedDownloaderId === cfg.id) state.selectedDownloaderId = ''
           updateDownloaderStatus()
           renderList()
         }, 'ptbd-btn ptbd-danger')
+        const pushRows = pushConfigs.length
+          ? pushConfigs.map(push => {
+            const editPush = button(`推送：${push.name || '(未命名)'}`, () => openPushEditor(cfg, push, renderList), 'ptbd-btn')
+            const deletePush = button('删除', () => {
+              if (!confirm(`删除推送配置：${push.name || '(未命名)'}？`)) return
+              savePushConfigs(getPushConfigs().filter(item => String(item.id) !== String(push.id)))
+              if (String(state.selectedPushId) === String(push.id)) state.selectedPushId = ''
+              renderList()
+            }, 'ptbd-btn ptbd-danger')
+            return el('div', { class: 'ptbd-actions' }, editPush, deletePush)
+          })
+          : [el('span', { class: 'ptbd-muted' }, '暂无推送配置')]
         body.append(el('div', { class: 'ptbd-site-item' },
-          el('span', {}, `${cfg.name || '(未命名)'} / ${cfg.type === 'tr' ? 'Transmission' : 'qBittorrent'} / ${cfg.host || '-'}`),
-          el('div', { class: 'ptbd-actions' }, edit, del)
+          el('div', {}, el('div', {}, `${cfg.name || '(未命名)'} / ${cfg.type === 'tr' ? 'Transmission' : 'qBittorrent'} / ${cfg.host || '-'}`), el('div', { class: 'ptbd-actions' }, ...pushRows)),
+          el('div', { class: 'ptbd-actions' }, edit, addPush, del)
         ))
       })
       body.append(el('div', { class: 'ptbd-actions' }, button('添加下载器', () => renderEditor(), 'ptbd-btn ptbd-btn-check')))
@@ -162,6 +178,7 @@ function downloaderSelect(downloaders) {
     sel.addEventListener('change', () => {
       state.selectedDownloaderId = sel.value
       updateDownloaderStatus()
+      updatePushStatus()
     })
     return sel
   }

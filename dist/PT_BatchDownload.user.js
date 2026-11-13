@@ -483,6 +483,158 @@ Content-Type: application/x-bittorrent\r
   }
   __name(ensureStyle, "ensureStyle");
 
+  // src/scripts/pt-batch-download/push-settings.js
+  function openPushEditor(downloader, cfg, onDone) {
+    ensureStyle();
+    const item = { ...DEFAULT_PUSH, ...cfg || {}, id: cfg?.id || "", downloaderId: downloader.id };
+    document.querySelector("#ptbd-push-modal")?.remove();
+    const overlay = el("div", { id: "ptbd-push-modal", class: "ptbd-modal" });
+    const close = button("×", () => overlay.remove(), "ptbd-close");
+    const body = el("div", { class: "ptbd-dl-modal-body" });
+    const box = el(
+      "div",
+      { class: "ptbd-modal-box" },
+      el("div", { class: "ptbd-modal-head" }, el("strong", {}, `推送配置 - ${downloader.name || downloader.host}`), close),
+      body
+    );
+    const pushName = input("text", "显示名称", item.name);
+    const qbCategory = input("text", "Category", item.qbCategory);
+    const qbTags = input("text", "Tags, comma separated", item.qbTags);
+    const qbSavePath = input("text", "Save path", item.qbSavePath);
+    const qbAutoTMM = el("input", { type: "checkbox" });
+    qbAutoTMM.checked = !!item.qbAutoTMM;
+    const trDownloadDir = input("text", "Download dir", item.trDownloadDir);
+    const trLabels = input("text", "Labels, comma separated", item.trLabels);
+    const errorBox = el("div", { class: "ptbd-form-errors" });
+    const isQb = downloader.type === "qb";
+    const qbRows = [
+      el("div", { class: "ptbd-section-title" }, "qBittorrent"),
+      field("分类", qbCategory),
+      field("标签", qbTags),
+      field("保存路径", qbSavePath),
+      el("div", { class: "ptbd-field" }, el("label", {}, "自动管理"), el("label", { style: "display:flex;align-items:center;gap:6px;text-align:left" }, qbAutoTMM, el("span", {}, "autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）")))
+    ];
+    const trRows = [el("div", { class: "ptbd-section-title" }, "Transmission"), field("下载目录", trDownloadDir), field("标签", trLabels)];
+    const save = button("保存", () => {
+      if (!clean(pushName.value)) {
+        errorBox.textContent = "";
+        errorBox.append(el("div", {}, "名称不能为空"));
+        return;
+      }
+      const saved = {
+        id: item.id || uniqueId(),
+        name: clean(pushName.value),
+        downloaderId: downloader.id,
+        qbCategory: clean(qbCategory.value),
+        qbTags: clean(qbTags.value),
+        qbSavePath: clean(qbSavePath.value),
+        qbAutoTMM: qbAutoTMM.checked,
+        trDownloadDir: clean(trDownloadDir.value),
+        trLabels: clean(trLabels.value)
+      };
+      const list = getPushConfigs();
+      const index = list.findIndex((old) => String(old.id) === String(saved.id));
+      if (index >= 0) list[index] = saved;
+      else list.push(saved);
+      savePushConfigs(list);
+      state.selectedPushId = saved.id;
+      updatePushStatus();
+      setStatus("推送配置已保存");
+      overlay.remove();
+      onDone?.();
+    }, "ptbd-btn ptbd-btn-check");
+    const cancel = button("取消", () => overlay.remove(), "ptbd-btn");
+    body.append(
+      el(
+        "div",
+        { class: "ptbd-dl-form" },
+        field("名称", pushName),
+        ...isQb ? qbRows : trRows,
+        errorBox,
+        el("div", { class: "ptbd-actions" }, cancel, save)
+      )
+    );
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    overlay.append(box);
+    document.body.append(overlay);
+  }
+  __name(openPushEditor, "openPushEditor");
+  function getPushConfigs() {
+    let list = [];
+    try {
+      list = GM_getValue(PUSH_CONFIGS_KEY, []);
+    } catch (error) {
+    }
+    if (!Array.isArray(list)) return [];
+    let changed = false;
+    const normalized = list.map((item) => {
+      const cfg = { ...DEFAULT_PUSH, ...item && typeof item === "object" ? item : {} };
+      if (!cfg.id) {
+        cfg.id = uniqueId();
+        changed = true;
+      }
+      return cfg;
+    }).filter((item) => item.id);
+    if (changed) GM_setValue(PUSH_CONFIGS_KEY, normalized);
+    return normalized;
+  }
+  __name(getPushConfigs, "getPushConfigs");
+  function savePushConfigs(list) {
+    GM_setValue(PUSH_CONFIGS_KEY, Array.isArray(list) ? list : []);
+  }
+  __name(savePushConfigs, "savePushConfigs");
+  function getPushById(id) {
+    if (!id) return null;
+    return getPushConfigs().find((item) => String(item.id) === String(id)) || null;
+  }
+  __name(getPushById, "getPushById");
+  function pushStatusText(count) {
+    return count ? "推送:" : "推送: 无";
+  }
+  __name(pushStatusText, "pushStatusText");
+  function pushSelect() {
+    const sel = select2([["", "无(默认推送)"], ...pushOptions(state.selectedDownloaderId)], state.selectedPushId);
+    sel.className = "ptbd-dl-select";
+    sel.addEventListener("change", () => {
+      state.selectedPushId = sel.value;
+      updatePushStatus();
+    });
+    return sel;
+  }
+  __name(pushSelect, "pushSelect");
+  function pushOptions(downloaderId) {
+    return getPushConfigs().filter((item) => String(item.downloaderId) === String(downloaderId)).map((item) => [item.id, item.name || "(未命名)"]);
+  }
+  __name(pushOptions, "pushOptions");
+  function updatePushStatus() {
+    const pushConfigs = getPushConfigs();
+    if (state.selectedPushId) {
+      const current = pushConfigs.find((item) => String(item.id) === String(state.selectedPushId));
+      if (!current || String(current.downloaderId) !== String(state.selectedDownloaderId)) state.selectedPushId = "";
+    }
+    if (state.ui.pushStatus) state.ui.pushStatus.textContent = pushStatusText(pushConfigs.filter((item) => String(item.downloaderId) === String(state.selectedDownloaderId)).length);
+    if (state.ui.pushSelect) {
+      const value = state.selectedPushId;
+      state.ui.pushSelect.textContent = "";
+      state.ui.pushSelect.append(el("option", { value: "" }, "无(默认推送)"));
+      pushOptions(state.selectedDownloaderId).forEach(([id, text]) => state.ui.pushSelect.append(el("option", { value: id }, text)));
+      state.ui.pushSelect.value = value;
+    }
+  }
+  __name(updatePushStatus, "updatePushStatus");
+  function select2(options, value) {
+    const node = el("select");
+    options.forEach(([val, text]) => {
+      const opt = el("option", { value: val }, text);
+      if (val === value) opt.selected = true;
+      node.append(opt);
+    });
+    return node;
+  }
+  __name(select2, "select");
+
   // src/scripts/pt-batch-download/downloader-settings.js
   function configDownloader() {
     ensureStyle();
@@ -497,24 +649,36 @@ Content-Type: application/x-bittorrent\r
       body
     );
     const renderList = /* @__PURE__ */ __name(() => {
-      body.append(el("div", { class: "ptbd-empty" }, "此处仅配置连接（host/账密）；分类、标签、保存路径、autoTMM 等推送参数请用菜单「推送配置」"));
       body.textContent = "";
       const list = getDownloaders();
       if (!list.length) body.append(el("div", { class: "ptbd-empty" }, "暂无下载器"));
       list.forEach((cfg) => {
-        const edit = button("编辑", () => renderEditor(cfg), "ptbd-btn");
+        const pushConfigs = getPushConfigs().filter((item) => String(item.downloaderId) === String(cfg.id));
+        const edit = button("编辑下载器", () => renderEditor(cfg), "ptbd-btn");
+        const addPush = button("添加推送配置", () => openPushEditor(cfg, null, renderList), "ptbd-btn ptbd-btn-check");
         const del = button("删除", () => {
           if (!confirm(`删除下载器：${cfg.name || cfg.host || (cfg.type === "tr" ? "Transmission" : "qBittorrent")}？`)) return;
           saveDownloaders(getDownloaders().filter((item) => item.id !== cfg.id));
+          savePushConfigs(getPushConfigs().filter((item) => String(item.downloaderId) !== String(cfg.id)));
           if (state.selectedDownloaderId === cfg.id) state.selectedDownloaderId = "";
           updateDownloaderStatus();
           renderList();
         }, "ptbd-btn ptbd-danger");
+        const pushRows = pushConfigs.length ? pushConfigs.map((push) => {
+          const editPush = button(`推送：${push.name || "(未命名)"}`, () => openPushEditor(cfg, push, renderList), "ptbd-btn");
+          const deletePush = button("删除", () => {
+            if (!confirm(`删除推送配置：${push.name || "(未命名)"}？`)) return;
+            savePushConfigs(getPushConfigs().filter((item) => String(item.id) !== String(push.id)));
+            if (String(state.selectedPushId) === String(push.id)) state.selectedPushId = "";
+            renderList();
+          }, "ptbd-btn ptbd-danger");
+          return el("div", { class: "ptbd-actions" }, editPush, deletePush);
+        }) : [el("span", { class: "ptbd-muted" }, "暂无推送配置")];
         body.append(el(
           "div",
           { class: "ptbd-site-item" },
-          el("span", {}, `${cfg.name || "(未命名)"} / ${cfg.type === "tr" ? "Transmission" : "qBittorrent"} / ${cfg.host || "-"}`),
-          el("div", { class: "ptbd-actions" }, edit, del)
+          el("div", {}, el("div", {}, `${cfg.name || "(未命名)"} / ${cfg.type === "tr" ? "Transmission" : "qBittorrent"} / ${cfg.host || "-"}`), el("div", { class: "ptbd-actions" }, ...pushRows)),
+          el("div", { class: "ptbd-actions" }, edit, addPush, del)
         ));
       });
       body.append(el("div", { class: "ptbd-actions" }, button("添加下载器", () => renderEditor(), "ptbd-btn ptbd-btn-check")));
@@ -647,6 +811,7 @@ Content-Type: application/x-bittorrent\r
     sel.addEventListener("change", () => {
       state.selectedDownloaderId = sel.value;
       updateDownloaderStatus();
+      updatePushStatus();
     });
     return sel;
   }
@@ -665,188 +830,6 @@ Content-Type: application/x-bittorrent\r
     if (state.ui.batchButton) state.ui.batchButton.textContent = state.selectedDownloaderId ? "推送已选" : "下载已选";
   }
   __name(updateDownloaderStatus, "updateDownloaderStatus");
-
-  // src/scripts/pt-batch-download/push-settings.js
-  function configPush() {
-    ensureStyle();
-    document.querySelector("#ptbd-push-modal")?.remove();
-    const overlay = el("div", { id: "ptbd-push-modal", class: "ptbd-modal" });
-    const close = button("×", () => overlay.remove(), "ptbd-close");
-    const body = el("div", { class: "ptbd-dl-modal-body" });
-    const box = el(
-      "div",
-      { class: "ptbd-modal-box" },
-      el("div", { class: "ptbd-modal-head" }, el("strong", {}, "推送配置"), close),
-      body
-    );
-    const renderList = /* @__PURE__ */ __name(() => {
-      body.textContent = "";
-      const list = getPushConfigs();
-      if (!list.length) body.append(el("div", { class: "ptbd-empty" }, "暂无推送配置"));
-      list.forEach((cfg) => {
-        const downloader = getDownloaders().find((item) => String(item.id) === String(cfg.downloaderId));
-        const edit = button("编辑", () => renderEditor(cfg), "ptbd-btn");
-        const del = button("删除", () => {
-          if (!confirm(`删除推送配置：${cfg.name || "(未命名)"}？`)) return;
-          savePushConfigs(getPushConfigs().filter((item) => item.id !== cfg.id));
-          if (state.selectedPushId === cfg.id) state.selectedPushId = "";
-          updatePushStatus();
-          renderList();
-        }, "ptbd-btn ptbd-danger");
-        body.append(el(
-          "div",
-          { class: "ptbd-site-item" },
-          el("span", {}, `${cfg.name || "(未命名)"} / ${downloader?.name || downloader?.host || "未绑定下载器"}${cfg.qbAutoTMM ? " / autoTMM" : ""}`),
-          el("div", { class: "ptbd-actions" }, edit, del)
-        ));
-      });
-      body.append(el("div", { class: "ptbd-actions" }, button("添加推送配置", () => renderEditor(), "ptbd-btn ptbd-btn-check")));
-    }, "renderList");
-    const renderEditor = /* @__PURE__ */ __name((cfg) => {
-      const item = { ...DEFAULT_PUSH, ...cfg || {}, id: cfg?.id || "" };
-      const pushName = input("text", "显示名称", item.name);
-      const dlSelect = select([["", "未绑定"], ...getDownloaders().map((d) => [d.id, d.name || d.host || (d.type === "tr" ? "Transmission" : "qBittorrent")])], item.downloaderId);
-      const qbCategory = input("text", "Category", item.qbCategory);
-      const qbTags = input("text", "Tags, comma separated", item.qbTags);
-      const qbSavePath = input("text", "Save path", item.qbSavePath);
-      const qbAutoTMM = el("input", { type: "checkbox" });
-      qbAutoTMM.checked = !!item.qbAutoTMM;
-      const trDownloadDir = input("text", "Download dir", item.trDownloadDir);
-      const trLabels = input("text", "Labels, comma separated", item.trLabels);
-      const errorBox = el("div", { class: "ptbd-form-errors" });
-      const qbRows = [
-        el("div", { class: "ptbd-section-title" }, "qBittorrent"),
-        field("分类", qbCategory),
-        field("标签", qbTags),
-        field("保存路径", qbSavePath),
-        el("div", { class: "ptbd-field" }, el("label", {}, "自动管理"), el("label", { style: "display:flex;align-items:center;gap:6px;text-align:left" }, qbAutoTMM, el("span", {}, "autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）")))
-      ];
-      const trRows = [el("div", { class: "ptbd-section-title" }, "Transmission"), field("下载目录", trDownloadDir), field("标签", trLabels)];
-      const setTypeFields = /* @__PURE__ */ __name(() => {
-        const downloader = getDownloaders().find((d) => String(d.id) === String(dlSelect.value));
-        const type = downloader?.type;
-        qbRows.forEach((row) => {
-          row.style.display = type === "qb" ? "" : "none";
-        });
-        trRows.forEach((row) => {
-          row.style.display = type === "tr" ? "" : "none";
-        });
-      }, "setTypeFields");
-      const validate = /* @__PURE__ */ __name(() => {
-        const errors = [];
-        if (!clean(pushName.value)) errors.push("名称不能为空");
-        if (!clean(dlSelect.value)) errors.push("请绑定下载器（可在「下载器设置」中创建）");
-        errorBox.textContent = "";
-        errors.forEach((message) => errorBox.append(el("div", {}, message)));
-        return !errors.length;
-      }, "validate");
-      const currentConfig = /* @__PURE__ */ __name(() => ({
-        id: item.id,
-        name: clean(pushName.value),
-        downloaderId: clean(dlSelect.value),
-        qbCategory: clean(qbCategory.value),
-        qbTags: clean(qbTags.value),
-        qbSavePath: clean(qbSavePath.value),
-        qbAutoTMM: qbAutoTMM.checked,
-        trDownloadDir: clean(trDownloadDir.value),
-        trLabels: clean(trLabels.value)
-      }), "currentConfig");
-      const save = button("保存", () => {
-        if (!validate()) return;
-        const saved = currentConfig();
-        if (!saved.id) saved.id = uniqueId();
-        item.id = saved.id;
-        const list = getPushConfigs();
-        const index = list.findIndex((old) => String(old.id) === String(saved.id));
-        if (index >= 0) list[index] = saved;
-        else list.push(saved);
-        savePushConfigs(list);
-        state.selectedPushId = saved.id;
-        updatePushStatus();
-        setStatus("推送配置已保存");
-        renderList();
-      }, "ptbd-btn ptbd-btn-check");
-      const cancel = button("取消", renderList, "ptbd-btn");
-      dlSelect.addEventListener("change", setTypeFields);
-      body.textContent = "";
-      body.append(
-        el(
-          "div",
-          { class: "ptbd-dl-form" },
-          field("名称", pushName),
-          field("下载器", dlSelect),
-          qbRows,
-          trRows,
-          errorBox,
-          el("div", { class: "ptbd-actions" }, cancel, save)
-        )
-      );
-      setTypeFields();
-    }, "renderEditor");
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) overlay.remove();
-    });
-    overlay.append(box);
-    document.body.append(overlay);
-    renderList();
-  }
-  __name(configPush, "configPush");
-  function getPushConfigs() {
-    let list = [];
-    try {
-      list = GM_getValue(PUSH_CONFIGS_KEY, []);
-    } catch (error) {
-    }
-    if (!Array.isArray(list)) return [];
-    let changed = false;
-    const normalized = list.map((item) => {
-      const cfg = { ...DEFAULT_PUSH, ...item && typeof item === "object" ? item : {} };
-      if (!cfg.id) {
-        cfg.id = uniqueId();
-        changed = true;
-      }
-      return cfg;
-    }).filter((item) => item.id);
-    if (changed) GM_setValue(PUSH_CONFIGS_KEY, normalized);
-    return normalized;
-  }
-  __name(getPushConfigs, "getPushConfigs");
-  function savePushConfigs(list) {
-    GM_setValue(PUSH_CONFIGS_KEY, Array.isArray(list) ? list : []);
-  }
-  __name(savePushConfigs, "savePushConfigs");
-  function getPushById(id) {
-    if (!id) return null;
-    return getPushConfigs().find((item) => String(item.id) === String(id)) || null;
-  }
-  __name(getPushById, "getPushById");
-  function pushStatusText(count) {
-    return count ? "推送:" : "推送: 无";
-  }
-  __name(pushStatusText, "pushStatusText");
-  function pushSelect(pushConfigs) {
-    const sel = select([["", "无(默认推送)"], ...pushConfigs.map((item) => [item.id, item.name || "(未命名)"])], state.selectedPushId);
-    sel.className = "ptbd-dl-select";
-    sel.addEventListener("change", () => {
-      state.selectedPushId = sel.value;
-      updatePushStatus();
-    });
-    return sel;
-  }
-  __name(pushSelect, "pushSelect");
-  function updatePushStatus() {
-    const pushConfigs = getPushConfigs();
-    if (state.selectedPushId && !pushConfigs.some((item) => String(item.id) === String(state.selectedPushId))) state.selectedPushId = "";
-    if (state.ui.pushStatus) state.ui.pushStatus.textContent = pushStatusText(pushConfigs.length);
-    if (state.ui.pushSelect) {
-      const value = state.selectedPushId;
-      state.ui.pushSelect.textContent = "";
-      state.ui.pushSelect.append(el("option", { value: "" }, "无(默认推送)"));
-      pushConfigs.forEach((item) => state.ui.pushSelect.append(el("option", { value: item.id }, item.name || "(未命名)")));
-      state.ui.pushSelect.value = value;
-    }
-  }
-  __name(updatePushStatus, "updatePushStatus");
 
   // src/scripts/pt-batch-download/zip.js
   var CRC_TABLE = new Uint32Array(256).map((_, n) => {
@@ -1599,7 +1582,6 @@ Content-Type: application/x-bittorrent\r
     GM_registerMenuCommand("添加站点", addSite);
     GM_registerMenuCommand("页面管理", manageSites);
     GM_registerMenuCommand("下载器设置", configDownloader);
-    GM_registerMenuCommand("推送配置", configPush);
   }
   __name(registerMenus, "registerMenus");
   function shouldRun() {
@@ -1766,6 +1748,7 @@ Content-Type: application/x-bittorrent\r
       state.ui.batchButton,
       state.ui.downloaderStatus,
       state.ui.downloaderSelect,
+      button("设置下载器/推送", configDownloader, "ptbd-btn ptbd-btn-check"),
       state.ui.pushStatus,
       state.ui.pushSelect,
       state.ui.selectedSize,
