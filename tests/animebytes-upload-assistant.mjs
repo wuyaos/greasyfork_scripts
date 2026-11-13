@@ -157,7 +157,7 @@ try {
   Object.defineProperty(upload.window.navigator, 'clipboard', { value: { writeText: async text => { copied = text; } }, configurable: true });
   f.querySelector('.abua-copy').click();
   await Promise.resolve();
-  assert.equal(JSON.parse(copied).version, '0.4.0');
+  assert.equal(JSON.parse(copied).version, '0.4.1');
   assert.ok(JSON.parse(copied).logs.some(l => l.event === 'fill'));
   for (const privateText of ['GUNSLINGER', 'Commie', 'mediainfo_desc', 'Disc Size', 'Complete name']) assert.ok(!copied.includes(privateText), privateText);
   undo();
@@ -243,6 +243,42 @@ try {
   await Promise.resolve();
   assert.ok(JSON.parse(copied).logs.some(l => l.event === 'source-adopt'));
   for (const word of ['Commie', 'Aiura', 'Title.BDRip', 'Complete name']) assert.ok(!copied.includes(word), word);
+  // Parse first, select a disc container later: wait for native visibility handlers.
+  const chooseContainer = async value => {
+    field('containers').value = value;
+    field('containers').dispatchEvent(new Event('change'));
+    await Promise.resolve();
+  };
+  for (const container of ['ISO', 'VOB IFO', 'M2TS']) {
+    await chooseContainer('MKV');
+    field('aspectratio').value = '';
+    field('mediainfo_desc').value = bdinfo;
+    parse();
+    assert.match(f.querySelector('.abua-details pre').textContent, /已识别 16:9/);
+    assert.equal(field('aspectratio').value, '');
+    await chooseContainer(container);
+    assert.equal(field('aspectratio').value, '16:9', container);
+    undo();
+    assert.equal(field('aspectratio').value, '', 'deferred fill is undoable');
+  }
+  await chooseContainer('MKV');
+  field('mediainfo_desc').value = bdinfo;
+  parse();
+  field('aspectratio').value = '4:3';
+  await chooseContainer('M2TS');
+  assert.equal(field('aspectratio').value, '4:3', 'preserve existing manual ratio');
+  await chooseContainer('MKV');
+  field('aspectratio').value = '';
+  parse();
+  field('mediainfo_desc').value = 'changed text';
+  await chooseContainer('M2TS');
+  assert.equal(field('aspectratio').value, '', 'never fill from stale input');
+  await chooseContainer('MKV');
+  field('mediainfo_desc').value = bdinfo;
+  parse();
+  undo();
+  await chooseContainer('M2TS');
+  assert.equal(field('aspectratio').value, '', 'undo cancels pending fill');
   upload.window.eval(source);
   assert.equal(f.querySelectorAll('.abua-tools').length, 1);
   assert.equal(document.querySelector('#upload_form_music textarea').value, 'untouched');

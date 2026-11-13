@@ -25,7 +25,7 @@
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | <img src="icon/picix.ico" width="24" alt=""> [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | <img src="icon/xingtan.ico" width="24" alt=""> [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
-| <img src="icon/animebytes.ico" width="24" alt=""> [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.4.0 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
+| <img src="icon/animebytes.ico" width="24" alt=""> [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.4.1 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
 
 <a id="animebytes_uploadassistant"></a>
 ### AnimeBytes_UploadAssistant

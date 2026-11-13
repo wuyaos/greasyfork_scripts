@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeBytes Upload Assistant（自用）
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.1
 // @description  系列页分组上传入口与 Anime 上传 MediaInfo/BDInfo 解析、撤销及调试日志
 // @match        https://animebytes.tv/series.php*
 // @match        https://animebytes.tv/upload.php*
@@ -262,7 +262,7 @@
   __name(matchRegion, "matchRegion");
 
   // src/scripts/animebytes-upload-assistant/upload.js
-  var VERSION = "0.4.0";
+  var VERSION = "0.4.1";
   var LABELS = { media: "Media", containers: "Containers", codecs: "Codecs", resolution: "Resolution", audio: "Audio", audiochannels: "Audio Channels", dual_audio: "Dual Audio", subbing: "Subbing", aspectratio: "Aspect Ratio" };
   var DISC_CONTAINERS = ["ISO", "VOB IFO", "M2TS"];
   function mountUpload() {
@@ -271,6 +271,7 @@
     if (!input || form.querySelector(".abua-tools")) return;
     const fields = Object.fromEntries(Object.keys(LABELS).map((name) => [name, form.querySelector(`[name="${name}"]`)]));
     let snapshot = null;
+    let pendingAspect = null;
     let logs = [];
     const style = document.createElement("style");
     style.textContent = `
@@ -496,7 +497,28 @@
       }
       return true;
     }, "aspectVisible");
+    const completeAspect = /* @__PURE__ */ __name(() => {
+      const pending = pendingAspect;
+      if (!pending || pending.text !== input.value || !fields.aspectratio || !aspectVisible()) return;
+      pendingAspect = null;
+      const el = fields.aspectratio;
+      if (el.value || ![...el.options].some((o) => o.value === pending.value && !o.disabled)) {
+        log("aspect-deferred-skip", { reason: el.value ? "already-selected" : "no-option" });
+        return;
+      }
+      snapshot ||= [];
+      snapshot.push({ key: "aspectratio", before: "", after: pending.value });
+      setValue(el, pending.value);
+      undoButton.disabled = false;
+      result.textContent = "已按本次解析补填 Aspect Ratio：" + pending.value + "；未修改 Region。";
+      log("aspect-deferred-fill", { field: "aspectratio", before: "", after: pending.value });
+    }, "completeAspect");
+    fields.containers?.addEventListener("change", () => queueMicrotask(completeAspect));
+    input.addEventListener("input", () => {
+      pendingAspect = null;
+    });
     parseButton.addEventListener("click", () => {
+      pendingAspect = null;
       clearSource();
       if (!input.value.trim()) {
         result.textContent = "请先粘贴 MediaInfo / BDInfo。";
@@ -517,8 +539,10 @@
           let reason;
           if (!el) reason = "页面未找到该字段";
           else if (value === void 0) reason = "未识别或无法确定，保留原值";
-          else if (key === "aspectratio" && !aspectVisible()) reason = "当前容器未显示 Aspect Ratio，保留原值";
-          else if (el.type !== "checkbox" && ![...el.options].some((o) => o.value === value && !o.disabled)) reason = "没有匹配的站点选项，保留原值";
+          else if (key === "aspectratio" && !aspectVisible()) {
+            pendingAspect = { value, text: input.value };
+            reason = `已识别 ${value}；选择 ISO / VOB IFO / M2TS 后将补填空白比例`;
+          } else if (el.type !== "checkbox" && ![...el.options].some((o) => o.value === value && !o.disabled)) reason = "没有匹配的站点选项，保留原值";
           if (reason) {
             skipped++;
             report.push(`${label}：${reason}`);
@@ -547,6 +571,7 @@
       }
     });
     undoButton.addEventListener("click", () => {
+      pendingAspect = null;
       let restored = 0;
       for (const item of snapshot || []) {
         const el = fields[item.key];

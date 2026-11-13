@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeBytes Upload Assistant（自用）
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.1
 // @description  系列页分组上传入口与 Anime 上传 MediaInfo/BDInfo 解析、撤销及调试日志
 // @match        https://animebytes.tv/series.php*
 // @match        https://animebytes.tv/upload.php*

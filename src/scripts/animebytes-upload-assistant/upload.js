@@ -1,7 +1,7 @@
 import { parseMedia } from './parse.js';
 import { matchRegion } from './region.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.1';
 const LABELS = { media: 'Media', containers: 'Containers', codecs: 'Codecs', resolution: 'Resolution', audio: 'Audio', audiochannels: 'Audio Channels', dual_audio: 'Dual Audio', subbing: 'Subbing', aspectratio: 'Aspect Ratio' };
 const DISC_CONTAINERS = ['ISO', 'VOB IFO', 'M2TS'];
 
@@ -11,6 +11,7 @@ export function mountUpload() {
   if (!input || form.querySelector('.abua-tools')) return;
   const fields = Object.fromEntries(Object.keys(LABELS).map(name => [name, form.querySelector(`[name="${name}"]`)]));
   let snapshot = null;
+  let pendingAspect = null;
   let logs = [];
   const style = document.createElement('style');
   style.textContent = `
@@ -236,7 +237,26 @@ export function mountUpload() {
     }
     return true;
   };
+  const completeAspect = () => {
+    const pending = pendingAspect;
+    if (!pending || pending.text !== input.value || !fields.aspectratio || !aspectVisible()) return;
+    pendingAspect = null;
+    const el = fields.aspectratio;
+    if (el.value || ![...el.options].some(o => o.value === pending.value && !o.disabled)) {
+      log('aspect-deferred-skip', { reason: el.value ? 'already-selected' : 'no-option' });
+      return;
+    }
+    snapshot ||= [];
+    snapshot.push({ key: 'aspectratio', before: '', after: pending.value });
+    setValue(el, pending.value);
+    undoButton.disabled = false;
+    result.textContent = '已按本次解析补填 Aspect Ratio：' + pending.value + '；未修改 Region。';
+    log('aspect-deferred-fill', { field: 'aspectratio', before: '', after: pending.value });
+  };
+  fields.containers?.addEventListener('change', () => queueMicrotask(completeAspect));
+  input.addEventListener('input', () => { pendingAspect = null; });
   parseButton.addEventListener('click', () => {
+    pendingAspect = null;
     clearSource();
     if (!input.value.trim()) {
       result.textContent = '请先粘贴 MediaInfo / BDInfo。';
@@ -258,7 +278,10 @@ export function mountUpload() {
         let reason;
         if (!el) reason = '页面未找到该字段';
         else if (value === undefined) reason = '未识别或无法确定，保留原值';
-        else if (key === 'aspectratio' && !aspectVisible()) reason = '当前容器未显示 Aspect Ratio，保留原值';
+        else if (key === 'aspectratio' && !aspectVisible()) {
+          pendingAspect = { value, text: input.value };
+          reason = `已识别 ${value}；选择 ISO / VOB IFO / M2TS 后将补填空白比例`;
+        }
         else if (el.type !== 'checkbox' && ![...el.options].some(o => o.value === value && !o.disabled)) reason = '没有匹配的站点选项，保留原值';
         if (reason) {
           skipped++;
@@ -285,6 +308,7 @@ export function mountUpload() {
     if (changed.length) { snapshot = changed; undoButton.disabled = false; }
   });
   undoButton.addEventListener('click', () => {
+    pendingAspect = null;
     // Do not undo edits the user made after parsing.
     let restored = 0;
     for (const item of snapshot || []) {
