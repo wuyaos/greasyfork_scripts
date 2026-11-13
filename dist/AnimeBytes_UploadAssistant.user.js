@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeBytes Upload Assistant（自用）
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.3.0
 // @description  系列页分组上传入口与 Anime 上传 MediaInfo/BDInfo 解析、撤销及调试日志
 // @match        https://animebytes.tv/series.php*
 // @match        https://animebytes.tv/upload.php*
@@ -195,8 +195,53 @@
   }
   __name(parseMedia, "parseMedia");
 
+  // src/scripts/animebytes-upload-assistant/region.js
+  var normalize = /* @__PURE__ */ __name((value) => value.trim().toLowerCase().replace(/[.\s_-]+/g, ""), "normalize");
+  var territories = [
+    ["德国", "R2 Europe", "B", ["GER", "DEU", "DE", "Germany", "德国", "德國"]],
+    ["日本", "R2 Japan", "A", ["JPN", "JP", "Japan", "日本"]],
+    ["美国", "R1", "A", ["USA", "US", "United States", "United States of America", "美国", "美國"]],
+    ["加拿大", "R1", "A", ["CAN", "CA", "Canada", "加拿大"]],
+    ["中国大陆", "R6", "C", ["CHN", "CN", "China", "Mainland China", "中国", "中國", "中国大陆", "中國大陸"]],
+    ["香港", "R3", "A", ["HKG", "HK", "Hong Kong", "香港"]],
+    ["台湾", "R3", "A", ["TWN", "TW", "Taiwan", "台湾", "台灣"]],
+    ["韩国", "R3", "A", ["KOR", "KR", "South Korea", "韩国", "韓國"]],
+    ["澳大利亚", "R4", "B", ["AUS", "AU", "Australia", "澳大利亚", "澳大利亞", "澳洲"]],
+    ["新西兰", "R4", "B", ["NZL", "NZ", "New Zealand", "新西兰", "紐西蘭"]],
+    ["英国", "R2 Europe", "B", ["GBR", "GB", "UK", "United Kingdom", "英国", "英國"]],
+    ["法国", "R2 Europe", "B", ["FRA", "FR", "France", "法国", "法國"]],
+    ["意大利", "R2 Europe", "B", ["ITA", "IT", "Italy", "意大利"]],
+    ["西班牙", "R2 Europe", "B", ["ESP", "ES", "Spain", "西班牙"]],
+    ["欧洲", "R2 Europe", "B", ["Europe", "欧洲", "歐洲"]],
+    ["俄罗斯", "R5", "C", ["RUS", "RU", "Russia", "俄罗斯", "俄羅斯"]],
+    ["印度", "R5", "C", ["IND", "IN", "India", "印度"]],
+    ["蒙古", "R5", "C", ["MNG", "MN", "Mongolia", "蒙古"]],
+    ["南非", "R2 Europe", "B", ["ZAF", "ZA", "South Africa", "南非"]],
+    ["埃及", "R2 Europe", "B", ["EGY", "EG", "Egypt", "埃及"]],
+    ["巴西", "R4", "A", ["BRA", "BR", "Brazil", "巴西"]],
+    ["墨西哥", "R4", "A", ["MEX", "MX", "Mexico", "墨西哥"]],
+    ["新加坡", "R3", "A", ["SGP", "SG", "Singapore", "新加坡"]],
+    ["马来西亚", "R3", "A", ["MYS", "MY", "Malaysia", "马来西亚", "馬來西亞"]],
+    ["泰国", "R3", "A", ["THA", "TH", "Thailand", "泰国", "泰國"]]
+  ];
+  function matchRegion(input, media) {
+    if (!["DVD", "Blu-ray"].includes(media)) return { reason: "请先选择 Media 为 DVD 或 Blu-ray；其他介质不套用本地区码表。" };
+    const token = normalize(input);
+    if (!token) return { reason: "请输入发行地区或明确的区码。" };
+    const codes = media === "DVD" ? ["R1", "R2 Japan", "R2 Europe", "R3", "R4", "R5", "R6"] : ["A", "B", "C"];
+    const code = codes.find((v) => normalize(v) === token);
+    if (code) return { value: code, label: code };
+    const found = territories.find((row) => row[3].some((alias) => normalize(alias) === token));
+    if (found) {
+      if (media === "DVD" && ["南非", "埃及"].includes(found[0])) return { reason: "该地区属于 DVD R2，但本站只有 R2 Japan / R2 Europe；请按本站规则手动核实。" };
+      return { value: found[media === "DVD" ? 1 : 2], label: found[0] };
+    }
+    return { reason: "未匹配到唯一的站点区码，请检查拼写、Media 或手动选择；R2、ALL、ABC、多地区输入不会自动填写。" };
+  }
+  __name(matchRegion, "matchRegion");
+
   // src/scripts/animebytes-upload-assistant/upload.js
-  var VERSION = "0.2.0";
+  var VERSION = "0.3.0";
   var LABELS = { media: "Media", containers: "Containers", codecs: "Codecs", resolution: "Resolution", audio: "Audio", audiochannels: "Audio Channels", dual_audio: "Dual Audio", subbing: "Subbing", aspectratio: "Aspect Ratio" };
   var DISC_CONTAINERS = ["ISO", "VOB IFO", "M2TS"];
   function mountUpload() {
@@ -254,7 +299,23 @@
     if (region) {
       const note = document.createElement("p");
       note.className = "min_padding abua-region-note";
-      note.textContent = "区码请按实际发行版本手动选择，不能根据音轨或字幕语言判断。DVD 使用 R1～R6（本站细分 R2 Japan / R2 Europe）；Blu-ray 使用 A / B / C。本脚本不修改 Region。";
+      note.style.whiteSpace = "pre-line";
+      note.textContent = [
+        "区码请按实际发行版本手动选择，不能根据音轨或字幕语言判断。媒体信息解析不修改 Region；仅单独点击「匹配区码」时填写。",
+        "DVD 区码（主要对应地区）：",
+        "R1：美国、加拿大及美国属地。",
+        "R2：日本、欧洲、中东（含埃及）、南非、格陵兰；本站细分为 R2 Japan / R2 Europe。",
+        "R3：东南亚、韩国、台湾、香港等地区。",
+        "R4：澳大利亚、新西兰、太平洋岛屿、墨西哥、中美洲、南美洲及加勒比地区。",
+        "R5：俄罗斯及部分东欧地区、印度次大陆、非洲大部（不含 R2 的埃及和南非）、朝鲜、蒙古。",
+        "R6：中国大陆。",
+        "Blu-ray 区码（主要对应地区）：",
+        "A：北美洲、南美洲、美国属地、日本、韩国、台湾、香港及东南亚等地区。",
+        "B：欧洲、非洲、中东、澳大利亚、新西兰。",
+        "C：中国大陆、俄罗斯、中亚、南亚等其他亚洲地区（不含 A 区所列地区）。",
+        "DVD 的 0 / ALL、Blu-ray 的 ABC 表示全区；Ultra HD Blu-ray 通常不设地区锁。遇到全区或多区版本，按本站规则核实，不要强行选择单一区码。",
+        "以上是地区速查，不代表某张光盘的实际锁区；以光盘、包装或可靠发行资料标注为准。"
+      ].join("\n");
       region.parentElement.append(note);
     }
     const log = /* @__PURE__ */ __name((event, data) => {
@@ -273,7 +334,7 @@
         version: VERSION,
         mode: form.querySelector('[name="add_format"]')?.value === "1" ? "add-format" : "upload",
         fields: Object.fromEntries(Object.entries(fields).map(([key, el]) => [key, !!el])),
-        region: "never-modify"
+        region: "explicit-match-only"
       });
     });
     copyButton.addEventListener("click", async () => {
@@ -295,6 +356,65 @@
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     }, "setValue");
+    if (region) {
+      let regionSnapshot = null;
+      const controls = document.createElement("div");
+      controls.className = "abua-actions abua-region-controls";
+      const label = document.createElement("label");
+      label.textContent = "发行地区：";
+      const territory = document.createElement("input");
+      territory.type = "text";
+      territory.className = "abua-territory";
+      territory.placeholder = "GER / Germany / 德国 / B";
+      territory.style.width = "18em";
+      territory.style.maxWidth = "100%";
+      label.append(territory);
+      const match = button("匹配区码", "abua-region-match");
+      const undoRegion = button("撤销区码", "abua-region-undo");
+      undoRegion.disabled = true;
+      controls.append(label, match, undoRegion);
+      const status = document.createElement("p");
+      status.className = "min_padding abua-region-status";
+      status.setAttribute("aria-live", "polite");
+      status.textContent = "填写发行地区，不是音轨语言；仅按地区匹配，实际锁区以光盘标注为准。";
+      region.insertAdjacentElement("afterend", controls);
+      controls.insertAdjacentElement("afterend", status);
+      match.addEventListener("click", () => {
+        const media = fields.media?.value;
+        const matched = matchRegion(territory.value, media);
+        if (!matched.value || ![...region.options].some((o) => o.value === matched.value && !o.disabled)) {
+          status.textContent = matched.reason || "页面没有对应区码选项，保留原值。";
+          log("region-skip", { media, reason: status.textContent });
+          return;
+        }
+        const before = region.value;
+        if (before !== matched.value) {
+          regionSnapshot = { before, after: matched.value };
+          setValue(region, matched.value);
+          undoRegion.disabled = false;
+        }
+        status.textContent = matched.label + " + " + media + " → " + matched.value + "。请核对实际发行标注。";
+        log("region-match", { media, territory: matched.label, before, after: matched.value });
+      });
+      territory.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          match.click();
+        }
+      });
+      undoRegion.addEventListener("click", () => {
+        if (regionSnapshot && region.value === regionSnapshot.after) {
+          setValue(region, regionSnapshot.before);
+          status.textContent = "已撤销上次区码匹配。";
+          log("region-undo", { restored: regionSnapshot.before });
+        } else {
+          status.textContent = "区码已被手动修改，保留当前选择。";
+          log("region-undo-skip", { reason: "user-edited" });
+        }
+        regionSnapshot = null;
+        undoRegion.disabled = true;
+      });
+    }
     const aspectVisible = /* @__PURE__ */ __name(() => {
       if (!DISC_CONTAINERS.includes(fields.containers?.value)) return false;
       for (let el = fields.aspectratio; el && el !== form; el = el.parentElement) {
@@ -339,7 +459,7 @@
           log("fill", { field: key, before, after: value, changed: before !== value, reason: parsed.reasons[key] });
         }
         log("region", { action: "never-modify" });
-        details.textContent = [...report, "", ...parsed.notes, "Region：仅提供说明，不修改。"].join("\n");
+        details.textContent = [...report, "", ...parsed.notes, "Region：媒体信息解析不修改；如需辅助填写，请使用独立的「匹配区码」。"].join("\n");
         result.textContent = `${parsed.kind}：已匹配 ${filled} 项，未填 ${skipped} 项；实际修改 ${changed.length} 项。${parsed.notes.length ? " 有提示，请查看详情。" : ""}`;
       } catch (error) {
         result.textContent = `解析/填充失败：${error.message}`;

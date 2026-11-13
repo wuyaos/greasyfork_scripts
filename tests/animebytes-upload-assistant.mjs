@@ -83,7 +83,7 @@ const options = {
   audiochannels: ['', '1.0', '2.0', '5.1', '7.1'],
   subbing: ['', 'Softsubs', 'Hardsubs', 'RAW'],
   aspectratio: ['', '4:3', '16:9'],
-  region: ['', 'A', 'B', 'R2 Japan'],
+  region: ['', 'A', 'B', 'C', 'R1', 'R2 Japan', 'R2 Europe', 'R3', 'R4', 'R5', 'R6'],
 };
 const selectHTML = name => `<select name="${name}">${options[name].map(v => `<option value="${v}">${v}</option>`).join('')}</select>`;
 const formHTML = `<form id="upload_form_anime"><input name="add_format" value="1" type="hidden"><input type="button" value="Autofill!"><textarea name="mediainfo_desc"></textarea>${Object.keys(options).filter(k => !['region', 'aspectratio'].includes(k)).map(selectHTML).join('')}<div class="disc" style="display:none">${selectHTML('region')}</div><div class="disc" style="display:none">${selectHTML('aspectratio')}</div><input type="checkbox" name="dual_audio"></form><form id="upload_form_music"><textarea name="mediainfo_desc">untouched</textarea></form>`;
@@ -114,6 +114,12 @@ try {
   assert.equal(field('dual_audio').checked, false, 'Video English is not an English audio track');
   assert.equal(field('aspectratio').value, '', 'hidden aspect must not be filled');
   assert.equal(field('region').value, 'B');
+  const regionHelp = f.querySelector('.abua-region-note');
+  for (const code of ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'A', 'B', 'C']) {
+    assert.ok(regionHelp.textContent.includes(`${code}：`), `missing region ${code}`);
+  }
+  assert.match(regionHelp.textContent, /不能根据音轨或字幕语言判断/);
+  assert.equal(regionHelp.parentElement, field('region').parentElement, 'help follows native Region visibility');
   assert.equal(debugMessages.length, 0, 'debug is opt-in');
   field('audio').value = 'FLAC';
   undo();
@@ -137,7 +143,7 @@ try {
   Object.defineProperty(upload.window.navigator, 'clipboard', { value: { writeText: async text => { copied = text; } }, configurable: true });
   f.querySelector('.abua-copy').click();
   await Promise.resolve();
-  assert.equal(JSON.parse(copied).version, '0.2.0');
+  assert.equal(JSON.parse(copied).version, '0.3.0');
   assert.ok(JSON.parse(copied).logs.some(l => l.event === 'fill'));
   for (const privateText of ['GUNSLINGER', 'Commie', 'mediainfo_desc', 'Disc Size', 'Complete name']) assert.ok(!copied.includes(privateText), privateText);
   undo();
@@ -147,6 +153,44 @@ try {
   parse();
   assert.match(f.querySelector('.abua-result').textContent, /未识别/);
   assert.equal(field('region').value, 'B');
+  const territory = f.querySelector('.abua-territory');
+  const matchRegionButton = f.querySelector('.abua-region-match');
+  const regionUndo = f.querySelector('.abua-region-undo');
+  const match = (text, media) => {
+    field('media').value = media;
+    territory.value = text;
+    matchRegionButton.click();
+  };
+  for (const [text, media, expected] of [
+    ['GER', 'Blu-ray', 'B'], [' germany ', 'DVD', 'R2 Europe'], ['德国', 'DVD', 'R2 Europe'],
+    ['JP', 'DVD', 'R2 Japan'], ['JPN', 'Blu-ray', 'A'], ['美国', 'DVD', 'R1'],
+    ['CHN', 'DVD', 'R6'], ['中国大陆', 'Blu-ray', 'C'], ['AUS', 'DVD', 'R4'],
+    ['AU', 'Blu-ray', 'B'], ['Europe', 'DVD', 'R2 Europe'], ['b', 'Blu-ray', 'B'], ['R2 Japan', 'DVD', 'R2 Japan'],
+  ]) {
+    match(text, media);
+    assert.equal(field('region').value, expected, text + '/' + media);
+  }
+  regionUndo.click();
+  assert.equal(field('region').value, 'B', 'independent region undo');
+  match('Japan', 'Blu-ray');
+  field('region').value = 'C';
+  regionUndo.click();
+  assert.equal(field('region').value, 'C', 'region undo preserves manual edit');
+  for (const [text, media] of [['private-secret-input', 'DVD'], ['R2', 'DVD'], ['ALL', 'DVD'], ['ABC', 'Blu-ray'], ['Asia', 'Blu-ray'], ['GER/USA', 'DVD'], ['B', 'DVD'], ['R1', 'Blu-ray'], ['GER', 'Web'], ['GER', 'UHD Blu-ray'], ['GER', ''], ['', 'DVD'], ['Egypt', 'DVD']]) {
+    match(text, media);
+    assert.equal(field('region').value, 'C', text + ' must not overwrite');
+  }
+  field('media').value = 'Blu-ray';
+  territory.value = 'GER';
+  assert.equal(field('region').value, 'C', 'typing alone does not change Region');
+  const enter = new upload.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  territory.dispatchEvent(enter);
+  assert.equal(enter.defaultPrevented, true, 'Enter must not submit upload form');
+  assert.equal(field('region').value, 'B');
+  f.querySelector('.abua-copy').click();
+  await Promise.resolve();
+  assert.ok(JSON.parse(copied).logs.some(l => l.event === 'region-match'));
+  assert.ok(!copied.includes('private-secret-input'), 'unknown territory is never logged verbatim');
   upload.window.eval(source);
   assert.equal(f.querySelectorAll('.abua-tools').length, 1);
   assert.equal(document.querySelector('#upload_form_music textarea').value, 'untouched');
@@ -157,4 +201,4 @@ try {
 const musicOnly = run('https://animebytes.tv/upload.php?type=music&groupid=5078', '<form id="upload_form_music"><textarea name="mediainfo_desc"></textarea></form>');
 assert.equal(musicOnly.window.document.querySelector('.abua-tools'), null);
 musicOnly.window.close();
-console.log('PASS AnimeBytes Upload Assistant: user samples, field mapping, dependency order, Region unchanged, undo/manual edits, opt-in private logs, no submit/network');
+console.log('PASS AnimeBytes Upload Assistant: user samples, field mapping, dependency order, Region parsing boundary, territory mapping/undo/ambiguity/Enter, undo/manual edits, opt-in private logs, no submit/network');

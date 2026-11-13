@@ -25,7 +25,7 @@
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
-| [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.2.0 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
+| [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.3.0 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
 
 <a id="animebytes_uploadassistant"></a>
 ### AnimeBytes_UploadAssistant
@@ -34,7 +34,7 @@
 
 上传页分类与 `type` 不是一一对应关系：Anime、Manga、Artbooks、Light Novels、Games、Visual Novels、Live Action、Packs 属于前一分区；Music、PVs & Lives 属于后一分区。具体上传表单由 `groupid` 决定，不使用 `type=manga` 或 `type=games`。实站已核对系列 `2121` 的动画/音乐，以及系列 `185` 的漫画 `11498`、游戏 `60068` 原生添加格式链接及表单；其余分类未逐一实站验证。
 
-Anime 上传表单：在 MediaInfo/BDInfo 框下点击「解析并填充」，明确识别的字段覆盖当前选择，不确定的保持原值。支持一次撤销，解析后手动改过的字段不回退。BDInfo 摘要不猜 ISO/目录；MediaInfo 文件名里的 BD/Web 只提示来源候选；无字幕轨不等于 RAW。Aspect Ratio 仅在原生附加字段可见时填写；Region 永不修改，只给说明。按钮沿用站点原生控件样式，无固定配色。
+Anime 上传表单：在 MediaInfo/BDInfo 框下点击「解析并填充」，明确识别的字段覆盖当前选择，不确定的保持原值。支持一次撤销，解析后手动改过的字段不回退。BDInfo 摘要不猜 ISO/目录；MediaInfo 文件名里的 BD/Web 只提示来源候选；无字幕轨不等于 RAW。Aspect Ratio 仅在原生附加字段可见时填写；媒体信息解析不修改 Region；可在 Region 旁输入 GER/Germany/德国等发行地区，单独点击「匹配区码」按 DVD/Blu-ray 填写，支持独立撤销。输入地区不是实际锁区证据，仍需核对发行标注；未知或歧义输入保持原值。按钮沿用站点原生控件样式，无固定配色。
 
 需要诊断时先勾选 Debug，再解析，并点击「复制调试日志」。JSON 含版本、轨道数量、字段映射/跳过理由、填充和撤销记录；控制台前缀 `[AB Upload Assistant]`。日志仅在本页内存保留最多 200 条，不保存原始文本、文件名/路径或账号，不发网络请求。
 
