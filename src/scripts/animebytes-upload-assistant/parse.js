@@ -1,3 +1,4 @@
+import { sourceCandidates } from './source.js';
 // Pure parser: outputs site option candidates and short reasons, never raw input in diagnostics.
 function sections(text) {
   const result = [];
@@ -64,6 +65,7 @@ export function parseMedia(text) {
   let subtitles = [];
   let videoCount = 0;
   let kind;
+  let sources = [];
   if (/^\s*(?:Disc Label|Disc Title|Playlist)\s*:/mi.test(text) && /^\s*Video\s*:/mi.test(text)) {
     kind = 'BDInfo';
     put('media', /\b(?:Ultra HD|UHD)\s*(?:Blu-ray|BD)\b/i.test(text) ? 'UHD Blu-ray' : 'Blu-ray', '光盘/播放列表结构');
@@ -90,7 +92,7 @@ export function parseMedia(text) {
     videoCount = videos.length;
     const containers = { matroska: 'MKV', 'mpeg-4': 'MP4', 'mpeg-ts': 'TS', 'bdav': 'M2TS', avi: 'AVI', 'windows media': 'WMV', 'mpeg-ps': 'MPG', 'flash video': 'FLV', ogg: 'OGM' };
     put('containers', containers[general.format?.toLowerCase()], 'General → Format');
-    if (/\b(?:BD|Blu[ .-]?ray|WEB[ .-]?(?:DL|Rip))\b/i.test(general['complete name'] || '')) notes.push('文件名含 BD/Web 来源候选；仅作提示，Media 请核实。');
+    sources = sourceCandidates(general['complete name']);
     put('codecs', videoCodec(`${v.format || ''} ${v['codec id'] || ''}`, v['bit depth'] || (/High 10|Main 10/i.test(v['format profile'] || '') ? '10' : '')), 'Video → Format / Bit depth / Profile');
     const width = Number.parseInt((v.width || '').replace(/[\s,]/g, ''), 10);
     const height = Number.parseInt((v.height || '').replace(/[\s,]/g, ''), 10);
@@ -126,5 +128,5 @@ export function parseMedia(text) {
     for (const field of ['codecs', 'resolution', 'aspectratio']) delete fields[field];
     notes.push('存在多条视频信息，视频字段请手动确认。');
   }
-  return { kind, fields, reasons, notes, tracks: { video: videoCount, audio: audio.length, subtitles: subtitles.length } };
+  return { kind, fields, reasons, notes, sources, tracks: { video: videoCount, audio: audio.length, subtitles: subtitles.length } };
 }

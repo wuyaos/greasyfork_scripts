@@ -74,6 +74,20 @@ assert.equal(parseMedia(mediainfo.replace(/Text\n[\s\S]*$/, '')).fields.subbing,
 assert.equal(parseMedia(mediainfo.replace('Language : Japanese', '')).fields.dual_audio, undefined);
 assert.equal(parseMedia(mediainfo + '\nVideo #2\nFormat : AVC').fields.codecs, undefined);
 assert.throws(() => parseMedia('arbitrary input'), /未识别/);
+const { sourceCandidates } = await import('../src/scripts/animebytes-upload-assistant/source.js');
+for (const [name, expected] of [
+  ['[Commie] Aiura - 01 [BD 720p AAC].mkv', ['Blu-ray']],
+  ['Title.[BD].mkv', ['Blu-ray']], ['Title.1080p.BluRay.mkv', ['Blu-ray']],
+  ['Title.BDRip.mkv', ['Blu-ray']], ['Title.UHD.BluRay.2160p.mkv', ['UHD Blu-ray']],
+  ['Title.Ultra-HD.Blu-ray.mkv', ['UHD Blu-ray']], ['Title.DVDRip.mkv', ['DVD']],
+  ['Title.[DVD].mkv', ['DVD']], ['Title.2160p.HEVC.WEB-DL.mkv', ['Web']],
+  ['Title.WEBRip.mkv', ['Web']], ['Title.HDTV.mkv', ['TV']], ['Title.TVRip.mkv', ['TV']],
+  ['Title.BDRip.WEB-DL.mkv', ['Blu-ray', 'Web']],
+  ['Title.2160p.HEVC.mkv', []], ['BD Adventure.mkv', []],
+  ['Title.NotBluRay.mkv', []], ['C:/BluRay/Title.mkv', []],
+]) assert.deepEqual(sourceCandidates(name).map(h => h.value), expected, name);
+assert.equal(parseMedia(mediainfo).sources[0].value, 'Blu-ray');
+assert.deepEqual(parseMedia(bdinfo).sources, []);
 const options = {
   media: ['', 'TV', 'DVD', 'Blu-ray', 'UHD Blu-ray', 'Web'],
   containers: ['', 'MKV', 'MP4', 'ISO', 'VOB', 'VOB IFO', 'M2TS'],
@@ -143,7 +157,7 @@ try {
   Object.defineProperty(upload.window.navigator, 'clipboard', { value: { writeText: async text => { copied = text; } }, configurable: true });
   f.querySelector('.abua-copy').click();
   await Promise.resolve();
-  assert.equal(JSON.parse(copied).version, '0.3.0');
+  assert.equal(JSON.parse(copied).version, '0.4.0');
   assert.ok(JSON.parse(copied).logs.some(l => l.event === 'fill'));
   for (const privateText of ['GUNSLINGER', 'Commie', 'mediainfo_desc', 'Disc Size', 'Complete name']) assert.ok(!copied.includes(privateText), privateText);
   undo();
@@ -191,6 +205,44 @@ try {
   await Promise.resolve();
   assert.ok(JSON.parse(copied).logs.some(l => l.event === 'region-match'));
   assert.ok(!copied.includes('private-secret-input'), 'unknown territory is never logged verbatim');
+  field('media').value = 'DVD';
+  field('mediainfo_desc').value = mediainfo;
+  parse();
+  const sourceRow = f.querySelector('.abua-source');
+  const adopt = f.querySelector('.abua-source-adopt');
+  assert.equal(sourceRow.hidden, false);
+  assert.match(sourceRow.textContent, /Blu-ray/);
+  assert.match(sourceRow.textContent, /冲突/);
+  assert.equal(field('media').value, 'DVD', 'candidate never auto-overwrites Media');
+  adopt.click();
+  assert.equal(field('media').value, 'Blu-ray');
+  assert.equal(field('region').value, 'B', 'adopting source never matches Region');
+  undo();
+  assert.equal(field('media').value, 'DVD', 'source adoption is undoable');
+  field('mediainfo_desc').value = mediainfo;
+  parse();
+  field('mediainfo_desc').value += '\n';
+  adopt.click();
+  assert.equal(field('media').value, 'DVD', 'stale candidate cannot be adopted');
+  field('mediainfo_desc').value = mediainfo;
+  parse();
+  field('mediainfo_desc').dispatchEvent(new Event('input'));
+  assert.equal(sourceRow.hidden, true, 'editing invalidates source candidate');
+  assert.equal(adopt.disabled, true);
+  field('mediainfo_desc').value = mediainfo.replace(/Complete name[^\n]*/, 'Complete name : Title.BDRip.WEB-DL.mkv');
+  parse();
+  assert.match(sourceRow.textContent, /多种来源标签/);
+  assert.equal(adopt.disabled, true);
+  assert.equal(field('media').value, 'DVD');
+  field('mediainfo_desc').value = bdinfo.replace('1080p', '1080i');
+  parse();
+  assert.equal(field('media').value, 'Blu-ray', '1080i BDInfo remains Blu-ray');
+  assert.equal(field('resolution').value, '1080i');
+  assert.equal(sourceRow.hidden, true);
+  f.querySelector('.abua-copy').click();
+  await Promise.resolve();
+  assert.ok(JSON.parse(copied).logs.some(l => l.event === 'source-adopt'));
+  for (const word of ['Commie', 'Aiura', 'Title.BDRip', 'Complete name']) assert.ok(!copied.includes(word), word);
   upload.window.eval(source);
   assert.equal(f.querySelectorAll('.abua-tools').length, 1);
   assert.equal(document.querySelector('#upload_form_music textarea').value, 'untouched');

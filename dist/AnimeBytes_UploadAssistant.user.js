@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AnimeBytes Upload Assistant（自用）
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.4.0
 // @description  系列页分组上传入口与 Anime 上传 MediaInfo/BDInfo 解析、撤销及调试日志
 // @match        https://animebytes.tv/series.php*
 // @match        https://animebytes.tv/upload.php*
@@ -50,6 +50,26 @@
       heading.append(button);
     }
   }
+
+  // src/scripts/animebytes-upload-assistant/source.js
+  function sourceCandidates(path = "") {
+    const filename = path.split(/[\\/]/).pop();
+    const candidates = /* @__PURE__ */ new Map();
+    const add = /* @__PURE__ */ __name((value, evidence) => candidates.set(value, { value, evidence }), "add");
+    const tags = /(?:^|[\s.\[\]()_\-])((?:UHD|Ultra[ ._-]?HD)[ ._-]*(?:Blu[ ._-]?ray|BD)|Blu[ ._-]?ray|BDRip|DVD(?:Rip)?|WEB[ ._-]?(?:DL|Rip)|HDTV|TVRip)(?=$|[\s.\[\]()_\-])/gi;
+    for (const match of filename.matchAll(tags)) {
+      const tag = match[1].replace(/[ ._-]/g, "").toUpperCase();
+      if (/^(UHD|ULTRAHD)/.test(tag)) add("UHD Blu-ray", "UHD Blu-ray 标签");
+      else if (/^(BLURAY|BDRIP)$/.test(tag)) add("Blu-ray", "BluRay / BDRip 标签");
+      else if (/^DVD/.test(tag)) add("DVD", "DVD / DVDRip 标签");
+      else if (/^WEB/.test(tag)) add("Web", "WEB-DL / WEBRip 标签");
+      else add("TV", "HDTV / TVRip 标签");
+    }
+    if (/[\[(]\s*BD(?:\s*[\])]|[ ._-]+(?:\d{3,4}[pi]|4K)\b)/i.test(filename)) add("Blu-ray", "括号内 BD 标签");
+    if (candidates.has("UHD Blu-ray")) candidates.delete("Blu-ray");
+    return [...candidates.values()];
+  }
+  __name(sourceCandidates, "sourceCandidates");
 
   // src/scripts/animebytes-upload-assistant/parse.js
   function sections(text) {
@@ -128,6 +148,7 @@
     let subtitles = [];
     let videoCount = 0;
     let kind;
+    let sources = [];
     if (/^\s*(?:Disc Label|Disc Title|Playlist)\s*:/mi.test(text) && /^\s*Video\s*:/mi.test(text)) {
       kind = "BDInfo";
       put("media", /\b(?:Ultra HD|UHD)\s*(?:Blu-ray|BD)\b/i.test(text) ? "UHD Blu-ray" : "Blu-ray", "光盘/播放列表结构");
@@ -154,7 +175,7 @@
       videoCount = videos.length;
       const containers = { matroska: "MKV", "mpeg-4": "MP4", "mpeg-ts": "TS", "bdav": "M2TS", avi: "AVI", "windows media": "WMV", "mpeg-ps": "MPG", "flash video": "FLV", ogg: "OGM" };
       put("containers", containers[general.format?.toLowerCase()], "General → Format");
-      if (/\b(?:BD|Blu[ .-]?ray|WEB[ .-]?(?:DL|Rip))\b/i.test(general["complete name"] || "")) notes.push("文件名含 BD/Web 来源候选；仅作提示，Media 请核实。");
+      sources = sourceCandidates(general["complete name"]);
       put("codecs", videoCodec(`${v.format || ""} ${v["codec id"] || ""}`, v["bit depth"] || (/High 10|Main 10/i.test(v["format profile"] || "") ? "10" : "")), "Video → Format / Bit depth / Profile");
       const width = Number.parseInt((v.width || "").replace(/[\s,]/g, ""), 10);
       const height = Number.parseInt((v.height || "").replace(/[\s,]/g, ""), 10);
@@ -191,7 +212,7 @@
       for (const field of ["codecs", "resolution", "aspectratio"]) delete fields[field];
       notes.push("存在多条视频信息，视频字段请手动确认。");
     }
-    return { kind, fields, reasons, notes, tracks: { video: videoCount, audio: audio.length, subtitles: subtitles.length } };
+    return { kind, fields, reasons, notes, sources, tracks: { video: videoCount, audio: audio.length, subtitles: subtitles.length } };
   }
   __name(parseMedia, "parseMedia");
 
@@ -241,7 +262,7 @@
   __name(matchRegion, "matchRegion");
 
   // src/scripts/animebytes-upload-assistant/upload.js
-  var VERSION = "0.3.0";
+  var VERSION = "0.4.0";
   var LABELS = { media: "Media", containers: "Containers", codecs: "Codecs", resolution: "Resolution", audio: "Audio", audiochannels: "Audio Channels", dual_audio: "Dual Audio", subbing: "Subbing", aspectratio: "Aspect Ratio" };
   var DISC_CONTAINERS = ["ISO", "VOB IFO", "M2TS"];
   function mountUpload() {
@@ -356,6 +377,59 @@
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     }, "setValue");
+    const sourceRow = document.createElement("div");
+    sourceRow.className = "abua-source min_padding";
+    sourceRow.hidden = true;
+    const sourceText = document.createElement("span");
+    const adoptSource = button("采用来源", "abua-source-adopt");
+    sourceRow.append(sourceText, " ", adoptSource);
+    tools.insertBefore(sourceRow, result);
+    let sourceHint = null;
+    let sourceInput = "";
+    const clearSource = /* @__PURE__ */ __name(() => {
+      sourceHint = null;
+      sourceInput = "";
+      sourceRow.hidden = true;
+      adoptSource.disabled = true;
+    }, "clearSource");
+    input.addEventListener("input", clearSource);
+    const showSource = /* @__PURE__ */ __name((parsed) => {
+      if (!parsed.sources.length) return;
+      const hints = parsed.sources;
+      sourceRow.hidden = false;
+      sourceText.textContent = "来源候选：" + hints.map((h) => h.value + "（依据：" + h.evidence + "）").join(" / ");
+      if (hints.length > 1) {
+        sourceText.textContent += "。检测到多种来源标签，请核实后手动选择。";
+        log("source-conflict", { candidates: hints.map((h) => h.value) });
+        return;
+      }
+      sourceHint = hints[0];
+      sourceInput = input.value;
+      const media = fields.media;
+      adoptSource.disabled = !media || ![...media.options].some((o) => o.value === sourceHint.value && !o.disabled);
+      if (media?.value && media.value !== sourceHint.value) sourceText.textContent += "；与当前 Media（" + media.value + "）冲突，未覆盖。";
+      if (adoptSource.disabled) sourceText.textContent += "；页面没有匹配的 Media 选项。";
+      sourceText.textContent += " 仅为文件名候选，不能证明原盘、Remux 或重编码方式。";
+      log("source-candidate", { value: sourceHint.value, evidence: sourceHint.evidence, conflict: !!media?.value && media.value !== sourceHint.value });
+    }, "showSource");
+    adoptSource.addEventListener("click", () => {
+      if (!sourceHint || input.value !== sourceInput) {
+        clearSource();
+        result.textContent = "媒体信息已变化，请重新解析后再采用来源。";
+        return;
+      }
+      const media = fields.media;
+      const before = media.value;
+      const after = sourceHint.value;
+      if (before !== after) {
+        snapshot = [{ key: "media", before, after }];
+        setValue(media, after);
+        undoButton.disabled = false;
+      }
+      log("source-adopt", { before, after, evidence: sourceHint.evidence });
+      result.textContent = "已采用来源：" + after + "。若修改了原值，可用「撤销本次填充」撤回；请核实实际来源。";
+      clearSource();
+    });
     if (region) {
       let regionSnapshot = null;
       const controls = document.createElement("div");
@@ -423,6 +497,7 @@
       return true;
     }, "aspectVisible");
     parseButton.addEventListener("click", () => {
+      clearSource();
       if (!input.value.trim()) {
         result.textContent = "请先粘贴 MediaInfo / BDInfo。";
         log("parse-error", { reason: "empty-input" });
@@ -432,6 +507,7 @@
       try {
         const parsed = parseMedia(input.value);
         log("parsed", { kind: parsed.kind, tracks: parsed.tracks });
+        showSource(parsed);
         const report = [];
         let filled = 0;
         let skipped = 0;

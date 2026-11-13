@@ -1,7 +1,7 @@
 import { parseMedia } from './parse.js';
 import { matchRegion } from './region.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const LABELS = { media: 'Media', containers: 'Containers', codecs: 'Codecs', resolution: 'Resolution', audio: 'Audio', audiochannels: 'Audio Channels', dual_audio: 'Dual Audio', subbing: 'Subbing', aspectratio: 'Aspect Ratio' };
 const DISC_CONTAINERS = ['ISO', 'VOB IFO', 'M2TS'];
 
@@ -120,6 +120,59 @@ export function mountUpload() {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   };
+  const sourceRow = document.createElement('div');
+  sourceRow.className = 'abua-source min_padding';
+  sourceRow.hidden = true;
+  const sourceText = document.createElement('span');
+  const adoptSource = button('采用来源', 'abua-source-adopt');
+  sourceRow.append(sourceText, ' ', adoptSource);
+  tools.insertBefore(sourceRow, result);
+  let sourceHint = null;
+  let sourceInput = '';
+  const clearSource = () => {
+    sourceHint = null;
+    sourceInput = '';
+    sourceRow.hidden = true;
+    adoptSource.disabled = true;
+  };
+  input.addEventListener('input', clearSource);
+  const showSource = parsed => {
+    if (!parsed.sources.length) return;
+    const hints = parsed.sources;
+    sourceRow.hidden = false;
+    sourceText.textContent = '来源候选：' + hints.map(h => h.value + '（依据：' + h.evidence + '）').join(' / ');
+    if (hints.length > 1) {
+      sourceText.textContent += '。检测到多种来源标签，请核实后手动选择。';
+      log('source-conflict', { candidates: hints.map(h => h.value) });
+      return;
+    }
+    sourceHint = hints[0];
+    sourceInput = input.value;
+    const media = fields.media;
+    adoptSource.disabled = !media || ![...media.options].some(o => o.value === sourceHint.value && !o.disabled);
+    if (media?.value && media.value !== sourceHint.value) sourceText.textContent += '；与当前 Media（' + media.value + '）冲突，未覆盖。';
+    if (adoptSource.disabled) sourceText.textContent += '；页面没有匹配的 Media 选项。';
+    sourceText.textContent += ' 仅为文件名候选，不能证明原盘、Remux 或重编码方式。';
+    log('source-candidate', { value: sourceHint.value, evidence: sourceHint.evidence, conflict: !!media?.value && media.value !== sourceHint.value });
+  };
+  adoptSource.addEventListener('click', () => {
+    if (!sourceHint || input.value !== sourceInput) {
+      clearSource();
+      result.textContent = '媒体信息已变化，请重新解析后再采用来源。';
+      return;
+    }
+    const media = fields.media;
+    const before = media.value;
+    const after = sourceHint.value;
+    if (before !== after) {
+      snapshot = [{ key: 'media', before, after }];
+      setValue(media, after);
+      undoButton.disabled = false;
+    }
+    log('source-adopt', { before, after, evidence: sourceHint.evidence });
+    result.textContent = '已采用来源：' + after + '。若修改了原值，可用「撤销本次填充」撤回；请核实实际来源。';
+    clearSource();
+  });
   if (region) {
     let regionSnapshot = null;
     const controls = document.createElement('div');
@@ -184,6 +237,7 @@ export function mountUpload() {
     return true;
   };
   parseButton.addEventListener('click', () => {
+    clearSource();
     if (!input.value.trim()) {
       result.textContent = '请先粘贴 MediaInfo / BDInfo。';
       log('parse-error', { reason: 'empty-input' });
@@ -193,6 +247,7 @@ export function mountUpload() {
     try {
       const parsed = parseMedia(input.value);
       log('parsed', { kind: parsed.kind, tracks: parsed.tracks });
+      showSource(parsed);
       const report = [];
       let filled = 0;
       let skipped = 0;
