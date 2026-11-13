@@ -6,7 +6,7 @@ import { clean } from './formatting.js';
 
 
 
-async function pushToQBittorrent(item, cfg) {
+async function pushToQBittorrent(item, cfg, push) {
     try {
       const base = clean(cfg.host).replace(/\/$/, '')
       if (!base) throw new Error('qBittorrent Host 为空')
@@ -31,7 +31,7 @@ async function pushToQBittorrent(item, cfg) {
         fieldName: 'torrents',
         fileName: `${item.tid || 'torrent'}.torrent`,
         blob: torrentBlob,
-        extraFields: { category: cfg.qbCategory, tags: cfg.qbTags, savepath: cfg.qbSavePath }
+        extraFields: { category: push?.qbCategory, tags: push?.qbTags, savepath: push?.qbSavePath, autoTMM: push?.qbAutoTMM ? 'true' : 'false' }
       })
       if (add.status !== 200) throw new Error(`qBittorrent 添加失败 HTTP ${add.status}: ${add.responseText?.slice(0, 100) || ''}`)
     } catch (error) {
@@ -68,7 +68,7 @@ async function testDownloaderConnection(cfg) {
     if (json.result && json.result !== 'success') throw new Error(json.result)
   }
 
-async function pushToTransmission(item, cfg) {
+async function pushToTransmission(item, cfg, push) {
     const base = clean(cfg.host).replace(/\/$/, '')
     if (!base) throw new Error('Transmission Host 为空')
     const rpcUrl = `${base}/transmission/rpc`
@@ -80,8 +80,8 @@ async function pushToTransmission(item, cfg) {
     let binary = ''
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
     const args = { metainfo: btoa(binary) }
-    if (cfg.trDownloadDir) args['download-dir'] = cfg.trDownloadDir
-    const labels = String(cfg.trLabels || '').split(',').map(s => s.trim()).filter(Boolean)
+    if (push?.trDownloadDir) args['download-dir'] = push.trDownloadDir
+    const labels = String(push?.trLabels || '').split(',').map(s => s.trim()).filter(Boolean)
     if (labels.length) args.labels = labels
     const headers = { 'Content-Type': 'application/json' }
     if (cfg.username) headers.Authorization = 'Basic ' + btoa(`${cfg.username}:${cfg.password}`)

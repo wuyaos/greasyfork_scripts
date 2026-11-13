@@ -8,20 +8,25 @@ const CUSTOM_SITES_KEY = 'ptbd_custom_sites'
 
 const DOWNLOADERS_KEY = 'ptbd_downloaders'
 
+const PUSH_CONFIGS_KEY = 'ptbd_push_configs'
+
 const DEFAULT_PATHS = ['/userdetails.php', '/torrents.php', '/special.php', '/browse.php']
 
 const UNIT3D_LIST_PATH = '/torrents'
 
 const UNIT3D_DL_SELECTOR = 'a[href*="/torrents/download/"]'
 
-const DEFAULT_DL = { id: '', name: '', type: 'qb', host: '', username: '', password: '', qbCategory: '', qbTags: '', qbSavePath: '', trDownloadDir: '', trLabels: '' }
+// 下载器只存连接信息；分类/标签/保存路径等推送参数在推送配置里
+const DEFAULT_DL = { id: '', name: '', type: 'qb', host: '', username: '', password: '' }
+
+const DEFAULT_PUSH = { id: '', name: '', downloaderId: '', qbCategory: '', qbTags: '', qbSavePath: '', qbAutoTMM: false, trDownloadDir: '', trLabels: '' }
 
 const UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4, b: 1 }
 
 const SIZE_UNITS = ['GiB', 'MiB', 'KiB', 'TiB']
 
-const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', isDownloading: false, ui: {} }
+const state = { torrents: [], filtered: [], selected: new Set(), selectedDownloaderId: '', selectedPushId: '', isDownloading: false, ui: {} }
 
 
 
-export { CUSTOM_SITES_KEY, DEFAULT_DL, DEFAULT_PATHS, DOWNLOADERS_KEY, ID, SIZE_UNITS, TOGGLE_ID, UNIT3D_DL_SELECTOR, UNIT3D_LIST_PATH, UNIT_BYTES, state };
+export { CUSTOM_SITES_KEY, DEFAULT_DL, DEFAULT_PATHS, DEFAULT_PUSH, DOWNLOADERS_KEY, ID, PUSH_CONFIGS_KEY, SIZE_UNITS, TOGGLE_ID, UNIT3D_DL_SELECTOR, UNIT3D_LIST_PATH, UNIT_BYTES, state };

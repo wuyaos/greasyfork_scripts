@@ -24,6 +24,7 @@ pnpm-debug.log*
 # Build staging (keep dist/*.user.js and package-lock.json tracked)
 /dist/.build-*/
 /.userscript-build-*/
+/build/
 
 # Local verification output (keep tests/contracts/ tracked)
 /coverage/

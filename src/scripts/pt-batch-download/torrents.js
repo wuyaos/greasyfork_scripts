@@ -14,7 +14,10 @@ function refreshTorrents() {
     state.torrents = extractTorrents()
     // 筛选选项来自当前页扫描到的唯一促销标记（去重排序）
     const tags = [...new Set(state.torrents.flatMap(item => item.promotion))].sort()
-    fillMulti(state.ui.promotion, tags.map(tag => [tag, tag]), selectedMulti(state.ui.promotion))
+    // 优惠恢复：首次填充时用 sessionStorage 保存的勾选，之后保留当前勾选
+    const savedPromotions = state.savedPromotions
+    if (savedPromotions) state.savedPromotions = null
+    fillMulti(state.ui.promotion, tags.map(tag => [tag, tag]), savedPromotions || selectedMulti(state.ui.promotion))
     applyFilters(true)
   }
 

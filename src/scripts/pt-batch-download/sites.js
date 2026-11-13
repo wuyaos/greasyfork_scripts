@@ -4,6 +4,8 @@ import { adapters, gazelleAdapter, mamAdapter } from './adapters.js';
 
 import { configDownloader } from './downloader-settings.js';
 
+import { configPush } from './push-settings.js';
+
 import { button, el } from './controls.js';
 
 import { clean, escapeRegExp, safeGet } from './formatting.js';
@@ -28,6 +30,7 @@ function registerMenus() {
     GM_registerMenuCommand('添加站点', addSite)
     GM_registerMenuCommand('页面管理', manageSites)
     GM_registerMenuCommand('下载器设置', configDownloader)
+    GM_registerMenuCommand('推送配置', configPush)
   }
 
 function shouldRun() {

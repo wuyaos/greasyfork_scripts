@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PT 批量下载种子
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.6.12
+// @version      0.7.0
 // @description  通用 PT 当前页批量下载工具，支持关键字/体积/做种数/优惠多选筛选、浏览器直下(zip打包)、qBittorrent/Transmission 推送。适配 NexusPHP、Unit3D(/torrents)、Gazelle(GGn) 列表页。
 // @author       wuyaos & AI
 // @match        https://*/*.php*
@@ -32,13 +32,15 @@
   var TOGGLE_ID = "ptbd-toggle";
   var CUSTOM_SITES_KEY = "ptbd_custom_sites";
   var DOWNLOADERS_KEY = "ptbd_downloaders";
+  var PUSH_CONFIGS_KEY = "ptbd_push_configs";
   var DEFAULT_PATHS = ["/userdetails.php", "/torrents.php", "/special.php", "/browse.php"];
   var UNIT3D_LIST_PATH = "/torrents";
   var UNIT3D_DL_SELECTOR = 'a[href*="/torrents/download/"]';
-  var DEFAULT_DL = { id: "", name: "", type: "qb", host: "", username: "", password: "", qbCategory: "", qbTags: "", qbSavePath: "", trDownloadDir: "", trLabels: "" };
+  var DEFAULT_DL = { id: "", name: "", type: "qb", host: "", username: "", password: "" };
+  var DEFAULT_PUSH = { id: "", name: "", downloaderId: "", qbCategory: "", qbTags: "", qbSavePath: "", qbAutoTMM: false, trDownloadDir: "", trLabels: "" };
   var UNIT_BYTES = { kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3, tib: 1024 ** 4, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4, b: 1 };
   var SIZE_UNITS = ["GiB", "MiB", "KiB", "TiB"];
-  var state = { torrents: [], filtered: [], selected: /* @__PURE__ */ new Set(), selectedDownloaderId: "", isDownloading: false, ui: {} };
+  var state = { torrents: [], filtered: [], selected: /* @__PURE__ */ new Set(), selectedDownloaderId: "", selectedPushId: "", isDownloading: false, ui: {} };
 
   // src/scripts/pt-batch-download/upload.js
   function gmUploadFile({ url, headers = {}, fieldName, fileName, blob, extraFields = {} }) {
@@ -204,7 +206,7 @@ Content-Type: application/x-bittorrent\r
   __name(setStatus, "setStatus");
 
   // src/scripts/pt-batch-download/downloaders.js
-  async function pushToQBittorrent(item, cfg) {
+  async function pushToQBittorrent(item, cfg, push) {
     try {
       const base = clean(cfg.host).replace(/\/$/, "");
       if (!base) throw new Error("qBittorrent Host 为空");
@@ -229,7 +231,7 @@ Content-Type: application/x-bittorrent\r
         fieldName: "torrents",
         fileName: `${item.tid || "torrent"}.torrent`,
         blob: torrentBlob,
-        extraFields: { category: cfg.qbCategory, tags: cfg.qbTags, savepath: cfg.qbSavePath }
+        extraFields: { category: push?.qbCategory, tags: push?.qbTags, savepath: push?.qbSavePath, autoTMM: push?.qbAutoTMM ? "true" : "false" }
       });
       if (add.status !== 200) throw new Error(`qBittorrent 添加失败 HTTP ${add.status}: ${add.responseText?.slice(0, 100) || ""}`);
     } catch (error) {
@@ -266,7 +268,7 @@ Content-Type: application/x-bittorrent\r
     if (json.result && json.result !== "success") throw new Error(json.result);
   }
   __name(testDownloaderConnection, "testDownloaderConnection");
-  async function pushToTransmission(item, cfg) {
+  async function pushToTransmission(item, cfg, push) {
     const base = clean(cfg.host).replace(/\/$/, "");
     if (!base) throw new Error("Transmission Host 为空");
     const rpcUrl = `${base}/transmission/rpc`;
@@ -278,8 +280,8 @@ Content-Type: application/x-bittorrent\r
     let binary = "";
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     const args = { metainfo: btoa(binary) };
-    if (cfg.trDownloadDir) args["download-dir"] = cfg.trDownloadDir;
-    const labels = String(cfg.trLabels || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (push?.trDownloadDir) args["download-dir"] = push.trDownloadDir;
+    const labels = String(push?.trLabels || "").split(",").map((s) => s.trim()).filter(Boolean);
     if (labels.length) args.labels = labels;
     const headers = { "Content-Type": "application/json" };
     if (cfg.username) headers.Authorization = "Basic " + btoa(`${cfg.username}:${cfg.password}`);
@@ -495,6 +497,7 @@ Content-Type: application/x-bittorrent\r
       body
     );
     const renderList = /* @__PURE__ */ __name(() => {
+      body.append(el("div", { class: "ptbd-empty" }, "此处仅配置连接（host/账密）；分类、标签、保存路径、autoTMM 等推送参数请用菜单「推送配置」"));
       body.textContent = "";
       const list = getDownloaders();
       if (!list.length) body.append(el("div", { class: "ptbd-empty" }, "暂无下载器"));
@@ -523,26 +526,13 @@ Content-Type: application/x-bittorrent\r
       const dlHost = input("text", "http://127.0.0.1:8080", item.host);
       const dlUsername = input("text", "Username", item.username);
       const dlPassword = input("password", "Password", item.password);
-      const qbCategory = input("text", "Category", item.qbCategory);
-      const qbTags = input("text", "Tags, comma separated", item.qbTags);
-      const qbSavePath = input("text", "Save path", item.qbSavePath);
-      const trDownloadDir = input("text", "Download dir", item.trDownloadDir);
-      const trLabels = input("text", "Labels, comma separated", item.trLabels);
       const errorBox = el("div", { class: "ptbd-form-errors" });
       const testStatus = el("span", { class: "ptbd-test-status" });
-      const qbRows = [el("div", { class: "ptbd-section-title" }, "qBittorrent"), field("分类", qbCategory), field("标签", qbTags), field("保存路径", qbSavePath)];
-      const trRows = [el("div", { class: "ptbd-section-title" }, "Transmission"), field("下载目录", trDownloadDir), field("标签", trLabels)];
       const fillName = /* @__PURE__ */ __name(() => {
         if (clean(dlName.value) || !clean(dlHost.value)) return;
         dlName.value = `${dlType.value === "qb" ? "qBittorrent" : "Transmission"} ${clean(dlHost.value)}`;
       }, "fillName");
       const setTypeFields = /* @__PURE__ */ __name(() => {
-        qbRows.forEach((row) => {
-          row.style.display = dlType.value === "qb" ? "" : "none";
-        });
-        trRows.forEach((row) => {
-          row.style.display = dlType.value === "tr" ? "" : "none";
-        });
         fillName();
       }, "setTypeFields");
       const validate = /* @__PURE__ */ __name(() => {
@@ -561,12 +551,7 @@ Content-Type: application/x-bittorrent\r
         type: dlType.value,
         host: clean(dlHost.value),
         username: clean(dlUsername.value),
-        password: dlPassword.value,
-        qbCategory: clean(qbCategory.value),
-        qbTags: clean(qbTags.value),
-        qbSavePath: clean(qbSavePath.value),
-        trDownloadDir: clean(trDownloadDir.value),
-        trLabels: clean(trLabels.value)
+        password: dlPassword.value
       }), "currentConfig");
       const test = button("测试连接", async () => {
         testStatus.textContent = "测试中...";
@@ -609,8 +594,6 @@ Content-Type: application/x-bittorrent\r
           field("Host", dlHost),
           field("用户名", dlUsername),
           field("密码", dlPassword),
-          qbRows,
-          trRows,
           errorBox,
           el("div", { class: "ptbd-actions" }, cancel, test, testStatus, save)
         )
@@ -682,6 +665,188 @@ Content-Type: application/x-bittorrent\r
     if (state.ui.batchButton) state.ui.batchButton.textContent = state.selectedDownloaderId ? "推送已选" : "下载已选";
   }
   __name(updateDownloaderStatus, "updateDownloaderStatus");
+
+  // src/scripts/pt-batch-download/push-settings.js
+  function configPush() {
+    ensureStyle();
+    document.querySelector("#ptbd-push-modal")?.remove();
+    const overlay = el("div", { id: "ptbd-push-modal", class: "ptbd-modal" });
+    const close = button("×", () => overlay.remove(), "ptbd-close");
+    const body = el("div", { class: "ptbd-dl-modal-body" });
+    const box = el(
+      "div",
+      { class: "ptbd-modal-box" },
+      el("div", { class: "ptbd-modal-head" }, el("strong", {}, "推送配置"), close),
+      body
+    );
+    const renderList = /* @__PURE__ */ __name(() => {
+      body.textContent = "";
+      const list = getPushConfigs();
+      if (!list.length) body.append(el("div", { class: "ptbd-empty" }, "暂无推送配置"));
+      list.forEach((cfg) => {
+        const downloader = getDownloaders().find((item) => String(item.id) === String(cfg.downloaderId));
+        const edit = button("编辑", () => renderEditor(cfg), "ptbd-btn");
+        const del = button("删除", () => {
+          if (!confirm(`删除推送配置：${cfg.name || "(未命名)"}？`)) return;
+          savePushConfigs(getPushConfigs().filter((item) => item.id !== cfg.id));
+          if (state.selectedPushId === cfg.id) state.selectedPushId = "";
+          updatePushStatus();
+          renderList();
+        }, "ptbd-btn ptbd-danger");
+        body.append(el(
+          "div",
+          { class: "ptbd-site-item" },
+          el("span", {}, `${cfg.name || "(未命名)"} / ${downloader?.name || downloader?.host || "未绑定下载器"}${cfg.qbAutoTMM ? " / autoTMM" : ""}`),
+          el("div", { class: "ptbd-actions" }, edit, del)
+        ));
+      });
+      body.append(el("div", { class: "ptbd-actions" }, button("添加推送配置", () => renderEditor(), "ptbd-btn ptbd-btn-check")));
+    }, "renderList");
+    const renderEditor = /* @__PURE__ */ __name((cfg) => {
+      const item = { ...DEFAULT_PUSH, ...cfg || {}, id: cfg?.id || "" };
+      const pushName = input("text", "显示名称", item.name);
+      const dlSelect = select([["", "未绑定"], ...getDownloaders().map((d) => [d.id, d.name || d.host || (d.type === "tr" ? "Transmission" : "qBittorrent")])], item.downloaderId);
+      const qbCategory = input("text", "Category", item.qbCategory);
+      const qbTags = input("text", "Tags, comma separated", item.qbTags);
+      const qbSavePath = input("text", "Save path", item.qbSavePath);
+      const qbAutoTMM = el("input", { type: "checkbox" });
+      qbAutoTMM.checked = !!item.qbAutoTMM;
+      const trDownloadDir = input("text", "Download dir", item.trDownloadDir);
+      const trLabels = input("text", "Labels, comma separated", item.trLabels);
+      const errorBox = el("div", { class: "ptbd-form-errors" });
+      const qbRows = [
+        el("div", { class: "ptbd-section-title" }, "qBittorrent"),
+        field("分类", qbCategory),
+        field("标签", qbTags),
+        field("保存路径", qbSavePath),
+        el("div", { class: "ptbd-field" }, el("label", {}, "自动管理"), el("label", { style: "display:flex;align-items:center;gap:6px;text-align:left" }, qbAutoTMM, el("span", {}, "autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）")))
+      ];
+      const trRows = [el("div", { class: "ptbd-section-title" }, "Transmission"), field("下载目录", trDownloadDir), field("标签", trLabels)];
+      const setTypeFields = /* @__PURE__ */ __name(() => {
+        const downloader = getDownloaders().find((d) => String(d.id) === String(dlSelect.value));
+        const type = downloader?.type;
+        qbRows.forEach((row) => {
+          row.style.display = type === "qb" ? "" : "none";
+        });
+        trRows.forEach((row) => {
+          row.style.display = type === "tr" ? "" : "none";
+        });
+      }, "setTypeFields");
+      const validate = /* @__PURE__ */ __name(() => {
+        const errors = [];
+        if (!clean(pushName.value)) errors.push("名称不能为空");
+        if (!clean(dlSelect.value)) errors.push("请绑定下载器（可在「下载器设置」中创建）");
+        errorBox.textContent = "";
+        errors.forEach((message) => errorBox.append(el("div", {}, message)));
+        return !errors.length;
+      }, "validate");
+      const currentConfig = /* @__PURE__ */ __name(() => ({
+        id: item.id,
+        name: clean(pushName.value),
+        downloaderId: clean(dlSelect.value),
+        qbCategory: clean(qbCategory.value),
+        qbTags: clean(qbTags.value),
+        qbSavePath: clean(qbSavePath.value),
+        qbAutoTMM: qbAutoTMM.checked,
+        trDownloadDir: clean(trDownloadDir.value),
+        trLabels: clean(trLabels.value)
+      }), "currentConfig");
+      const save = button("保存", () => {
+        if (!validate()) return;
+        const saved = currentConfig();
+        if (!saved.id) saved.id = uniqueId();
+        item.id = saved.id;
+        const list = getPushConfigs();
+        const index = list.findIndex((old) => String(old.id) === String(saved.id));
+        if (index >= 0) list[index] = saved;
+        else list.push(saved);
+        savePushConfigs(list);
+        state.selectedPushId = saved.id;
+        updatePushStatus();
+        setStatus("推送配置已保存");
+        renderList();
+      }, "ptbd-btn ptbd-btn-check");
+      const cancel = button("取消", renderList, "ptbd-btn");
+      dlSelect.addEventListener("change", setTypeFields);
+      body.textContent = "";
+      body.append(
+        el(
+          "div",
+          { class: "ptbd-dl-form" },
+          field("名称", pushName),
+          field("下载器", dlSelect),
+          qbRows,
+          trRows,
+          errorBox,
+          el("div", { class: "ptbd-actions" }, cancel, save)
+        )
+      );
+      setTypeFields();
+    }, "renderEditor");
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    overlay.append(box);
+    document.body.append(overlay);
+    renderList();
+  }
+  __name(configPush, "configPush");
+  function getPushConfigs() {
+    let list = [];
+    try {
+      list = GM_getValue(PUSH_CONFIGS_KEY, []);
+    } catch (error) {
+    }
+    if (!Array.isArray(list)) return [];
+    let changed = false;
+    const normalized = list.map((item) => {
+      const cfg = { ...DEFAULT_PUSH, ...item && typeof item === "object" ? item : {} };
+      if (!cfg.id) {
+        cfg.id = uniqueId();
+        changed = true;
+      }
+      return cfg;
+    }).filter((item) => item.id);
+    if (changed) GM_setValue(PUSH_CONFIGS_KEY, normalized);
+    return normalized;
+  }
+  __name(getPushConfigs, "getPushConfigs");
+  function savePushConfigs(list) {
+    GM_setValue(PUSH_CONFIGS_KEY, Array.isArray(list) ? list : []);
+  }
+  __name(savePushConfigs, "savePushConfigs");
+  function getPushById(id) {
+    if (!id) return null;
+    return getPushConfigs().find((item) => String(item.id) === String(id)) || null;
+  }
+  __name(getPushById, "getPushById");
+  function pushStatusText(count) {
+    return count ? "推送:" : "推送: 无";
+  }
+  __name(pushStatusText, "pushStatusText");
+  function pushSelect(pushConfigs) {
+    const sel = select([["", "无(默认推送)"], ...pushConfigs.map((item) => [item.id, item.name || "(未命名)"])], state.selectedPushId);
+    sel.className = "ptbd-dl-select";
+    sel.addEventListener("change", () => {
+      state.selectedPushId = sel.value;
+      updatePushStatus();
+    });
+    return sel;
+  }
+  __name(pushSelect, "pushSelect");
+  function updatePushStatus() {
+    const pushConfigs = getPushConfigs();
+    if (state.selectedPushId && !pushConfigs.some((item) => String(item.id) === String(state.selectedPushId))) state.selectedPushId = "";
+    if (state.ui.pushStatus) state.ui.pushStatus.textContent = pushStatusText(pushConfigs.length);
+    if (state.ui.pushSelect) {
+      const value = state.selectedPushId;
+      state.ui.pushSelect.textContent = "";
+      state.ui.pushSelect.append(el("option", { value: "" }, "无(默认推送)"));
+      pushConfigs.forEach((item) => state.ui.pushSelect.append(el("option", { value: item.id }, item.name || "(未命名)")));
+      state.ui.pushSelect.value = value;
+    }
+  }
+  __name(updatePushStatus, "updatePushStatus");
 
   // src/scripts/pt-batch-download/zip.js
   var CRC_TABLE = new Uint32Array(256).map((_, n) => {
@@ -833,11 +998,16 @@ Content-Type: application/x-bittorrent\r
       setStatus("没有勾选种子");
       return;
     }
-    const cfg = getDownloaderById(state.selectedDownloaderId);
+    const push = getPushById(state.selectedPushId);
+    const cfg = push ? getDownloaderById(push.downloaderId) : getDownloaderById(state.selectedDownloaderId);
+    if (push && !cfg) {
+      setStatus("推送配置绑定的下载器不存在，请重新绑定");
+      return;
+    }
     const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || 1200);
     state.isDownloading = true;
     try {
-      const result = !cfg && items.length > 1 ? await downloadZip(items, delay) : await runSerialDownload(items, delay, cfg ? "推送中" : "下载中", (item) => downloadTorrent(item, cfg));
+      const result = !cfg && items.length > 1 ? await downloadZip(items, delay) : await runSerialDownload(items, delay, cfg ? "推送中" : "下载中", (item) => downloadTorrent(item, cfg, push));
       setStatus(`完成：${items.length} 个，成功 ${result.success}，失败 ${result.failed}${result.notice ? `；${result.notice}` : ""}`);
     } catch (error) {
       setStatus(`批量${cfg ? "推送" : "下载/打包"}失败，请重试`);
@@ -846,9 +1016,9 @@ Content-Type: application/x-bittorrent\r
     }
   }
   __name(batchDownload, "batchDownload");
-  async function downloadTorrent(item, cfg = getDownloaderById(state.selectedDownloaderId)) {
-    if (cfg?.type === "qb") return pushToQBittorrent(item, cfg);
-    if (cfg?.type === "tr") return pushToTransmission(item, cfg);
+  async function downloadTorrent(item, cfg = getDownloaderById(state.selectedDownloaderId), push = getPushById(state.selectedPushId)) {
+    if (cfg?.type === "qb") return pushToQBittorrent(item, cfg, push);
+    if (cfg?.type === "tr") return pushToTransmission(item, cfg, push);
     return downloadBlob(item);
   }
   __name(downloadTorrent, "downloadTorrent");
@@ -949,8 +1119,10 @@ Content-Type: application/x-bittorrent\r
   __name(gmRequest, "gmRequest");
 
   // src/scripts/pt-batch-download/filters.js
+  var FILTERS_KEY = "ptbd_filters";
   function applyFilters(autoSelect = false) {
     const cfg = readFilters();
+    saveFilterState(cfg);
     state.filtered = state.torrents.filter((item) => matchFilters(item, cfg));
     const visibleIds = new Set(state.filtered.map((item) => item.tid));
     if (autoSelect || !state.selected.size) {
@@ -974,6 +1146,61 @@ Content-Type: application/x-bittorrent\r
     };
   }
   __name(readFilters, "readFilters");
+  function saveFilterState(cfg) {
+    try {
+      sessionStorage.setItem(FILTERS_KEY, JSON.stringify({
+        keyword: cfg.keyword,
+        sizeMin: state.ui.sizeMin.value,
+        sizeMinUnit: state.ui.sizeMinUnit.value,
+        sizeMax: state.ui.sizeMax.value,
+        sizeMaxUnit: state.ui.sizeMaxUnit.value,
+        seedMin: state.ui.seedMin.value,
+        seedMax: state.ui.seedMax.value,
+        promotions: cfg.promotions,
+        seedingStatus: cfg.seedingStatus
+      }));
+    } catch (error) {
+    }
+  }
+  __name(saveFilterState, "saveFilterState");
+  function restoreFilters() {
+    let saved = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(FILTERS_KEY) || "null");
+    } catch (error) {
+    }
+    if (!saved || typeof saved !== "object") return false;
+    state.ui.keyword.value = saved.keyword || "";
+    state.ui.sizeMin.value = saved.sizeMin || "";
+    state.ui.sizeMinUnit.value = saved.sizeMinUnit || "GiB";
+    state.ui.sizeMax.value = saved.sizeMax || "";
+    state.ui.sizeMaxUnit.value = saved.sizeMaxUnit || "GiB";
+    state.ui.seedMin.value = saved.seedMin == null ? "" : saved.seedMin;
+    state.ui.seedMax.value = saved.seedMax == null ? "" : saved.seedMax;
+    state.ui.seedingStatus.value = saved.seedingStatus || "all";
+    if (Array.isArray(saved.promotions) && saved.promotions.length) state.savedPromotions = saved.promotions;
+    return true;
+  }
+  __name(restoreFilters, "restoreFilters");
+  function resetFilters() {
+    try {
+      sessionStorage.removeItem(FILTERS_KEY);
+    } catch (error) {
+    }
+    state.savedPromotions = null;
+    state.ui.keyword.value = "";
+    state.ui.sizeMin.value = "";
+    state.ui.sizeMinUnit.value = "GiB";
+    state.ui.sizeMax.value = "";
+    state.ui.sizeMaxUnit.value = "GiB";
+    state.ui.seedMin.value = "";
+    state.ui.seedMax.value = "";
+    state.ui.seedingStatus.value = "all";
+    fillMulti(state.ui.promotion, [], []);
+    applyFilters(true);
+    setStatus("筛选已重置");
+  }
+  __name(resetFilters, "resetFilters");
   function matchFilters(item, cfg) {
     if (cfg.keyword && !item.title.toLowerCase().includes(cfg.keyword)) return false;
     if (cfg.sizeMin != null && (item.sizeBytes == null || item.sizeBytes < cfg.sizeMin)) return false;
@@ -1034,7 +1261,9 @@ Content-Type: application/x-bittorrent\r
   function refreshTorrents() {
     state.torrents = extractTorrents();
     const tags = [...new Set(state.torrents.flatMap((item) => item.promotion))].sort();
-    fillMulti(state.ui.promotion, tags.map((tag) => [tag, tag]), selectedMulti(state.ui.promotion));
+    const savedPromotions = state.savedPromotions;
+    if (savedPromotions) state.savedPromotions = null;
+    fillMulti(state.ui.promotion, tags.map((tag) => [tag, tag]), savedPromotions || selectedMulti(state.ui.promotion));
     applyFilters(true);
   }
   __name(refreshTorrents, "refreshTorrents");
@@ -1370,6 +1599,7 @@ Content-Type: application/x-bittorrent\r
     GM_registerMenuCommand("添加站点", addSite);
     GM_registerMenuCommand("页面管理", manageSites);
     GM_registerMenuCommand("下载器设置", configDownloader);
+    GM_registerMenuCommand("推送配置", configPush);
   }
   __name(registerMenus, "registerMenus");
   function shouldRun() {
@@ -1482,7 +1712,10 @@ Content-Type: application/x-bittorrent\r
     state.ui.selectedSize = el("span", { class: "ptbd-dl-status" }, "未选择");
     state.ui.downloaderSelect = downloaderSelect(downloaders);
     state.ui.downloaderStatus = el("span", { class: "ptbd-dl-status" }, downloaderStatusText(downloaders.length));
+    state.ui.pushSelect = pushSelect(getPushConfigs());
+    state.ui.pushStatus = el("span", { class: "ptbd-dl-status" }, pushStatusText(getPushConfigs().length));
     state.ui.tbody = el("tbody");
+    restoreFilters();
     append(
       body,
       el(
@@ -1527,11 +1760,14 @@ Content-Type: application/x-bittorrent\r
       "div",
       { class: "ptbd-actions" },
       button("筛选", () => applyFilters(), "ptbd-btn ptbd-btn-check"),
+      button("重置", () => resetFilters(), "ptbd-btn"),
       button("全选", () => selectVisible(true), "ptbd-btn"),
       button("取消全选", () => selectVisible(false), "ptbd-btn"),
       state.ui.batchButton,
       state.ui.downloaderStatus,
       state.ui.downloaderSelect,
+      state.ui.pushStatus,
+      state.ui.pushSelect,
       state.ui.selectedSize,
       state.ui.status
     );

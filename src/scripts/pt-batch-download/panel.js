@@ -2,11 +2,13 @@ import { ID, TOGGLE_ID, state } from './config.js';
 
 import { refreshTorrents } from './torrents.js';
 
-import { applyFilters, selectVisible } from './filters.js';
+import { applyFilters, resetFilters, restoreFilters, selectVisible } from './filters.js';
 
 import { batchDownload } from './download.js';
 
 import { downloaderSelect, downloaderStatusText, getDownloaders } from './downloader-settings.js';
+
+import { getPushConfigs, pushSelect, pushStatusText } from './push-settings.js';
 
 import { append, button, el, field, input, multiFilter, rangeField, select, selectField, sizeRangeField, unitSelect } from './controls.js';
 
@@ -37,7 +39,10 @@ function buildPanel() {
     state.ui.selectedSize = el('span', { class: 'ptbd-dl-status' }, '未选择')
     state.ui.downloaderSelect = downloaderSelect(downloaders)
     state.ui.downloaderStatus = el('span', { class: 'ptbd-dl-status' }, downloaderStatusText(downloaders.length))
+    state.ui.pushSelect = pushSelect(getPushConfigs())
+    state.ui.pushStatus = el('span', { class: 'ptbd-dl-status' }, pushStatusText(getPushConfigs().length))
     state.ui.tbody = el('tbody')
+    restoreFilters()
 
     append(body,
       el('div', { class: 'ptbd-filter-groups' },
@@ -74,11 +79,14 @@ function actionsRow() {
     state.ui.batchButton = button('下载已选', batchDownload, 'ptbd-btn ptbd-btn-primary')
     return el('div', { class: 'ptbd-actions' },
       button('筛选', () => applyFilters(), 'ptbd-btn ptbd-btn-check'),
+      button('重置', () => resetFilters(), 'ptbd-btn'),
       button('全选', () => selectVisible(true), 'ptbd-btn'),
       button('取消全选', () => selectVisible(false), 'ptbd-btn'),
       state.ui.batchButton,
       state.ui.downloaderStatus,
       state.ui.downloaderSelect,
+      state.ui.pushStatus,
+      state.ui.pushSelect,
       state.ui.selectedSize,
       state.ui.status
     )

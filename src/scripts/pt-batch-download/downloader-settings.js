@@ -21,6 +21,7 @@ function configDownloader() {
       body
     )
     const renderList = () => {
+      body.append(el('div', { class: 'ptbd-empty' }, '此处仅配置连接（host/账密）；分类、标签、保存路径、autoTMM 等推送参数请用菜单「推送配置」'))
       body.textContent = ''
       const list = getDownloaders()
       if (!list.length) body.append(el('div', { class: 'ptbd-empty' }, '暂无下载器'))
@@ -47,22 +48,13 @@ function configDownloader() {
       const dlHost = input('text', 'http://127.0.0.1:8080', item.host)
       const dlUsername = input('text', 'Username', item.username)
       const dlPassword = input('password', 'Password', item.password)
-      const qbCategory = input('text', 'Category', item.qbCategory)
-      const qbTags = input('text', 'Tags, comma separated', item.qbTags)
-      const qbSavePath = input('text', 'Save path', item.qbSavePath)
-      const trDownloadDir = input('text', 'Download dir', item.trDownloadDir)
-      const trLabels = input('text', 'Labels, comma separated', item.trLabels)
       const errorBox = el('div', { class: 'ptbd-form-errors' })
       const testStatus = el('span', { class: 'ptbd-test-status' })
-      const qbRows = [el('div', { class: 'ptbd-section-title' }, 'qBittorrent'), field('分类', qbCategory), field('标签', qbTags), field('保存路径', qbSavePath)]
-      const trRows = [el('div', { class: 'ptbd-section-title' }, 'Transmission'), field('下载目录', trDownloadDir), field('标签', trLabels)]
       const fillName = () => {
         if (clean(dlName.value) || !clean(dlHost.value)) return
         dlName.value = `${dlType.value === 'qb' ? 'qBittorrent' : 'Transmission'} ${clean(dlHost.value)}`
       }
       const setTypeFields = () => {
-        qbRows.forEach(row => { row.style.display = dlType.value === 'qb' ? '' : 'none' })
-        trRows.forEach(row => { row.style.display = dlType.value === 'tr' ? '' : 'none' })
         fillName()
       }
       const validate = () => {
@@ -81,12 +73,7 @@ function configDownloader() {
         type: dlType.value,
         host: clean(dlHost.value),
         username: clean(dlUsername.value),
-        password: dlPassword.value,
-        qbCategory: clean(qbCategory.value),
-        qbTags: clean(qbTags.value),
-        qbSavePath: clean(qbSavePath.value),
-        trDownloadDir: clean(trDownloadDir.value),
-        trLabels: clean(trLabels.value)
+        password: dlPassword.value
       })
       const test = button('测试连接', async () => {
         testStatus.textContent = '测试中...'
@@ -127,8 +114,6 @@ function configDownloader() {
           field('Host', dlHost),
           field('用户名', dlUsername),
           field('密码', dlPassword),
-          qbRows,
-          trRows,
           errorBox,
           el('div', { class: 'ptbd-actions' }, cancel, test, testStatus, save)
         )

@@ -4,6 +4,8 @@ import { pushToQBittorrent, pushToTransmission } from './downloaders.js';
 
 import { getDownloaderById } from './downloader-settings.js';
 
+import { getPushById } from './push-settings.js';
+
 import { el } from './controls.js';
 
 import { fileNameFromDisposition, sanitize, setStatus, sleep, uniqueByTid } from './formatting.js';
@@ -64,13 +66,21 @@ async function batchDownload() {
       setStatus('没有勾选种子')
       return
     }
-    const cfg = getDownloaderById(state.selectedDownloaderId)
+    // 选中推送配置时以其绑定的下载器为准；未选推送配置时用面板下拉的下载器
+    const push = getPushById(state.selectedPushId)
+    const cfg = push
+      ? getDownloaderById(push.downloaderId)
+      : getDownloaderById(state.selectedDownloaderId)
+    if (push && !cfg) {
+      setStatus('推送配置绑定的下载器不存在，请重新绑定')
+      return
+    }
     const delay = Math.max(300, parseInt(state.ui.delay.value, 10) || 1200)
     state.isDownloading = true
     try {
       const result = !cfg && items.length > 1
         ? await downloadZip(items, delay)
-        : await runSerialDownload(items, delay, cfg ? '推送中' : '下载中', item => downloadTorrent(item, cfg))
+        : await runSerialDownload(items, delay, cfg ? '推送中' : '下载中', item => downloadTorrent(item, cfg, push))
       setStatus(`完成：${items.length} 个，成功 ${result.success}，失败 ${result.failed}${result.notice ? `；${result.notice}` : ''}`)
     } catch (error) {
       setStatus(`批量${cfg ? '推送' : '下载/打包'}失败，请重试`)
@@ -79,9 +89,9 @@ async function batchDownload() {
     }
   }
 
-async function downloadTorrent(item, cfg = getDownloaderById(state.selectedDownloaderId)) {
-    if (cfg?.type === 'qb') return pushToQBittorrent(item, cfg)
-    if (cfg?.type === 'tr') return pushToTransmission(item, cfg)
+async function downloadTorrent(item, cfg = getDownloaderById(state.selectedDownloaderId), push = getPushById(state.selectedPushId)) {
+    if (cfg?.type === 'qb') return pushToQBittorrent(item, cfg, push)
+    if (cfg?.type === 'tr') return pushToTransmission(item, cfg, push)
     return downloadBlob(item)
   }
 
