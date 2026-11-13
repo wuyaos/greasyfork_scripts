@@ -301,6 +301,26 @@ Content-Type: application/x-bittorrent\r
   __name(pushToTransmission, "pushToTransmission");
 
   // src/scripts/pt-batch-download/controls.js
+  function modal(id, title) {
+    document.getElementById(id)?.remove();
+    const overlay = el("div", { id, class: `ptbd-modal ${pageIsDark() ? "ptbd-theme-dark" : "ptbd-theme-light"}` });
+    const close = /* @__PURE__ */ __name(() => overlay.remove(), "close");
+    const closeButton = button("×", close, "ptbd-close");
+    closeButton.setAttribute("aria-label", "关闭");
+    const body = el("div", { class: "ptbd-dl-modal-body" });
+    overlay.append(el(
+      "section",
+      { class: "ptbd-modal-box", role: "dialog", "aria-modal": "true", "aria-label": title },
+      el("div", { class: "ptbd-modal-head" }, el("strong", {}, title), closeButton),
+      body
+    ));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close();
+    });
+    document.body.append(overlay);
+    return { overlay, body, close };
+  }
+  __name(modal, "modal");
   function multiFilter(title, selected) {
     const root = el("details");
     const summary = el("summary");
@@ -418,8 +438,8 @@ Content-Type: application/x-bittorrent\r
   function ensureStyle() {
     if (document.querySelector("#ptbd-style")) return;
     GM_addStyle(`
-#${ID}.ptbd-theme-dark{--ptbd-panel-bg:linear-gradient(180deg,#162234,#101928);--ptbd-head-bg:rgba(21,35,55,.92);--ptbd-text:#c9d7ea;--ptbd-title:#e8f1ff;--ptbd-label:#dbeafe;--ptbd-muted:#a9bdd5;--ptbd-border:#2b4565;--ptbd-border-strong:#385a82;--ptbd-input-bg:#0f1b2b;--ptbd-input-text:#e5eefb;--ptbd-menu-hover:#17304d;--ptbd-btn-bg:#17263a;--ptbd-btn-text:#dbeafe;--ptbd-primary-bg:#173f35;--ptbd-primary-border:#2f7d5d;--ptbd-primary-text:#b9f6d3;--ptbd-check-bg:#15304c;--ptbd-status-bg:#101b2b;--ptbd-shadow:0 8px 24px rgba(0,0,0,.28)}
-#${ID}.ptbd-theme-light{--ptbd-panel-bg:linear-gradient(180deg,#fbfcfe,#f4f7fb);--ptbd-head-bg:rgba(238,243,248,.92);--ptbd-text:#2f3742;--ptbd-title:#253044;--ptbd-label:#3a4757;--ptbd-muted:#536071;--ptbd-border:#d8dee8;--ptbd-border-strong:#c8d1dd;--ptbd-input-bg:#fff;--ptbd-input-text:#243044;--ptbd-menu-hover:#f2f6fb;--ptbd-btn-bg:#f3f5f8;--ptbd-btn-text:#2f3b4d;--ptbd-primary-bg:#e6f3ed;--ptbd-primary-border:#a8d0bc;--ptbd-primary-text:#1f6041;--ptbd-check-bg:#e8f1fb;--ptbd-status-bg:#eef3f8;--ptbd-shadow:0 2px 8px rgba(20,35,60,.12)}
+#${ID}.ptbd-theme-dark,.ptbd-modal:not(.ptbd-theme-light){--ptbd-panel-bg:linear-gradient(180deg,#162234,#101928);--ptbd-head-bg:rgba(21,35,55,.92);--ptbd-text:#c9d7ea;--ptbd-title:#e8f1ff;--ptbd-label:#dbeafe;--ptbd-muted:#a9bdd5;--ptbd-border:#2b4565;--ptbd-border-strong:#385a82;--ptbd-input-bg:#0f1b2b;--ptbd-input-text:#e5eefb;--ptbd-menu-hover:#17304d;--ptbd-btn-bg:#17263a;--ptbd-btn-text:#dbeafe;--ptbd-primary-bg:#173f35;--ptbd-primary-border:#2f7d5d;--ptbd-primary-text:#b9f6d3;--ptbd-check-bg:#15304c;--ptbd-status-bg:#101b2b;--ptbd-shadow:0 8px 24px rgba(0,0,0,.28)}
+#${ID}.ptbd-theme-light,.ptbd-modal.ptbd-theme-light{--ptbd-panel-bg:linear-gradient(180deg,#fbfcfe,#f4f7fb);--ptbd-head-bg:rgba(238,243,248,.92);--ptbd-text:#2f3742;--ptbd-title:#253044;--ptbd-label:#3a4757;--ptbd-muted:#536071;--ptbd-border:#d8dee8;--ptbd-border-strong:#c8d1dd;--ptbd-input-bg:#fff;--ptbd-input-text:#243044;--ptbd-menu-hover:#f2f6fb;--ptbd-btn-bg:#f3f5f8;--ptbd-btn-text:#2f3b4d;--ptbd-primary-bg:#e6f3ed;--ptbd-primary-border:#a8d0bc;--ptbd-primary-text:#1f6041;--ptbd-check-bg:#e8f1fb;--ptbd-status-bg:#eef3f8;--ptbd-shadow:0 2px 8px rgba(20,35,60,.12)}
 #${TOGGLE_ID}{position:fixed;right:18px;bottom:18px;z-index:999999;border:0;border-radius:999px;padding:10px 16px;background:#2563eb;color:#fff;font:700 13px/1 Arial,Helvetica,sans-serif;cursor:pointer;box-shadow:0 10px 28px rgba(37,99,235,.35),0 4px 14px rgba(0,0,0,.25)}
 #${TOGGLE_ID}:hover{filter:brightness(1.08)}
 #${ID}{position:fixed;right:18px;bottom:66px;z-index:999998;width:min(1180px,calc(100vw - 36px));max-height:82vh;overflow:auto;box-sizing:border-box;color:var(--ptbd-text);background:var(--ptbd-panel-bg);border:1px solid var(--ptbd-border);border-radius:10px;box-shadow:var(--ptbd-shadow);font:12px/1.5 Arial,Helvetica,'Microsoft YaHei',sans-serif}
@@ -433,10 +453,10 @@ Content-Type: application/x-bittorrent\r
 #${ID} .ptbd-filter-row{display:grid;gap:10px;align-items:center}
 #${ID} .ptbd-filter-row-main{grid-template-columns:minmax(260px,1.2fr) minmax(420px,1.8fr) minmax(180px,.7fr)}
 #${ID} .ptbd-filter-row-extra{grid-template-columns:minmax(220px,.8fr) minmax(320px,1.3fr) minmax(260px,1fr)}
-#${ID} .ptbd-field{display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:8px;color:var(--ptbd-muted);min-width:0}
-#${ID} .ptbd-field>label{color:var(--ptbd-label);font-weight:600;white-space:nowrap;text-align:right;min-width:72px}
-#${ID} input,#${ID} select{height:28px;width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--ptbd-border-strong);border-radius:5px;background:var(--ptbd-input-bg);color:var(--ptbd-input-text);padding:2px 7px}
-#${ID} input::placeholder{color:var(--ptbd-muted)}
+:is(#${ID},.ptbd-modal) .ptbd-field{display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:8px;color:var(--ptbd-muted);min-width:0}
+:is(#${ID},.ptbd-modal) .ptbd-field>label{color:var(--ptbd-label);font-weight:600;white-space:nowrap;text-align:right;min-width:72px}
+:is(#${ID},.ptbd-modal) input,:is(#${ID},.ptbd-modal) select{height:28px;width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--ptbd-border-strong);border-radius:5px;background:var(--ptbd-input-bg);color:var(--ptbd-input-text);padding:2px 7px}
+:is(#${ID},.ptbd-modal) input::placeholder{color:var(--ptbd-muted)}
 #${ID} .ptbd-range{display:grid;grid-template-columns:minmax(96px,1fr) auto minmax(96px,1fr);align-items:center;gap:8px;min-width:0}
 #${ID} .ptbd-size-range-field .ptbd-range{grid-template-columns:minmax(150px,1fr) auto minmax(150px,1fr)}
 #${ID} .ptbd-size-box{display:grid;grid-template-columns:minmax(92px,1fr) 54px;gap:6px;min-width:0}
@@ -451,16 +471,16 @@ Content-Type: application/x-bittorrent\r
 #${ID} .ptbd-menu label{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;white-space:nowrap;cursor:pointer}
 #${ID} .ptbd-menu label:hover{background:var(--ptbd-menu-hover)}
 #${ID} .ptbd-menu input{width:auto;height:auto}
-#${ID} .ptbd-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-#${ID} .ptbd-btn,#${ID} .ptbd-mini,#${ID} .ptbd-collapse{height:28px;border:1px solid var(--ptbd-border-strong);border-radius:5px;background:var(--ptbd-btn-bg);color:var(--ptbd-btn-text);padding:0 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-#${ID} .ptbd-close{height:28px;min-width:28px;border:1px solid var(--ptbd-border);border-radius:5px;background:var(--ptbd-input-bg);color:var(--ptbd-muted);font-size:18px;line-height:1;cursor:pointer}
-#${ID} .ptbd-btn:hover,#${ID} .ptbd-mini:hover,#${ID} .ptbd-collapse:hover,#${ID} .ptbd-close:hover{filter:brightness(1.08)}
-#${ID} .ptbd-btn-primary{background:var(--ptbd-primary-bg);border-color:var(--ptbd-primary-border);color:var(--ptbd-primary-text);font-weight:700}
-#${ID} .ptbd-btn-check{background:var(--ptbd-check-bg)}
+:is(#${ID},.ptbd-modal) .ptbd-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+:is(#${ID},.ptbd-modal) .ptbd-btn,:is(#${ID},.ptbd-modal) .ptbd-mini,:is(#${ID},.ptbd-modal) .ptbd-collapse{height:28px;border:1px solid var(--ptbd-border-strong);border-radius:5px;background:var(--ptbd-btn-bg);color:var(--ptbd-btn-text);padding:0 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+:is(#${ID},.ptbd-modal) .ptbd-close,:is(#${ID},.ptbd-modal) .ptbd-settings{height:28px;min-width:28px;border:1px solid var(--ptbd-border);border-radius:5px;background:var(--ptbd-input-bg);color:var(--ptbd-muted);font-size:18px;line-height:1;cursor:pointer}
+:is(#${ID},.ptbd-modal) .ptbd-btn:hover,:is(#${ID},.ptbd-modal) .ptbd-mini:hover,:is(#${ID},.ptbd-modal) .ptbd-collapse:hover,:is(#${ID},.ptbd-modal) .ptbd-close:hover,:is(#${ID},.ptbd-modal) .ptbd-settings:hover{filter:brightness(1.08)}
+:is(#${ID},.ptbd-modal) .ptbd-btn-primary{background:var(--ptbd-primary-bg);border-color:var(--ptbd-primary-border);color:var(--ptbd-primary-text);font-weight:700}
+:is(#${ID},.ptbd-modal) .ptbd-btn-check{background:var(--ptbd-check-bg)}
 #${ID} .ptbd-status{margin-left:auto;color:var(--ptbd-muted);background:var(--ptbd-status-bg);border:1px solid var(--ptbd-border);border-radius:5px;padding:4px 8px;min-width:220px;text-align:right}
 #${ID} .ptbd-dl-status{color:var(--ptbd-label);background:var(--ptbd-status-bg);border:1px solid var(--ptbd-border);border-radius:999px;padding:4px 9px;white-space:nowrap}
 #${ID} .ptbd-dl-select{width:auto;min-width:150px}
-#${ID} .ptbd-section-title{font-weight:700;color:var(--ptbd-label);margin:8px 0}
+:is(#${ID},.ptbd-modal) .ptbd-section-title{font-weight:700;color:var(--ptbd-label);margin:8px 0}
 #${ID} .ptbd-table-wrap{overflow:auto;border:1px solid var(--ptbd-border);border-radius:8px}
 #${ID} .ptbd-table{width:100%;border-collapse:collapse;background:var(--ptbd-input-bg);color:var(--ptbd-text)}
 #${ID} .ptbd-table th,#${ID} .ptbd-table td{border-top:1px solid var(--ptbd-border);padding:7px 8px;text-align:left;vertical-align:top}
@@ -469,10 +489,32 @@ Content-Type: application/x-bittorrent\r
 #${ID} .ptbd-table th{position:sticky;top:0;background:var(--ptbd-head-bg);z-index:1;color:var(--ptbd-label)}
 #${ID} .ptbd-table a{color:#60a5fa;text-decoration:none}
 #${ID} .ptbd-table tbody tr:hover{background:var(--ptbd-menu-hover)}
-.ptbd-modal{position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#f5f7fa;font:13px/1.5 Arial,Helvetica,'Microsoft YaHei',sans-serif}
-.ptbd-modal-box{width:min(720px,calc(100vw - 36px));max-height:80vh;overflow:auto;background:#1f2933;border:1px solid #374151;border-radius:10px;box-shadow:0 18px 54px rgba(0,0,0,.45)}
-.ptbd-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #374151;background:#243041}
-.ptbd-site-list,.ptbd-dl-modal-body{padding:12px}.ptbd-site-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-bottom:1px solid #374151}.ptbd-site-item span{word-break:break-all}.ptbd-dl-modal-body,.ptbd-dl-form{display:grid;grid-template-columns:1fr;gap:8px}.ptbd-modal .ptbd-field{display:grid;grid-template-columns:minmax(96px,auto) minmax(0,1fr);align-items:center;gap:8px;color:#cbd5e1}.ptbd-modal .ptbd-field>label{font-weight:600;white-space:nowrap;text-align:right}.ptbd-modal input,.ptbd-modal select{height:30px;width:100%;min-width:0;box-sizing:border-box;border:1px solid #475569;border-radius:5px;background:#111827;color:#f8fafc;padding:2px 8px}.ptbd-modal .ptbd-actions{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.ptbd-modal .ptbd-btn,.ptbd-modal .ptbd-close{height:28px;border:1px solid #475569;border-radius:5px;background:#334155;color:#f8fafc;padding:0 12px;cursor:pointer}.ptbd-modal .ptbd-close{min-width:28px;font-size:18px;line-height:1}.ptbd-form-errors{color:#fecaca;min-height:18px}.ptbd-test-status{color:#bbf7d0;margin-right:auto}.ptbd-empty{text-align:center;color:#94a3b8;padding:14px!important}.ptbd-danger{background:#7f1d1d!important;border-color:#991b1b!important;color:#fff!important}
+.ptbd-modal{position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:var(--ptbd-text,#c9d7ea);font:13px/1.5 Arial,Helvetica,'Microsoft YaHei',sans-serif}
+.ptbd-modal-box{width:min(760px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--ptbd-panel-bg,#162234);border:1px solid var(--ptbd-border,#2b4565);border-radius:10px;box-shadow:var(--ptbd-shadow)}
+.ptbd-modal-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--ptbd-border);background:var(--ptbd-head-bg)}
+.ptbd-site-list,.ptbd-dl-modal-body{padding:14px}
+.ptbd-site-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-bottom:1px solid var(--ptbd-border)}
+.ptbd-dl-modal-body,.ptbd-dl-form{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.ptbd-modal .ptbd-field{grid-template-columns:96px minmax(0,1fr)}
+.ptbd-modal .ptbd-close{padding:0 7px}
+.ptbd-modal .ptbd-config-card{border:1px solid var(--ptbd-border);border-radius:8px;padding:12px;background:var(--ptbd-input-bg);min-width:0}
+.ptbd-modal .ptbd-card-head,.ptbd-modal .ptbd-push-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ptbd-modal .ptbd-config-info{flex:1;min-width:150px;overflow-wrap:anywhere}
+.ptbd-modal .ptbd-muted{color:var(--ptbd-muted);overflow-wrap:anywhere}
+.ptbd-modal .ptbd-badge{display:inline-block;margin-left:8px;border:1px solid var(--ptbd-border);border-radius:999px;padding:1px 8px;color:var(--ptbd-muted);font-size:11px}
+.ptbd-modal .ptbd-push-group{margin-top:12px;padding:12px;border-left:3px solid var(--ptbd-border-strong);border-radius:4px;background:var(--ptbd-status-bg)}
+.ptbd-modal .ptbd-push-row{padding:10px 0;border-top:1px solid var(--ptbd-border);margin-top:8px}
+.ptbd-modal .ptbd-owner{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--ptbd-border-strong);border-radius:6px;background:var(--ptbd-check-bg);overflow-wrap:anywhere}
+.ptbd-modal input[type=checkbox]{width:16px;height:16px;flex-shrink:0}
+.ptbd-modal .ptbd-field>.ptbd-check-label{display:flex;align-items:center;gap:6px;text-align:left;white-space:normal}
+.ptbd-form-errors{color:#dc2626;min-height:18px}
+.ptbd-test-status{color:var(--ptbd-muted);overflow-wrap:anywhere}
+.ptbd-test-status:empty{display:none}
+.ptbd-empty{text-align:center;color:var(--ptbd-muted);padding:14px}
+:is(#${ID},.ptbd-modal) .ptbd-danger{background:var(--ptbd-input-bg);border-color:#b91c1c;color:#dc2626}
+:is(#${ID},.ptbd-modal) button:disabled,:is(#${ID},.ptbd-modal) select:disabled{opacity:.55;cursor:not-allowed}
+:is(#${ID},.ptbd-modal) :is(button,input,select):focus-visible{outline:2px solid #3b82f6;outline-offset:2px}
+@media(max-width:480px){.ptbd-modal .ptbd-field{grid-template-columns:minmax(0,1fr)}.ptbd-modal .ptbd-field>label{text-align:left}.ptbd-modal .ptbd-push-group{padding:8px}}
 @media(max-width:1100px){#${ID} .ptbd-filter-row-main,#${ID} .ptbd-filter-row-extra{grid-template-columns:1fr}}
 @media(max-width:680px){#${ID} .ptbd-status{margin-left:0;text-align:left;flex-basis:100%}#${ID} .ptbd-field{grid-template-columns:minmax(70px,auto) minmax(0,1fr)}}
     `);
@@ -487,16 +529,7 @@ Content-Type: application/x-bittorrent\r
   function openPushEditor(downloader, cfg, onDone) {
     ensureStyle();
     const item = { ...DEFAULT_PUSH, ...cfg || {}, id: cfg?.id || "", downloaderId: downloader.id };
-    document.querySelector("#ptbd-push-modal")?.remove();
-    const overlay = el("div", { id: "ptbd-push-modal", class: "ptbd-modal" });
-    const close = button("×", () => overlay.remove(), "ptbd-close");
-    const body = el("div", { class: "ptbd-dl-modal-body" });
-    const box = el(
-      "div",
-      { class: "ptbd-modal-box" },
-      el("div", { class: "ptbd-modal-head" }, el("strong", {}, `推送配置 - ${downloader.name || downloader.host}`), close),
-      body
-    );
+    const { body, close } = modal("ptbd-push-modal", cfg ? "编辑推送配置" : "新增推送配置");
     const pushName = input("text", "显示名称", item.name);
     const qbCategory = input("text", "Category", item.qbCategory);
     const qbTags = input("text", "Tags, comma separated", item.qbTags);
@@ -512,7 +545,7 @@ Content-Type: application/x-bittorrent\r
       field("分类", qbCategory),
       field("标签", qbTags),
       field("保存路径", qbSavePath),
-      el("div", { class: "ptbd-field" }, el("label", {}, "自动管理"), el("label", { style: "display:flex;align-items:center;gap:6px;text-align:left" }, qbAutoTMM, el("span", {}, "autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）")))
+      el("div", { class: "ptbd-field" }, el("label", {}, "自动管理"), el("label", { class: "ptbd-check-label" }, qbAutoTMM, el("span", {}, "autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）")))
     ];
     const trRows = [el("div", { class: "ptbd-section-title" }, "Transmission"), field("下载目录", trDownloadDir), field("标签", trLabels)];
     const save = button("保存", () => {
@@ -537,28 +570,25 @@ Content-Type: application/x-bittorrent\r
       if (index >= 0) list[index] = saved;
       else list.push(saved);
       savePushConfigs(list);
+      state.selectedDownloaderId = downloader.id;
       state.selectedPushId = saved.id;
       updatePushStatus();
       setStatus("推送配置已保存");
-      overlay.remove();
+      close();
       onDone?.();
     }, "ptbd-btn ptbd-btn-check");
-    const cancel = button("取消", () => overlay.remove(), "ptbd-btn");
+    const cancel = button("取消", close, "ptbd-btn");
     body.append(
       el(
         "div",
         { class: "ptbd-dl-form" },
+        el("div", { class: "ptbd-owner" }, el("strong", {}, "所属下载器"), el("span", {}, `${downloader.name || downloader.host} · ${downloader.type === "tr" ? "Transmission" : "qBittorrent"}`), el("small", {}, downloader.host)),
         field("名称", pushName),
         ...isQb ? qbRows : trRows,
         errorBox,
         el("div", { class: "ptbd-actions" }, cancel, save)
       )
     );
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) overlay.remove();
-    });
-    overlay.append(box);
-    document.body.append(overlay);
   }
   __name(openPushEditor, "openPushEditor");
   function getPushConfigs() {
@@ -590,74 +620,48 @@ Content-Type: application/x-bittorrent\r
     return getPushConfigs().find((item) => String(item.id) === String(id)) || null;
   }
   __name(getPushById, "getPushById");
-  function pushStatusText(count) {
-    return count ? "推送:" : "推送: 无";
-  }
-  __name(pushStatusText, "pushStatusText");
-  function pushSelect() {
-    const sel = select2([["", "无(默认推送)"], ...pushOptions(state.selectedDownloaderId)], state.selectedPushId);
-    sel.className = "ptbd-dl-select";
-    sel.addEventListener("change", () => {
-      state.selectedPushId = sel.value;
-      updatePushStatus();
-    });
-    return sel;
-  }
-  __name(pushSelect, "pushSelect");
-  function pushOptions(downloaderId) {
-    return getPushConfigs().filter((item) => String(item.downloaderId) === String(downloaderId)).map((item) => [item.id, item.name || "(未命名)"]);
-  }
-  __name(pushOptions, "pushOptions");
   function updatePushStatus() {
     const pushConfigs = getPushConfigs();
     if (state.selectedPushId) {
       const current = pushConfigs.find((item) => String(item.id) === String(state.selectedPushId));
       if (!current || String(current.downloaderId) !== String(state.selectedDownloaderId)) state.selectedPushId = "";
     }
-    if (state.ui.pushStatus) state.ui.pushStatus.textContent = pushStatusText(pushConfigs.filter((item) => String(item.downloaderId) === String(state.selectedDownloaderId)).length);
-    if (state.ui.pushSelect) {
-      const value = state.selectedPushId;
-      state.ui.pushSelect.textContent = "";
-      state.ui.pushSelect.append(el("option", { value: "" }, "无(默认推送)"));
-      pushOptions(state.selectedDownloaderId).forEach(([id, text]) => state.ui.pushSelect.append(el("option", { value: id }, text)));
-      state.ui.pushSelect.value = value;
-    }
   }
   __name(updatePushStatus, "updatePushStatus");
-  function select2(options, value) {
-    const node = el("select");
-    options.forEach(([val, text]) => {
-      const opt = el("option", { value: val }, text);
-      if (val === value) opt.selected = true;
-      node.append(opt);
-    });
-    return node;
-  }
-  __name(select2, "select");
 
   // src/scripts/pt-batch-download/downloader-settings.js
+  function pushSummary(dl, push) {
+    return (dl.type === "tr" ? [push.trDownloadDir && `目录 ${push.trDownloadDir}`, push.trLabels && `标签 ${push.trLabels}`] : [push.qbCategory && `分类 ${push.qbCategory}`, push.qbTags && `标签 ${push.qbTags}`, push.qbSavePath && `路径 ${push.qbSavePath}`, `自动管理 ${push.qbAutoTMM ? "开" : "关"}`]).filter(Boolean).join(" · ") || "使用下载器默认参数";
+  }
+  __name(pushSummary, "pushSummary");
   function configDownloader() {
     ensureStyle();
-    document.querySelector("#ptbd-dl-modal")?.remove();
-    const overlay = el("div", { id: "ptbd-dl-modal", class: "ptbd-modal" });
-    const close = button("×", () => overlay.remove(), "ptbd-close");
-    const body = el("div", { class: "ptbd-dl-modal-body" });
-    const box = el(
-      "div",
-      { class: "ptbd-modal-box" },
-      el("div", { class: "ptbd-modal-head" }, el("strong", {}, "下载器设置"), close),
-      body
-    );
+    const { body } = modal("ptbd-dl-modal", "下载器与推送设置");
     const renderList = /* @__PURE__ */ __name(() => {
       body.textContent = "";
+      updateDownloaderStatus();
+      body.append(el("div", { class: "ptbd-card-head" }, el("span", { class: "ptbd-muted" }, "推送配置归属于下载器；面板一次选择完整下载目标。"), button("＋ 添加下载器", () => renderEditor(), "ptbd-btn ptbd-btn-check")));
       const list = getDownloaders();
       if (!list.length) body.append(el("div", { class: "ptbd-empty" }, "暂无下载器"));
       list.forEach((cfg) => {
         const pushConfigs = getPushConfigs().filter((item) => String(item.downloaderId) === String(cfg.id));
-        const edit = button("编辑下载器", () => renderEditor(cfg), "ptbd-btn");
+        const edit = button("编辑连接", () => renderEditor(cfg), "ptbd-btn");
+        const testStatus = el("span", { class: "ptbd-test-status", role: "status" });
+        const test = button("测试连接", async () => {
+          test.disabled = true;
+          testStatus.textContent = "测试中…";
+          try {
+            await testDownloaderConnection(cfg);
+            testStatus.textContent = "连接成功";
+          } catch (error) {
+            testStatus.textContent = `连接失败：${error.message || error}`;
+          } finally {
+            test.disabled = false;
+          }
+        });
         const addPush = button("添加推送配置", () => openPushEditor(cfg, null, renderList), "ptbd-btn ptbd-btn-check");
         const del = button("删除", () => {
-          if (!confirm(`删除下载器：${cfg.name || cfg.host || (cfg.type === "tr" ? "Transmission" : "qBittorrent")}？`)) return;
+          if (!confirm(`删除下载器及其 ${pushConfigs.length} 份推送配置：${cfg.name || cfg.host}？`)) return;
           saveDownloaders(getDownloaders().filter((item) => item.id !== cfg.id));
           savePushConfigs(getPushConfigs().filter((item) => String(item.downloaderId) !== String(cfg.id)));
           if (state.selectedDownloaderId === cfg.id) state.selectedDownloaderId = "";
@@ -665,23 +669,44 @@ Content-Type: application/x-bittorrent\r
           renderList();
         }, "ptbd-btn ptbd-danger");
         const pushRows = pushConfigs.length ? pushConfigs.map((push) => {
-          const editPush = button(`推送：${push.name || "(未命名)"}`, () => openPushEditor(cfg, push, renderList), "ptbd-btn");
+          const editPush = button("编辑", () => openPushEditor(cfg, push, renderList), "ptbd-btn");
           const deletePush = button("删除", () => {
             if (!confirm(`删除推送配置：${push.name || "(未命名)"}？`)) return;
             savePushConfigs(getPushConfigs().filter((item) => String(item.id) !== String(push.id)));
             if (String(state.selectedPushId) === String(push.id)) state.selectedPushId = "";
             renderList();
           }, "ptbd-btn ptbd-danger");
-          return el("div", { class: "ptbd-actions" }, editPush, deletePush);
+          return el(
+            "div",
+            { class: "ptbd-push-row" },
+            el("div", { class: "ptbd-config-info" }, el("strong", {}, push.name || "(未命名)"), el("div", { class: "ptbd-muted" }, pushSummary(cfg, push))),
+            el("div", { class: "ptbd-actions" }, editPush, deletePush)
+          );
         }) : [el("span", { class: "ptbd-muted" }, "暂无推送配置")];
         body.append(el(
-          "div",
-          { class: "ptbd-site-item" },
-          el("div", {}, el("div", {}, `${cfg.name || "(未命名)"} / ${cfg.type === "tr" ? "Transmission" : "qBittorrent"} / ${cfg.host || "-"}`), el("div", { class: "ptbd-actions" }, ...pushRows)),
-          el("div", { class: "ptbd-actions" }, edit, addPush, del)
+          "section",
+          { class: "ptbd-config-card" },
+          el(
+            "div",
+            { class: "ptbd-card-head" },
+            el(
+              "div",
+              { class: "ptbd-config-info" },
+              el("strong", {}, cfg.name || "(未命名)"),
+              el("span", { class: "ptbd-badge" }, cfg.type === "tr" ? "Transmission" : "qBittorrent"),
+              el("div", { class: "ptbd-muted" }, cfg.host || "-")
+            ),
+            el("div", { class: "ptbd-actions" }, edit, test, del)
+          ),
+          testStatus,
+          el(
+            "div",
+            { class: "ptbd-push-group" },
+            el("div", { class: "ptbd-card-head" }, el("strong", {}, `推送配置 · ${pushConfigs.length}`), addPush),
+            ...pushRows
+          )
         ));
       });
-      body.append(el("div", { class: "ptbd-actions" }, button("添加下载器", () => renderEditor(), "ptbd-btn ptbd-btn-check")));
     }, "renderList");
     const renderEditor = /* @__PURE__ */ __name((cfg) => {
       const item = { ...DEFAULT_DL, ...cfg || {}, id: cfg?.id || "", type: cfg?.type || "qb" };
@@ -764,11 +789,6 @@ Content-Type: application/x-bittorrent\r
       );
       setTypeFields();
     }, "renderEditor");
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) overlay.remove();
-    });
-    overlay.append(box);
-    document.body.append(overlay);
     renderList();
   }
   __name(configDownloader, "configDownloader");
@@ -805,27 +825,40 @@ Content-Type: application/x-bittorrent\r
     return count ? "下载器:" : "下载器: 无";
   }
   __name(downloaderStatusText, "downloaderStatusText");
+  function targetOptions(downloaders) {
+    const pushes = getPushConfigs();
+    return [["", "浏览器下载"], ...downloaders.flatMap((dl) => {
+      const name = dl.name || dl.host || (dl.type === "tr" ? "Transmission" : "qBittorrent");
+      return [
+        [JSON.stringify([String(dl.id), ""]), name + " - 默认推送"],
+        ...pushes.filter((push) => String(push.downloaderId) === String(dl.id)).map((push) => [JSON.stringify([String(dl.id), String(push.id)]), name + " - " + (push.name || "(未命名)")])
+      ];
+    })];
+  }
+  __name(targetOptions, "targetOptions");
   function downloaderSelect(downloaders) {
-    const sel = select([["", "无(浏览器下载)"], ...downloaders.map((item) => [item.id, item.name || item.host || (item.type === "tr" ? "Transmission" : "qBittorrent")])], state.selectedDownloaderId);
+    const value = state.selectedDownloaderId ? JSON.stringify([String(state.selectedDownloaderId), String(state.selectedPushId || "")]) : "";
+    const sel = select(targetOptions(downloaders), value);
     sel.className = "ptbd-dl-select";
+    sel.setAttribute("aria-label", "下载目标（下载器 - 推送配置）");
     sel.addEventListener("change", () => {
-      state.selectedDownloaderId = sel.value;
+      const [downloaderId, pushId] = sel.value ? JSON.parse(sel.value) : ["", ""];
+      state.selectedDownloaderId = downloaderId;
+      state.selectedPushId = pushId;
       updateDownloaderStatus();
-      updatePushStatus();
     });
     return sel;
   }
   __name(downloaderSelect, "downloaderSelect");
   function updateDownloaderStatus() {
     const downloaders = getDownloaders();
-    if (state.selectedDownloaderId && !downloaders.some((item) => String(item.id) === String(state.selectedDownloaderId))) state.selectedDownloaderId = "";
-    if (state.ui.downloaderStatus) state.ui.downloaderStatus.textContent = downloaderStatusText(downloaders.length);
+    if (!downloaders.some((item) => String(item.id) === String(state.selectedDownloaderId))) state.selectedDownloaderId = "";
+    updatePushStatus();
     if (state.ui.downloaderSelect) {
-      const value = state.selectedDownloaderId;
-      state.ui.downloaderSelect.textContent = "";
-      state.ui.downloaderSelect.append(el("option", { value: "" }, "无(浏览器下载)"));
-      downloaders.forEach((item) => state.ui.downloaderSelect.append(el("option", { value: item.id }, item.name || item.host || (item.type === "tr" ? "Transmission" : "qBittorrent"))));
-      state.ui.downloaderSelect.value = value;
+      const sel = state.ui.downloaderSelect;
+      sel.textContent = "";
+      targetOptions(downloaders).forEach(([value, text]) => sel.append(el("option", { value }, text)));
+      sel.value = state.selectedDownloaderId ? JSON.stringify([String(state.selectedDownloaderId), String(state.selectedPushId || "")]) : "";
     }
     if (state.ui.batchButton) state.ui.batchButton.textContent = state.selectedDownloaderId ? "推送已选" : "下载已选";
   }
@@ -1693,9 +1726,9 @@ Content-Type: application/x-bittorrent\r
     state.ui.status = el("span", { id: "ptbd-status", class: "ptbd-status" }, "待扫描");
     state.ui.selectedSize = el("span", { class: "ptbd-dl-status" }, "未选择");
     state.ui.downloaderSelect = downloaderSelect(downloaders);
-    state.ui.downloaderStatus = el("span", { class: "ptbd-dl-status" }, downloaderStatusText(downloaders.length));
-    state.ui.pushSelect = pushSelect(getPushConfigs());
-    state.ui.pushStatus = el("span", { class: "ptbd-dl-status" }, pushStatusText(getPushConfigs().length));
+    const settings = button("⚙", configDownloader, "ptbd-settings");
+    settings.title = "下载器与推送设置";
+    settings.setAttribute("aria-label", "下载器与推送设置");
     state.ui.tbody = el("tbody");
     restoreFilters();
     append(
@@ -1723,7 +1756,7 @@ Content-Type: application/x-bittorrent\r
     );
     append(
       panel,
-      el("div", { class: "ptbd-head" }, el("div", { class: "ptbd-title" }, "PT 批量下载种子"), el("div", { class: "ptbd-head-actions" }, collapse, close)),
+      el("div", { class: "ptbd-head" }, el("div", { class: "ptbd-title" }, "PT 批量下载种子"), el("div", { class: "ptbd-head-actions" }, collapse, settings, close)),
       body
     );
     document.body.append(panel, toggle);
@@ -1746,11 +1779,8 @@ Content-Type: application/x-bittorrent\r
       button("全选", () => selectVisible(true), "ptbd-btn"),
       button("取消全选", () => selectVisible(false), "ptbd-btn"),
       state.ui.batchButton,
-      state.ui.downloaderStatus,
+      el("span", { class: "ptbd-dl-status" }, "下载目标"),
       state.ui.downloaderSelect,
-      button("设置下载器/推送", configDownloader, "ptbd-btn ptbd-btn-check"),
-      state.ui.pushStatus,
-      state.ui.pushSelect,
       state.ui.selectedSize,
       state.ui.status
     );

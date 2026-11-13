@@ -1,6 +1,6 @@
 import { DEFAULT_PUSH, PUSH_CONFIGS_KEY, state } from './config.js';
 
-import { button, el, field, input } from './controls.js';
+import { button, el, field, input, modal } from './controls.js';
 
 import { clean, setStatus, uniqueId } from './formatting.js';
 
@@ -13,14 +13,7 @@ import { ensureStyle } from './styles.js';
 function openPushEditor(downloader, cfg, onDone) {
     ensureStyle()
     const item = { ...DEFAULT_PUSH, ...(cfg || {}), id: cfg?.id || '', downloaderId: downloader.id }
-    document.querySelector('#ptbd-push-modal')?.remove()
-    const overlay = el('div', { id: 'ptbd-push-modal', class: 'ptbd-modal' })
-    const close = button('×', () => overlay.remove(), 'ptbd-close')
-    const body = el('div', { class: 'ptbd-dl-modal-body' })
-    const box = el('div', { class: 'ptbd-modal-box' },
-      el('div', { class: 'ptbd-modal-head' }, el('strong', {}, `推送配置 - ${downloader.name || downloader.host}`), close),
-      body
-    )
+    const { body, close } = modal('ptbd-push-modal', cfg ? '编辑推送配置' : '新增推送配置')
     const pushName = input('text', '显示名称', item.name)
     const qbCategory = input('text', 'Category', item.qbCategory)
     const qbTags = input('text', 'Tags, comma separated', item.qbTags)
@@ -32,7 +25,7 @@ function openPushEditor(downloader, cfg, onDone) {
     const errorBox = el('div', { class: 'ptbd-form-errors' })
     const isQb = downloader.type === 'qb'
     const qbRows = [el('div', { class: 'ptbd-section-title' }, 'qBittorrent'), field('分类', qbCategory), field('标签', qbTags), field('保存路径', qbSavePath),
-      el('div', { class: 'ptbd-field' }, el('label', {}, '自动管理'), el('label', { style: 'display:flex;align-items:center;gap:6px;text-align:left' }, qbAutoTMM, el('span', {}, 'autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）')))]
+      el('div', { class: 'ptbd-field' }, el('label', {}, '自动管理'), el('label', { class: 'ptbd-check-label' }, qbAutoTMM, el('span', {}, 'autoTMM（交给 qB 自动管理种子，勾选后保存路径仅作初始值）')))]
     const trRows = [el('div', { class: 'ptbd-section-title' }, 'Transmission'), field('下载目录', trDownloadDir), field('标签', trLabels)]
     const save = button('保存', () => {
       if (!clean(pushName.value)) {
@@ -56,24 +49,23 @@ function openPushEditor(downloader, cfg, onDone) {
       if (index >= 0) list[index] = saved
       else list.push(saved)
       savePushConfigs(list)
+      state.selectedDownloaderId = downloader.id
       state.selectedPushId = saved.id
       updatePushStatus()
       setStatus('推送配置已保存')
-      overlay.remove()
+      close()
       onDone?.()
     }, 'ptbd-btn ptbd-btn-check')
-    const cancel = button('取消', () => overlay.remove(), 'ptbd-btn')
+    const cancel = button('取消', close, 'ptbd-btn')
     body.append(
       el('div', { class: 'ptbd-dl-form' },
+        el('div', { class: 'ptbd-owner' }, el('strong', {}, '所属下载器'), el('span', {}, `${downloader.name || downloader.host} · ${downloader.type === 'tr' ? 'Transmission' : 'qBittorrent'}`), el('small', {}, downloader.host)),
         field('名称', pushName),
         ...(isQb ? qbRows : trRows),
         errorBox,
         el('div', { class: 'ptbd-actions' }, cancel, save)
       )
     )
-    overlay.addEventListener('click', event => { if (event.target === overlay) overlay.remove() })
-    overlay.append(box)
-    document.body.append(overlay)
   }
 
 function getPushConfigs() {
@@ -102,26 +94,6 @@ function getPushById(id) {
     return getPushConfigs().find(item => String(item.id) === String(id)) || null
   }
 
-function pushStatusText(count) {
-    return count ? '推送:' : '推送: 无'
-  }
-
-// 面板推送下拉：只显示当前选中下载器的推送配置
-function pushSelect() {
-    const sel = select([['', '无(默认推送)'], ...pushOptions(state.selectedDownloaderId)], state.selectedPushId)
-    sel.className = 'ptbd-dl-select'
-    sel.addEventListener('change', () => {
-      state.selectedPushId = sel.value
-      updatePushStatus()
-    })
-    return sel
-  }
-
-function pushOptions(downloaderId) {
-    return getPushConfigs()
-      .filter(item => String(item.downloaderId) === String(downloaderId))
-      .map(item => [item.id, item.name || '(未命名)'])
-  }
 
 function updatePushStatus() {
     const pushConfigs = getPushConfigs()
@@ -129,24 +101,7 @@ function updatePushStatus() {
       const current = pushConfigs.find(item => String(item.id) === String(state.selectedPushId))
       if (!current || String(current.downloaderId) !== String(state.selectedDownloaderId)) state.selectedPushId = ''
     }
-    if (state.ui.pushStatus) state.ui.pushStatus.textContent = pushStatusText(pushConfigs.filter(item => String(item.downloaderId) === String(state.selectedDownloaderId)).length)
-    if (state.ui.pushSelect) {
-      const value = state.selectedPushId
-      state.ui.pushSelect.textContent = ''
-      state.ui.pushSelect.append(el('option', { value: '' }, '无(默认推送)'))
-      pushOptions(state.selectedDownloaderId).forEach(([id, text]) => state.ui.pushSelect.append(el('option', { value: id }, text)))
-      state.ui.pushSelect.value = value
-    }
   }
 
-function select(options, value) {
-    const node = el('select')
-    options.forEach(([val, text]) => {
-      const opt = el('option', { value: val }, text)
-      if (val === value) opt.selected = true
-      node.append(opt)
-    })
-    return node
-  }
 
-export { getPushById, getPushConfigs, openPushEditor, pushSelect, pushStatusText, savePushConfigs, updatePushStatus };
+export { getPushById, getPushConfigs, openPushEditor, savePushConfigs, updatePushStatus };

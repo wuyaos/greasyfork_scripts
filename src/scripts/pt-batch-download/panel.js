@@ -6,9 +6,8 @@ import { applyFilters, resetFilters, restoreFilters, selectVisible } from './fil
 
 import { batchDownload } from './download.js';
 
-import { configDownloader, downloaderSelect, downloaderStatusText, getDownloaders } from './downloader-settings.js';
+import { configDownloader, downloaderSelect, getDownloaders } from './downloader-settings.js';
 
-import { getPushConfigs, pushSelect, pushStatusText } from './push-settings.js';
 
 import { append, button, el, field, input, multiFilter, rangeField, select, selectField, sizeRangeField, unitSelect } from './controls.js';
 
@@ -38,9 +37,9 @@ function buildPanel() {
     state.ui.status = el('span', { id: 'ptbd-status', class: 'ptbd-status' }, '待扫描')
     state.ui.selectedSize = el('span', { class: 'ptbd-dl-status' }, '未选择')
     state.ui.downloaderSelect = downloaderSelect(downloaders)
-    state.ui.downloaderStatus = el('span', { class: 'ptbd-dl-status' }, downloaderStatusText(downloaders.length))
-    state.ui.pushSelect = pushSelect(getPushConfigs())
-    state.ui.pushStatus = el('span', { class: 'ptbd-dl-status' }, pushStatusText(getPushConfigs().length))
+    const settings = button('⚙', configDownloader, 'ptbd-settings')
+    settings.title = '下载器与推送设置'
+    settings.setAttribute('aria-label', '下载器与推送设置')
     state.ui.tbody = el('tbody')
     restoreFilters()
 
@@ -62,7 +61,7 @@ function buildPanel() {
     )
 
     append(panel,
-      el('div', { class: 'ptbd-head' }, el('div', { class: 'ptbd-title' }, 'PT 批量下载种子'), el('div', { class: 'ptbd-head-actions' }, collapse, close)),
+      el('div', { class: 'ptbd-head' }, el('div', { class: 'ptbd-title' }, 'PT 批量下载种子'), el('div', { class: 'ptbd-head-actions' }, collapse, settings, close)),
       body
     )
     document.body.append(panel, toggle)
@@ -83,11 +82,8 @@ function actionsRow() {
       button('全选', () => selectVisible(true), 'ptbd-btn'),
       button('取消全选', () => selectVisible(false), 'ptbd-btn'),
       state.ui.batchButton,
-      state.ui.downloaderStatus,
+      el('span', { class: 'ptbd-dl-status' }, '下载目标'),
       state.ui.downloaderSelect,
-      button('设置下载器/推送', configDownloader, 'ptbd-btn ptbd-btn-check'),
-      state.ui.pushStatus,
-      state.ui.pushSelect,
       state.ui.selectedSize,
       state.ui.status
     )

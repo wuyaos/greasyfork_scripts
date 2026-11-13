@@ -1,5 +1,20 @@
 import { SIZE_UNITS } from './config.js';
 
+import { pageIsDark } from './formatting.js';
+
+function modal(id, title) {
+    document.getElementById(id)?.remove()
+    const overlay = el('div', { id, class: `ptbd-modal ${pageIsDark() ? 'ptbd-theme-dark' : 'ptbd-theme-light'}` })
+    const close = () => overlay.remove()
+    const closeButton = button('×', close, 'ptbd-close')
+    closeButton.setAttribute('aria-label', '关闭')
+    const body = el('div', { class: 'ptbd-dl-modal-body' })
+    overlay.append(el('section', { class: 'ptbd-modal-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+      el('div', { class: 'ptbd-modal-head' }, el('strong', {}, title), closeButton), body))
+    overlay.addEventListener('click', event => { if (event.target === overlay) close() })
+    document.body.append(overlay)
+    return { overlay, body, close }
+  }
 
 
 function multiFilter(title, selected) {
@@ -110,4 +125,4 @@ function append(parent, ...kids) {
 
 
 
-export { append, button, el, field, fillMulti, input, multiFilter, rangeField, select, selectField, selectedMulti, sizeRangeField, unitSelect };
+export { append, button, el, field, fillMulti, input, modal, multiFilter, rangeField, select, selectField, selectedMulti, sizeRangeField, unitSelect };
