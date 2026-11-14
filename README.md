@@ -24,6 +24,7 @@
 | <img src="icon/github-releases.png" width="24" alt=""> [GitHubReleases_NavigationEnhancer](#githubreleases_navigationenhancer) | 2.0.3 | GitHub Releases 页面导航增强 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/GitHubReleases_NavigationEnhancer.user.js) |
 | <img src="icon/lounge-irc-translator.png" width="24" alt=""> [Lounge_IRC_Translator](#lounge_irc_translator) | 0.8.7 | Lounge IRC 翻译助手 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Lounge_IRC_Translator.user.js) |
 | <img src="icon/picix.ico" width="24" alt=""> [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
+| [Playlet_MenuFix](#playlet_menufix) | 1.0.0 | PlayLet 顶部菜单点击展开子菜单 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Playlet_MenuFix.user.js) |
 | <img src="icon/xingtan.ico" width="24" alt=""> [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
 | <img src="icon/animebytes.ico" width="24" alt=""> [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.4.1 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
 | [Cola_ClipboardImageFiller](#cola_clipboardimagefiller) | 0.4.6 | Cola PT 剪贴板图片解析填入 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Cola_ClipboardImageFiller.user.js) |
@@ -215,6 +216,12 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 
 为 Picix 卡片提供翻译和快捷操作入口。
 
+<a id="playlet_menufix"></a>
+### [Playlet_MenuFix](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Playlet_MenuFix.user.js)
+> 版本 1.0.0 · PlayLet 顶部菜单点击展开子菜单<br>
+> 站点范围：playlet.cc
+
+playlet.cc 顶部导航子菜单只靠 CSS :hover 展开，`javascript:void(0)` 父项点击无反馈，快速点击时需要点两次父项才能点中子菜单。本脚本让点击父项即固定展开子菜单（与 hover 双保险），点击子菜单项或菜单外区域自动收起；void(0) 父项阻止默认，「种子」等真实链接父项保留跳转。
 <a id="xingtan_bonuspergbh"></a>
 ### [Xingtan_BonusPerGBh](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js)
 > 版本 0.1.0 · 作者 wuyaos & AI<br>
