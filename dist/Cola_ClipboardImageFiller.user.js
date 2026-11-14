@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cola 剪贴板图片解析填入
 // @namespace    https://github.com/wuyaos/greasyfork_scripts
-// @version      0.4.3
+// @version      0.4.6
 // @description  在 Cola PT (colapt.com) 发布页注入「解析剪贴板图片」按钮：从剪贴板解析任意域名的图片地址（每行裸 URL、[img]URL[/img]、[url=..][img]URL[/img][/url] 可混合出现），按顺序填入截图地址列表，自动点「添加截图地址」补足输入框。
 // @author       wuyaos & AI
 // @match        https://www.colapt.com/upload*
@@ -322,6 +322,7 @@
   }
   __name(inject, "inject");
   function main() {
+    console.info("[Cola 剪贴板图片解析] v0.4.6 loaded, readyState=" + document.readyState);
     const style = document.createElement("style");
     style.textContent = [
       "#cbif-fab { position: fixed; right: 16px; bottom: 72px; z-index: 9999;",
@@ -335,15 +336,33 @@
     ].join("\n");
     document.head.appendChild(style);
     watchTheme();
-    inject();
-    setInterval(() => {
+    let ticks = 0;
+    const timer = setInterval(() => {
+      if (++ticks > 120) {
+        clearInterval(timer);
+        return;
+      }
       const fab = document.getElementById("cbif-fab");
       if (document.getElementById(PANEL_ID)) {
         if (fab) fab.remove();
+        if (ticks >= 10) {
+          clearInterval(timer);
+        }
         return;
       }
-      if (document.querySelector(".screenshot-upload-panel")) inject();
+      if (document.querySelector(".screenshot-upload-panel")) {
+        try {
+          inject();
+        } catch (e) {
+          console.error("[Cola 剪贴板图片解析] inject failed:", e);
+        }
+      }
     }, 1e3);
+    try {
+      inject();
+    } catch (e) {
+      console.error("[Cola 剪贴板图片解析] inject failed:", e);
+    }
   }
   __name(main, "main");
   if (document.readyState === "loading") {

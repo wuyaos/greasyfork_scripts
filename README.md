@@ -26,7 +26,7 @@
 | <img src="icon/picix.ico" width="24" alt=""> [Picix_CardQuickActions](#picix_cardquickactions) | 0.4.8 | Picix 卡片快捷操作 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Picix_CardQuickActions.user.js) |
 | <img src="icon/xingtan.ico" width="24" alt=""> [Xingtan_BonusPerGBh](#xingtan_bonuspergbh) | 0.1.0 | 杏坛种子每GB·h体积收益 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Xingtan_BonusPerGBh.user.js) |
 | <img src="icon/animebytes.ico" width="24" alt=""> [AnimeBytes_UploadAssistant](#animebytes_uploadassistant) | 0.4.1 | AnimeBytes 分组上传入口与媒体信息解析 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/AnimeBytes_UploadAssistant.user.js) |
-| [Cola_ClipboardImageFiller](#cola_clipboardimagefiller) | 0.4.3 | Cola PT 剪贴板图片解析填入 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Cola_ClipboardImageFiller.user.js) |
+| [Cola_ClipboardImageFiller](#cola_clipboardimagefiller) | 0.4.6 | Cola PT 剪贴板图片解析填入 | [安装](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Cola_ClipboardImageFiller.user.js) |
 
 <a id="animebytes_uploadassistant"></a>
 ### AnimeBytes_UploadAssistant
@@ -230,7 +230,7 @@ GitHub Releases 页面导航增强脚本，用于解决发布说明过长挤占�
 
 <a id="cola_clipboardimagefiller"></a>
 ### [Cola_ClipboardImageFiller](https://cdn.jsdelivr.net/gh/wuyaos/greasyfork_scripts@main/dist/Cola_ClipboardImageFiller.user.js)
-> 版本 0.4.3 · @match 站点范围：Cola PT（colapt.com）发布/编辑页
+> 版本 0.4.6 · @match 站点范围：Cola PT（colapt.com）发布/编辑页
 
 在 Cola PT 发布页「04 · 截图」左栏（拖拽/粘贴区下方）注入一个带边框的填写框，解析任意域名的图片地址（每行裸 URL、`[img]URL[/img]`、`[url=..][img]URL[/img][/url]` 可混合），按顺序覆盖填入截图地址列表，自动点「添加截图地址」补足输入框，另提供剪贴板直读和一键重置。
 

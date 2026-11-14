@@ -336,6 +336,7 @@ function inject() {
 }
 
 function main() {
+  console.info('[Cola 剪贴板图片解析] v0.4.6 loaded, readyState=' + document.readyState);
   const style = document.createElement('style');
   style.textContent = [
     '#cbif-fab { position: fixed; right: 16px; bottom: 72px; z-index: 9999;',
@@ -349,17 +350,21 @@ function main() {
   ].join('\n');
   document.head.appendChild(style);
   watchTheme();
-
-  inject();
-  // Vue 重渲染会清掉外挂 DOM：常驻低频轮询，面板丢失就补挂（buildPanel 内部有幂等保护）
-  setInterval(() => {
+  // 有界补挂：Vue 重渲染可能清掉外挂 DOM，启动后 1s×120 次（约 2 分钟）内轮询补挂，之后停止，不无限循环。
+  let ticks = 0;
+  const timer = setInterval(() => {
+    if (++ticks > 120) { clearInterval(timer); return; }
     const fab = document.getElementById('cbif-fab');
     if (document.getElementById(PANEL_ID)) {
       if (fab) fab.remove();
+      if (ticks >= 10) { clearInterval(timer); } // 面板已稳定挂载 10 次检查，提前收工
       return;
     }
-    if (document.querySelector('.screenshot-upload-panel')) inject();
+    if (document.querySelector('.screenshot-upload-panel')) {
+      try { inject(); } catch (e) { console.error('[Cola 剪贴板图片解析] inject failed:', e); }
+    }
   }, 1000);
+  try { inject(); } catch (e) { console.error('[Cola 剪贴板图片解析] inject failed:', e); }
 }
 
 if (document.readyState === 'loading') {
