@@ -2,6 +2,7 @@ const definitions = [
   ['ai-web-summary', 'AI_WebSummary.user.js'],
   ['animebytes-upload-assistant', 'AnimeBytes_UploadAssistant.user.js'],
   ['bangumi-enhanced', 'Bangumi_Enhanced.user.js'],
+  ['clipboard-image-filler', 'Cola_ClipboardImageFiller.user.js'],
   ['github-releases', 'GitHubReleases_NavigationEnhancer.user.js'],
   ['iyuu-reseed-checker', 'IYUU_Reseed_Checker.user.js'],
   ['local-debug-loader', 'Local_Debug_Loader.user.js'],
