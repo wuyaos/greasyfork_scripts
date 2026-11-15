@@ -11,7 +11,6 @@ const definitions = [
   ['moviepilot-name-test', 'Moviepilot_NameTest.user.js'],
   ['nicept-replace-icon', 'NicePT_ReplaceIcon.user.js'],
   ['picix-card-actions', 'Picix_CardQuickActions.user.js'],
-  ['playlet-menu-fix', 'Playlet_MenuFix.user.js'],
   ['pt-audit-assistant', 'PT_AuditAssistant.user.js'],
   ['pt-batch-download', 'PT_BatchDownload.user.js'],
   ['pt-one-click-claim', 'PT_OneClickClaim.user.js'],
